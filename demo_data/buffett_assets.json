@@ -1,0 +1,150 @@
+{
+  "name": "沃伦·巴菲特 (Warren Buffett)",
+  "description": "伯克希尔·哈撒韦公司投资组合示例",
+  "assets": [
+    {
+      "type": "stock",
+      "name": "Apple Inc.",
+      "amount": 905560000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2016-01-01",
+      "buy_price": 100.0,
+      "current_price": 178.0,
+      "note": "最大持仓，约占投资组合 40%",
+      "tags": ["科技", "蓝筹股", "长期持有"]
+    },
+    {
+      "type": "stock",
+      "name": "Bank of America",
+      "amount": 1032852000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2017-06-01",
+      "buy_price": 25.0,
+      "current_price": 33.0,
+      "note": "银行业最大持仓",
+      "tags": ["银行", "金融", "价值投资"]
+    },
+    {
+      "type": "stock",
+      "name": "American Express",
+      "amount": 151610000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "1995-01-01",
+      "buy_price": 15.0,
+      "current_price": 218.0,
+      "note": "持有超过 30 年",
+      "tags": ["金融", "长期持有", "品牌"]
+    },
+    {
+      "type": "stock",
+      "name": "Coca-Cola",
+      "amount": 400000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "1988-01-01",
+      "buy_price": 3.0,
+      "current_price": 59.0,
+      "note": "经典投资，持有超过 35 年",
+      "tags": ["消费", "品牌", "股息"]
+    },
+    {
+      "type": "stock",
+      "name": "Chevron",
+      "amount": 125936000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2022-01-01",
+      "buy_price": 110.0,
+      "current_price": 152.0,
+      "note": "能源板块投资",
+      "tags": ["能源", "石油"]
+    },
+    {
+      "type": "stock",
+      "name": "Kraft Heinz",
+      "amount": 325634000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2015-01-01",
+      "buy_price": 70.0,
+      "current_price": 35.0,
+      "note": "投资回报不佳",
+      "tags": ["消费", "食品"]
+    },
+    {
+      "type": "stock",
+      "name": "Occidental Petroleum",
+      "amount": 248018000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2022-08-01",
+      "buy_price": 60.0,
+      "current_price": 63.0,
+      "note": "通过优先股和认股权证获得",
+      "tags": ["能源", "石油"]
+    },
+    {
+      "type": "stock",
+      "name": "Moody's",
+      "amount": 24669000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2000-01-01",
+      "buy_price": 15.0,
+      "current_price": 375.0,
+      "note": "信用评级机构",
+      "tags": ["金融", "服务"]
+    },
+    {
+      "type": "stock",
+      "name": "DaVita",
+      "amount": 36212000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2012-01-01",
+      "buy_price": 45.0,
+      "current_price": 115.0,
+      "note": "肾脏透析服务",
+      "tags": ["医疗", "服务"]
+    },
+    {
+      "type": "stock",
+      "name": "Paramount Global",
+      "amount": 93030000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "buy_date": "2022-01-01",
+      "buy_price": 35.0,
+      "current_price": 14.0,
+      "note": "媒体投资，亏损严重",
+      "tags": ["媒体", "娱乐"]
+    },
+    {
+      "type": "property",
+      "name": "伯克希尔总部",
+      "amount": 1,
+      "currency": "USD",
+      "account": "自有房产",
+      "buy_date": "1962-01-01",
+      "buy_price": 25000.0,
+      "current_price": 5000000.0,
+      "note": "位于奥马哈的 historic building",
+      "tags": ["房产", "总部"]
+    },
+    {
+      "type": "insurance",
+      "name": "GEICO 保险业务",
+      "amount": 50000000000,
+      "currency": "USD",
+      "account": "伯克希尔全资拥有",
+      "buy_date": "1996-01-01",
+      "buy_price": 2300000000.0,
+      "current_price": 50000000000.0,
+      "note": "政府雇员保险公司，全资子公司",
+      "tags": ["保险", "全资子公司"]
+    }
+  ]
+}

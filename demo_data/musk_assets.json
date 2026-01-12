@@ -1,0 +1,121 @@
+{
+  "name": "埃隆·马斯克 (Elon Musk)",
+  "description": "科技企业家资产组合示例",
+  "assets": [
+    {
+      "type": "stock",
+      "name": "Tesla Inc.",
+      "amount": 412000000,
+      "currency": "USD",
+      "account": "个人持股",
+      "buy_date": "2004-01-01",
+      "buy_price": 0.5,
+      "current_price": 248.0,
+      "note": "约 13% Tesla 股份，最大财富来源",
+      "tags": ["电动车", "科技", "核心资产"]
+    },
+    {
+      "type": "stock",
+      "name": "SpaceX (估值)",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "私人公司",
+      "buy_date": "2002-01-01",
+      "buy_price": 100000.0,
+      "current_price": 150000000000.0,
+      "note": "私人公司，估值约 1500 亿美元，持股约 42%",
+      "tags": ["航天", "私人公司", "核心资产"]
+    },
+    {
+      "type": "stock",
+      "name": "X (formerly Twitter)",
+      "amount": 1000000000,
+      "currency": "USD",
+      "account": "私人公司",
+      "buy_date": "2022-10-01",
+      "buy_price": 44000000000.0,
+      "current_price": 20000000000.0,
+      "note": "收购价格 440 亿美元，估值已下降",
+      "tags": ["社交媒体", "私人公司"]
+    },
+    {
+      "type": "stock",
+      "name": "The Boring Company",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "私人公司",
+      "buy_date": "2017-01-01",
+      "buy_price": 100000.0,
+      "current_price": 7000000000.0,
+      "note": "隧道挖掘公司",
+      "tags": ["基础设施", "私人公司"]
+    },
+    {
+      "type": "stock",
+      "name": "Neuralink",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "私人公司",
+      "buy_date": "2016-01-01",
+      "buy_price": 100000.0,
+      "current_price": 5000000000.0,
+      "note": "脑机接口公司",
+      "tags": ["生物科技", "私人公司"]
+    },
+    {
+      "type": "property",
+      "name": "Twitter/X 总部",
+      "amount": 1,
+      "currency": "USD",
+      "account": "公司房产",
+      "buy_date": "2022-10-01",
+      "buy_price": 50000000.0,
+      "current_price": 40000000.0,
+      "note": "旧金山 Market Square",
+      "tags": ["房产", "公司资产"]
+    },
+    {
+      "type": "property",
+      "name": "得州工厂房产",
+      "amount": 1,
+      "currency": "USD",
+      "account": "Tesla",
+      "buy_date": "2020-01-01",
+      "buy_price": 100000000.0,
+      "current_price": 150000000.0,
+      "note": "Tesla Gigafactory Texas",
+      "tags": ["房产", "工厂"]
+    },
+    {
+      "type": "debt",
+      "name": "Twitter 收购贷款",
+      "amount": -13000000000,
+      "currency": "USD",
+      "account": "银团贷款",
+      "buy_date": "2022-10-01",
+      "note": "收购 Twitter 的银行贷款",
+      "tags": ["债务", "贷款"]
+    },
+    {
+      "type": "deposit",
+      "name": "现金储备",
+      "amount": 3000000000,
+      "currency": "USD",
+      "account": "银行账户",
+      "note": "用于运营和投资",
+      "tags": ["现金", "流动资金"]
+    },
+    {
+      "type": "stock",
+      "name": "xAI (估值)",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "私人公司",
+      "buy_date": "2023-01-01",
+      "buy_price": 100000.0,
+      "current_price": 24000000000.0,
+      "note": "AI 公司，Grok 模型开发者",
+      "tags": ["AI", "私人公司"]
+    }
+  ]
+}

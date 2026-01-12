@@ -1,0 +1,45 @@
+[package]
+name = "localfamily-asset-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "localfamily_asset_core"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# 加密相关
+aes-gcm = "0.10"
+argon2 = "0.5"
+libsodium-sys = "0.2"
+sha2 = "0.10"
+
+# 数据库
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 时间处理
+chrono = "0.4"
+
+# UUID
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# 助记词 (BIP39)
+bip39 = "2.0"
+
+# FFI
+flutter_rust_bridge = "2.0"
+
+# 错误处理
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 随机数
+rand = "0.8"
+hex = "0.4"
+
+# Zip 文件处理
+zip = "2.0"
