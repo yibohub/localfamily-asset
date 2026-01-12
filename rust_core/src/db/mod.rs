@@ -6,7 +6,7 @@ pub mod models;
 pub mod schema;
 pub mod crud;
 
-pub use models::{Asset, AssetHistory, Attachment};
+pub use models::{Asset, AssetHistory, Attachment, AssetType};
 pub use schema::{create_schema, init_db};
 pub use crud::{AssetRepository, HistoryRepository, AttachmentRepository};
 

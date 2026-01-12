@@ -11,6 +11,7 @@
 pub mod crypto;
 pub mod db;
 pub mod export;
+pub mod ffi;
 
 // 重新导出常用类型
 pub use crypto::{
