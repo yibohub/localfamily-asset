@@ -19,9 +19,9 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
-  final _currencyController = TextEditingController(text: 'USD');
-  final _symbolController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _currencyController = TextEditingController(text: 'CNY');
+  final _accountController = TextEditingController();
+  final _noteController = TextEditingController();
 
   AssetType _selectedType = AssetType.stock;
   bool _isLoading = false;
@@ -32,9 +32,9 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
     if (widget.asset != null) {
       _nameController.text = widget.asset!.name;
       _amountController.text = widget.asset!.amount.toString();
-      _currencyController.text = widget.asset!.currency ?? 'USD';
-      _symbolController.text = widget.asset!.symbol ?? '';
-      _notesController.text = widget.asset!.notes ?? '';
+      _currencyController.text = widget.asset!.currency ?? 'CNY';
+      _accountController.text = widget.asset!.account ?? '';
+      _noteController.text = widget.asset!.note ?? '';
       _selectedType = widget.asset!.type;
     }
   }
@@ -44,8 +44,8 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
     _nameController.dispose();
     _amountController.dispose();
     _currencyController.dispose();
-    _symbolController.dispose();
-    _notesController.dispose();
+    _accountController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -60,11 +60,11 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
       name: _nameController.text,
       type: _selectedType,
       amount: double.parse(_amountController.text),
-      currency: _currencyController.text.isEmpty ? null : _currencyController.text,
-      symbol: _symbolController.text.isEmpty ? null : _symbolController.text,
+      currency: _currencyController.text.isEmpty ? 'CNY' : _currencyController.text,
+      account: _accountController.text.isEmpty ? null : _accountController.text,
       createdAt: widget.asset?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
+      note: _noteController.text.isEmpty ? null : _noteController.text,
     );
 
     final success = widget.asset == null
@@ -203,15 +203,15 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _symbolController,
+                        controller: _accountController,
                         decoration: const InputDecoration(
-                          labelText: '代码（可选）',
-                          hintText: '例如：AAPL',
+                          labelText: '账号（可选）',
+                          hintText: '例如：工商银行',
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _notesController,
+                        controller: _noteController,
                         decoration: const InputDecoration(
                           labelText: '备注（可选）',
                         ),
@@ -247,23 +247,6 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
   }
 
   String _getTypeName(AssetType type) {
-    switch (type) {
-      case AssetType.cash:
-        return '现金';
-      case AssetType.stock:
-        return '股票';
-      case AssetType.bond:
-        return '债券';
-      case AssetType.fund:
-        return '基金';
-      case AssetType.realEstate:
-        return '房地产';
-      case AssetType.crypto:
-        return '加密货币';
-      case AssetType.commodity:
-        return '商品';
-      default:
-        return '其他';
-    }
+    return type.displayName;
   }
 }

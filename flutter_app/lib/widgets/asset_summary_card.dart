@@ -159,44 +159,23 @@ class AssetSummaryCard extends StatelessWidget {
   }
 
   String _getTypeName(AssetType type) {
-    switch (type) {
-      case AssetType.cash:
-        return '现金';
-      case AssetType.stock:
-        return '股票';
-      case AssetType.bond:
-        return '债券';
-      case AssetType.fund:
-        return '基金';
-      case AssetType.realEstate:
-        return '房地产';
-      case AssetType.crypto:
-        return '加密货币';
-      case AssetType.commodity:
-        return '商品';
-      default:
-        return '其他';
-    }
+    return type.displayName;
   }
 
   Color _getTypeColor(AssetType type) {
     switch (type) {
-      case AssetType.cash:
+      case AssetType.property:
+        return const Color(0xFF2563EB);
+      case AssetType.deposit:
         return const Color(0xFF10B981);
       case AssetType.stock:
-        return const Color(0xFF2563EB);
-      case AssetType.bond:
-        return const Color(0xFF7C3AED);
-      case AssetType.fund:
         return const Color(0xFFF59E0B);
-      case AssetType.realEstate:
+      case AssetType.fund:
+        return const Color(0xFF7C3AED);
+      case AssetType.insurance:
         return const Color(0xFF8B5CF6);
-      case AssetType.crypto:
+      case AssetType.debt:
         return const Color(0xFFEF4444);
-      case AssetType.commodity:
-        return const Color(0xFFEC4899);
-      default:
-        return Colors.grey;
     }
   }
 }

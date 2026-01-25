@@ -24,29 +24,29 @@ class FfiBridge {
   late ffi.DynamicLibrary _dylib;
 
   // FFI 函数签名
-  late final ffi.Pointer<ffi.Utf8> Function(ffi.Pointer<ffi.Utf8>) _freeString;
-  late final int Function(ffi.Pointer<ffi.Utf8>) _initApp;
-  late final int Function(ffi.Pointer<ffi.Utf8>, ffi.Pointer<ffi.Utf8>) _setupPassword;
-  late final int Function(ffi.Pointer<ffi.Utf8>) _verifyPassword;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>) _freeString;
+  late final int Function(ffi.Pointer<ffi.Char>) _initApp;
+  late final int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _setupPassword;
+  late final int Function(ffi.Pointer<ffi.Char>) _verifyPassword;
   late final int Function(
-    ffi.Pointer<ffi.Utf8>,
+    ffi.Pointer<ffi.Char>,
     int,
     double,
-    ffi.Pointer<ffi.Utf8>,
-    ffi.Pointer<ffi.Utf8>,
-    ffi.Pointer<ffi.Utf8>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
   ) _addAsset;
-  late final ffi.Pointer<ffi.Utf8> Function() _getAllAssets;
+  late final ffi.Pointer<ffi.Char> Function() _getAllAssets;
   late final int Function(
-    ffi.Pointer<ffi.Utf8>,
-    ffi.Pointer<ffi.Utf8>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
     int,
     double,
-    ffi.Pointer<ffi.Utf8>,
-    ffi.Pointer<ffi.Utf8>,
-    ffi.Pointer<ffi.Utf8>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
   ) _updateAsset;
-  late final int Function(ffi.Pointer<ffi.Utf8>) _deleteAsset;
+  late final int Function(ffi.Pointer<ffi.Char>) _deleteAsset;
 
   FfiBridge._internal() {
     _loadLibrary();
@@ -77,57 +77,64 @@ class FfiBridge {
 
   /// 加载 FFI 函数
   void _loadFunctions() {
-    _freeString = _dylib
-        .lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Utf8>)>>('free_string')
+    // free_string 在 Rust 中返回 void，所以这里不需要返回值
+    final freeStringNative = _dylib
+        .lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>('free_string')
         .asFunction();
 
+    // 包装为返回指针的函数
+    _freeString = (ptr) {
+      freeStringNative(ptr);
+      return ptr;
+    };
+
     _initApp = _dylib
-        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Utf8>)>>('init_app')
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('init_app')
         .asFunction();
 
     _setupPassword = _dylib
-        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Utf8>, ffi.Pointer<ffi.Utf8>)>>('setup_password')
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>>('setup_password')
         .asFunction();
 
     _verifyPassword = _dylib
-        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Utf8>)>>('verify_password')
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_password')
         .asFunction();
 
     _addAsset = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(
-          ffi.Pointer<ffi.Utf8>,
+          ffi.Pointer<ffi.Char>,
           ffi.Int32,
           ffi.Double,
-          ffi.Pointer<ffi.Utf8>,
-          ffi.Pointer<ffi.Utf8>,
-          ffi.Pointer<ffi.Utf8>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
         )>>('add_asset')
         .asFunction();
 
     _getAllAssets = _dylib
-        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Utf8> Function()>>('get_all_assets')
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_all_assets')
         .asFunction();
 
     _updateAsset = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(
-          ffi.Pointer<ffi.Utf8>,
-          ffi.Pointer<ffi.Utf8>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
           ffi.Int32,
           ffi.Double,
-          ffi.Pointer<ffi.Utf8>,
-          ffi.Pointer<ffi.Utf8>,
-          ffi.Pointer<ffi.Utf8>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
         )>>('update_asset')
         .asFunction();
 
     _deleteAsset = _dylib
-        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Utf8>)>>('delete_asset')
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('delete_asset')
         .asFunction();
   }
 
   /// 初始化应用
   Future<bool> initApp(String dbPath) async {
-    final pathPtr = dbPath.toNativeUtf8();
+    final pathPtr = dbPath.toNativeUtf8().cast<ffi.Char>();
     try {
       final result = _initApp(pathPtr);
       return result == FfiErrorCode.success;
@@ -138,8 +145,8 @@ class FfiBridge {
 
   /// 设置主密码
   Future<bool> setupPassword(String password, {String? hint}) async {
-    final passwordPtr = password.toNativeUtf8();
-    final hintPtr = hint != null ? hint.toNativeUtf8() : ffi.nullptr;
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
+    final hintPtr = hint != null ? hint.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
 
     try {
       final result = _setupPassword(passwordPtr, hintPtr);
@@ -154,7 +161,7 @@ class FfiBridge {
 
   /// 验证密码
   Future<bool> verifyPassword(String password) async {
-    final passwordPtr = password.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
     try {
       final result = _verifyPassword(passwordPtr);
       return result == FfiErrorCode.success;
@@ -172,10 +179,10 @@ class FfiBridge {
     String? symbol,
     String? notes,
   }) async {
-    final namePtr = name.toNativeUtf8();
-    final currencyPtr = currency.toNativeUtf8();
-    final symbolPtr = symbol != null ? symbol.toNativeUtf8() : ffi.nullptr;
-    final notesPtr = notes != null ? notes.toNativeUtf8() : ffi.nullptr;
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
 
     try {
       final result = _addAsset(
@@ -203,7 +210,7 @@ class FfiBridge {
     }
 
     try {
-      final jsonStr = resultPtr.toDartString();
+      final jsonStr = resultPtr.cast<ffi.Utf8>().toDartString();
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       return jsonList.cast<Map<String, dynamic>>();
     } finally {
@@ -221,11 +228,11 @@ class FfiBridge {
     String? symbol,
     String? notes,
   }) async {
-    final idPtr = id.toNativeUtf8();
-    final namePtr = name.toNativeUtf8();
-    final currencyPtr = currency.toNativeUtf8();
-    final symbolPtr = symbol != null ? symbol.toNativeUtf8() : ffi.nullptr;
-    final notesPtr = notes != null ? notes.toNativeUtf8() : ffi.nullptr;
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
 
     try {
       final result = _updateAsset(
@@ -249,7 +256,7 @@ class FfiBridge {
 
   /// 删除资产
   Future<bool> deleteAsset(String id) async {
-    final idPtr = id.toNativeUtf8();
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
     try {
       final result = _deleteAsset(idPtr);
       return result == FfiErrorCode.success;

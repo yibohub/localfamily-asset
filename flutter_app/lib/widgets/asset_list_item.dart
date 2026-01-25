@@ -41,18 +41,18 @@ class AssetListItem extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        if (asset.symbol != null) ...[
+                        if (asset.account != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: Colors.grey.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              asset.symbol!,
+                              asset.account!,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -107,43 +107,36 @@ class AssetListItem extends StatelessWidget {
     Color color;
 
     switch (type) {
-      case AssetType.cash:
-        icon = Icons.money;
+      case AssetType.property:
+        icon = Icons.home;
+        color = const Color(0xFF2563EB);
+        break;
+      case AssetType.deposit:
+        icon = Icons.account_balance;
         color = const Color(0xFF10B981);
         break;
       case AssetType.stock:
-        icon = Icons.show_chart;
-        color = const Color(0xFF2563EB);
-        break;
-      case AssetType.bond:
-        icon = Icons.description;
-        color = const Color(0xFF7C3AED);
+        icon = Icons.trending_up;
+        color = const Color(0xFFF59E0B);
         break;
       case AssetType.fund:
         icon = Icons.pie_chart;
-        color = const Color(0xFFF59E0B);
+        color = const Color(0xFF7C3AED);
         break;
-      case AssetType.realEstate:
-        icon = Icons.home;
+      case AssetType.insurance:
+        icon = Icons.security;
         color = const Color(0xFF8B5CF6);
         break;
-      case AssetType.crypto:
-        icon = Icons.currency_bitcoin;
+      case AssetType.debt:
+        icon = Icons.credit_card;
         color = const Color(0xFFEF4444);
         break;
-      case AssetType.commodity:
-        icon = Icons.diamond;
-        color = const Color(0xFFEC4899);
-        break;
-      default:
-        icon = Icons.category;
-        color = Colors.grey;
     }
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: color, size: 24),
@@ -160,23 +153,6 @@ class AssetListItem extends StatelessWidget {
   }
 
   String _getTypeName(AssetType type) {
-    switch (type) {
-      case AssetType.cash:
-        return '现金';
-      case AssetType.stock:
-        return '股票';
-      case AssetType.bond:
-        return '债券';
-      case AssetType.fund:
-        return '基金';
-      case AssetType.realEstate:
-        return '房地产';
-      case AssetType.crypto:
-        return '加密货币';
-      case AssetType.commodity:
-        return '商品';
-      default:
-        return '其他';
-    }
+    return type.displayName;
   }
 }

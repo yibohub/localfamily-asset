@@ -82,7 +82,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           const SizedBox(height: 16),
           _buildInfoTile('资产类型', _getTypeName(_asset!.type)),
           _buildInfoTile('货币', _asset!.currency ?? 'N/A'),
-          _buildInfoTile('代码', _asset!.symbol ?? 'N/A'),
+          _buildInfoTile('账号', _asset!.account ?? 'N/A'),
           _buildInfoTile(
             '创建时间',
             _formatDate(_asset!.createdAt),
@@ -91,7 +91,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
             '更新时间',
             _formatDate(_asset!.updatedAt),
           ),
-          if (_asset!.notes != null && _asset!.notes!.isNotEmpty) ...[
+          if (_asset!.note != null && _asset!.note!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -104,7 +104,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Text(_asset!.notes!),
+                    Text(_asset!.note!),
                   ],
                 ),
               ),
@@ -120,43 +120,36 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     Color color;
 
     switch (type) {
-      case AssetType.cash:
-        icon = Icons.money;
+      case AssetType.property:
+        icon = Icons.home;
+        color = const Color(0xFF2563EB);
+        break;
+      case AssetType.deposit:
+        icon = Icons.account_balance;
         color = const Color(0xFF10B981);
         break;
       case AssetType.stock:
-        icon = Icons.show_chart;
-        color = const Color(0xFF2563EB);
-        break;
-      case AssetType.bond:
-        icon = Icons.description;
-        color = const Color(0xFF7C3AED);
+        icon = Icons.trending_up;
+        color = const Color(0xFFF59E0B);
         break;
       case AssetType.fund:
         icon = Icons.pie_chart;
-        color = const Color(0xFFF59E0B);
+        color = const Color(0xFF7C3AED);
         break;
-      case AssetType.realEstate:
-        icon = Icons.home;
+      case AssetType.insurance:
+        icon = Icons.security;
         color = const Color(0xFF8B5CF6);
         break;
-      case AssetType.crypto:
-        icon = Icons.currency_bitcoin;
+      case AssetType.debt:
+        icon = Icons.credit_card;
         color = const Color(0xFFEF4444);
         break;
-      case AssetType.commodity:
-        icon = Icons.diamond;
-        color = const Color(0xFFEC4899);
-        break;
-      default:
-        icon = Icons.category;
-        color = Colors.grey;
     }
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: color, size: 28),
@@ -196,24 +189,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   }
 
   String _getTypeName(AssetType type) {
-    switch (type) {
-      case AssetType.cash:
-        return '现金';
-      case AssetType.stock:
-        return '股票';
-      case AssetType.bond:
-        return '债券';
-      case AssetType.fund:
-        return '基金';
-      case AssetType.realEstate:
-        return '房地产';
-      case AssetType.crypto:
-        return '加密货币';
-      case AssetType.commodity:
-        return '商品';
-      default:
-        return '其他';
-    }
+    return type.displayName;
   }
 
   String _formatDate(DateTime date) {
