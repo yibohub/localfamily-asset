@@ -59,6 +59,7 @@ pub unsafe extern "C" fn free_string(s: *mut c_char) {
 
 /// 初始化应用
 #[no_mangle]
+#[export_name = "init_app"]
 pub unsafe extern "C" fn init_app(db_path: *const c_char) -> c_int {
     let db_path = match CStr::from_ptr(db_path).to_str() {
         Ok(s) => s.to_string(),
@@ -76,6 +77,7 @@ pub unsafe extern "C" fn init_app(db_path: *const c_char) -> c_int {
 
 /// 设置主密码
 #[no_mangle]
+#[export_name = "setup_password"]
 pub unsafe extern "C" fn setup_password(
     password: *const c_char,
     hint: *const c_char,

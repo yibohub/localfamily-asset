@@ -7,6 +7,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:convert';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 
 /// FFI 错误码
 class FfiErrorCode {
@@ -60,18 +61,34 @@ class FfiBridge {
 
   /// 加载动态库
   void _loadLibrary() {
-    if (Platform.isAndroid) {
-      _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
-    } else if (Platform.isIOS) {
-      _dylib = ffi.DynamicLibrary.process();
-    } else if (Platform.isWindows) {
-      _dylib = ffi.DynamicLibrary.open('localfamily_asset_core.dll');
-    } else if (Platform.isLinux) {
-      _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
-    } else if (Platform.isMacOS) {
-      _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.dylib');
-    } else {
-      throw UnsupportedError('不支持的平台');
+    try {
+      if (Platform.isAndroid) {
+        _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
+      } else if (Platform.isIOS) {
+        _dylib = ffi.DynamicLibrary.process();
+      } else if (Platform.isWindows) {
+        // Windows: 尝试多个路径查找 DLL
+        try {
+          // 首先尝试当前目录
+          _dylib = ffi.DynamicLibrary.open('localfamily_asset_core.dll');
+        } catch (e) {
+          // 如果失败，尝试可执行文件目录
+          try {
+            _dylib = ffi.DynamicLibrary.open('./localfamily_asset_core.dll');
+          } catch (e2) {
+            throw Exception('无法加载 localfamily_asset_core.dll: $e, $e2\n'
+                '请确保 DLL 文件在可执行文件同一目录下');
+          }
+        }
+      } else if (Platform.isLinux) {
+        _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
+      } else if (Platform.isMacOS) {
+        _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.dylib');
+      } else {
+        throw UnsupportedError('不支持的平台');
+      }
+    } catch (e) {
+      throw Exception('加载 Rust Core 动态库失败: $e');
     }
   }
 
@@ -131,7 +148,13 @@ class FfiBridge {
     final pathPtr = dbPath.toNativeUtf8().cast<ffi.Char>();
     try {
       final result = _initApp(pathPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('initApp 失败，错误码: $result, 路径: $dbPath');
+      }
       return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('initApp 异常: $e');
+      return false;
     } finally {
       malloc.free(pathPtr);
     }
@@ -144,7 +167,13 @@ class FfiBridge {
 
     try {
       final result = _setupPassword(passwordPtr, hintPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('setupPassword 失败，错误码: $result');
+      }
       return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('setupPassword 异常: $e');
+      return false;
     } finally {
       malloc.free(passwordPtr);
       if (hintPtr != ffi.nullptr) {
