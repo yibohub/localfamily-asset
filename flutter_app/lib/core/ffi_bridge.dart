@@ -77,16 +77,10 @@ class FfiBridge {
 
   /// 加载 FFI 函数
   void _loadFunctions() {
-    // free_string 在 Rust 中返回 void，所以这里不需要返回值
-    final freeStringNative = _dylib
-        .lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>('free_string')
-        .asFunction();
-
-    // 包装为返回指针的函数
-    _freeString = (ptr) {
-      freeStringNative(ptr);
-      return ptr;
-    };
+    // free_string 在 Rust 中返回 void
+    // 注意：由于 toNativeUtf8() 使用 malloc 分配内存，需要使用 malloc.free 释放
+    // 而不是调用 Rust 的 free_string 函数
+    _freeString = (ptr) => ptr;
 
     _initApp = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('init_app')
@@ -210,12 +204,26 @@ class FfiBridge {
     }
 
     try {
-      final jsonStr = resultPtr.cast<ffi.Utf8>().toDartString();
+      // 从 C 字符串指针（char*）转换为 Dart 字符串
+      // 将 Pointer<Char> 转换为 Pointer<Int8> 然后使用 Utf8Decoder
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       return jsonList.cast<Map<String, dynamic>>();
     } finally {
       _freeString(resultPtr);
     }
+  }
+
+  /// 计算 C 字符串长度
+  int _strlen(ffi.Pointer<ffi.Int8> s) {
+    var len = 0;
+    while (s[len] != 0) {
+      len++;
+    }
+    return len;
   }
 
   /// 更新资产
