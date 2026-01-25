@@ -253,3 +253,7 @@ env/
 *.pdf
 *.dmg
 *.iso
+
+#临时图片
+/png
+flutter_app/pubspec.lock
