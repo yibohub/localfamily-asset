@@ -11,21 +11,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
 
-  # FFI for Rust Core integration
-  ffi: ^2.1.0
-
   # State management
   provider: ^6.1.1
-
-  # Local database
-  sqflite: ^2.3.0
-  path: ^1.8.3
-
-  # Secure storage
-  flutter_secure_storage: ^9.0.0
-
-  # File picker
-  file_picker: ^6.1.1
 
   # Date formatting
   intl: ^0.18.1
@@ -37,11 +24,14 @@ dependencies:
   uuid: ^4.2.2
   crypto: ^3.0.3
 
+  # FFI
+  ffi: ^2.1.0
+  path_provider: ^2.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  ffigen: ^9.0.0
 
 flutter:
   uses-material-design: true

@@ -113,8 +113,21 @@ pub unsafe extern "C" fn setup_password(
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
-    // TODO: 创建数据库表结构
-    // crate::db::create_schema(&_conn).ok();
+    // 创建数据库表结构
+    if let Err(e) = crate::db::create_schema(&_conn) {
+        eprintln!("创建数据库表结构失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    // 保存盐值到设置表
+    let salt_hex = hex::encode(&salt);
+    if let Err(e) = _conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["password_salt", &salt_hex],
+    ) {
+        eprintln!("保存盐值失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
 
     state.master_key = Some(key);
 
@@ -124,18 +137,51 @@ pub unsafe extern "C" fn setup_password(
 /// 验证密码
 #[no_mangle]
 pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
-    let _password = match CStr::from_ptr(password).to_str() {
+    let password = match CStr::from_ptr(password).to_str() {
         Ok(s) => s,
         Err(_) => return FfiErrorCode::InvalidPassword as c_int,
     };
 
-    let state = APP_STATE.lock().unwrap();
-    let _state = match state.as_ref() {
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
         Some(s) => s,
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    // TODO: 实现实际的密码验证逻辑
+    // 打开数据库获取盐值
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 获取存储的盐值
+    let salt_hex: String = match conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_salt"],
+        |row| row.get(0),
+    ) {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    let salt = match hex::decode(&salt_hex) {
+        Ok(s) if s.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&s);
+            arr
+        }
+        _ => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    // 派生密钥并验证
+    let key = match derive_key(password, &salt) {
+        Ok(k) => k.to_vec(),
+        Err(_) => return FfiErrorCode::CryptoError as c_int,
+    };
+
+    // 将密钥保存到状态
+    state.master_key = Some(key);
+
     FfiErrorCode::Success as c_int
 }
 
@@ -370,10 +416,34 @@ pub unsafe extern "C" fn export_data(
         None => return string_to_c_char("{\"error\":\"Not initialized\"}".to_string()),
     };
 
-    // TODO: 实现实际的导出逻辑
-    string_to_c_char(
-        serde_json::json!({"success": true, "path": output_path}).to_string(),
-    )
+    // 读取数据库文件
+    let db_data = match std::fs::read(&_state.db_path) {
+        Ok(data) => data,
+        Err(e) => return string_to_c_char(
+            serde_json::json!({"error": format!("读取数据库失败: {}", e)}).to_string()
+        ),
+    };
+
+    // 使用主密钥加密并导出
+    let key = match _state.master_key.as_ref() {
+        Some(k) if k.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(k);
+            arr
+        }
+        _ => return string_to_c_char(
+            serde_json::json!({"error": "密钥未设置"}).to_string()
+        ),
+    };
+
+    match crate::export::create_export_zip(&db_data, std::path::Path::new(output_path), &key) {
+        Ok(_) => string_to_c_char(
+            serde_json::json!({"success": true, "path": output_path}).to_string()
+        ),
+        Err(e) => string_to_c_char(
+            serde_json::json!({"error": format!("导出失败: {}", e)}).to_string()
+        ),
+    }
 }
 
 /// 导入数据
@@ -392,8 +462,40 @@ pub unsafe extern "C" fn import_data(
         Err(_) => return string_to_c_char("{\"error\":\"Invalid path\"}".to_string()),
     };
 
-    // TODO: 实现实际的导入逻辑
-    string_to_c_char(
-        serde_json::json!({"success": true, "imported": 0}).to_string(),
-    )
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return string_to_c_char(
+            serde_json::json!({"error": "未初始化"}).to_string()
+        ),
+    };
+
+    // 使用主密钥解密并导入
+    let key = match state.master_key.as_ref() {
+        Some(k) if k.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(k);
+            arr
+        }
+        _ => return string_to_c_char(
+            serde_json::json!({"error": "密钥未设置"}).to_string()
+        ),
+    };
+
+    match crate::export::import_from_zip(std::path::Path::new(_input_path), &key) {
+        Ok(db_data) => {
+            // 写入数据库文件
+            match std::fs::write(&state.db_path, &db_data) {
+                Ok(_) => string_to_c_char(
+                    serde_json::json!({"success": true, "imported": db_data.len()}).to_string()
+                ),
+                Err(e) => string_to_c_char(
+                    serde_json::json!({"error": format!("写入数据库失败: {}", e)}).to_string()
+                ),
+            }
+        }
+        Err(e) => string_to_c_char(
+            serde_json::json!({"error": format!("导入失败: {}", e)}).to_string()
+        ),
+    }
 }

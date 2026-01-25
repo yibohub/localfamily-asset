@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:provider/provider.dart';
+
 import '../providers/auth_provider.dart';
 import 'home_screen.dart';
 import 'auth/lock_screen.dart';
@@ -26,25 +28,32 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) {
-          final authProvider = context.read<AuthProvider>();
-          switch (authProvider.status) {
-            case AuthStatus.setup:
-              return const SetupScreen();
-            case AuthStatus.locked:
-              return const LockScreen();
-            case AuthStatus.unlocked:
-              return const HomeScreen();
-          }
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    Widget screen;
+    switch (authProvider.status) {
+      case AuthStatus.setup:
+        screen = const SetupScreen();
+        break;
+      case AuthStatus.locked:
+        screen = const LockScreen();
+        break;
+      case AuthStatus.unlocked:
+        screen = const HomeScreen();
+        break;
+    }
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => screen,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    }
   }
 
   @override

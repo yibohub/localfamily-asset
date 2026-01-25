@@ -71,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Icon(
-                  Icons.lock_setup,
+                  Icons.lock_person,
                   size: 64,
                   color: Color(0xFF2563EB),
                 ),

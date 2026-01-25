@@ -33,11 +33,11 @@ class AppTheme {
           color: Color(0xFF1F2937),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          side: BorderSide(color: Color(0xFFE5E7EB)),
         ),
         color: Colors.white,
       ),
@@ -97,13 +97,13 @@ class AppTheme {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFF374151)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          side: BorderSide(color: Color(0xFF374151)),
         ),
-        color: const Color(0xFF1F2937),
+        color: Color(0xFF1F2937),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

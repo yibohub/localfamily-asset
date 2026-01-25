@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/portfolio_summary.dart';
+import '../models/asset.dart';
 
 /// 资产总览卡片
 class AssetSummaryCard extends StatelessWidget {

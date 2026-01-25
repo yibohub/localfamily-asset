@@ -6,6 +6,7 @@ import 'theme.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/auth/lock_screen.dart';
+import '../screens/auth/setup_screen.dart';
 
 /// 应用程序根组件
 class LocalFamilyAssetApp extends StatelessWidget {

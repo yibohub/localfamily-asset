@@ -1,1 +1,255 @@
-/rust_core/target/
+# ==========================================
+# LocalFamily Asset - Git Ignore
+# Rust Core + Flutter App 混合项目
+# ==========================================
+
+# ====================
+# Rust Core
+# ====================
+
+# Rust 编译产物
+rust_core/target/
+rust_core/Cargo.lock
+
+# Rust 调试符号
+rust_core/**/*.pdb
+
+# ====================
+# Flutter App
+# ====================
+
+# Flutter/Dart 编译产物
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/build/
+flutter_app/.fvm/
+
+# Flutter 生成文件
+flutter_app/**/*.g.dart
+flutter_app/**/*.freezed.dart
+flutter_app/**/*.mocks.dart
+
+# Flutter 覆盖率
+flutter_app/coverage/
+
+# Flutter Web
+flutter_app/web/.dart_tool/
+
+# ====================
+# IDE / 编辑器
+# ====================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.gradle/
+local.properties
+
+# VS Code
+.history/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ====================
+# 操作系统
+# ====================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ====================
+# 数据库和敏感文件
+# ====================
+
+# 数据库文件（包含用户数据）
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# 加密文件和备份
+*.enc
+*.zip.enc
+*.backup
+
+# 配置文件（可能包含敏感信息）
+.env
+.env.local
+.env.*.local
+secrets.yaml
+secrets.json
+
+# ====================
+# 构建产物
+# ====================
+
+# Android
+flutter_app/android/.gradle/
+flutter_app/android/captures/
+flutter_app/android/gradlew
+flutter_app/android/gradlew.bat
+flutter_app/android/local.properties
+flutter_app/android/**/GeneratedPluginRegistrant.java
+flutter_app/android/key.properties
+flutter_app/android/**/*.jks
+flutter_app/android/**/*.keystore
+
+# iOS/macOS
+flutter_app/ios/Flutter/Flutter.framework
+flutter_app/ios/Flutter/Flutter.podspec
+flutter_app/ios/Flutter/Generated.xcconfig
+flutter_app/ios/Flutter/app.flx
+flutter_app/ios/Flutter/app.zip
+flutter_app/ios/Flutter/flutter_assets/
+flutter_app/ios/Flutter/flutter_export_environment.sh
+flutter_app/ios/ServiceDefinitions.json
+flutter_app/ios/Runner/GeneratedPluginRegistrant.*
+flutter_app/ios/Pods/
+flutter_app/ios/.symlinks/
+flutter_app/ios/**/dgph
+flutter_app/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Windows
+flutter_app/windows/flutter/generated_plugin_registrant.cc
+flutter_app/windows/flutter/generated_plugin_registrant.h
+flutter_app/windows/flutter/generated_plugins.cmake
+
+# Linux
+flutter_app/linux/flutter/generated_plugin_registrant.cc
+flutter_app/linux/flutter/generated_plugin_registrant.h
+flutter_app/linux/flutter/generated_plugins.cmake
+
+# ====================
+# 日志和临时文件
+# ====================
+
+# 日志
+*.log
+logs/
+*.log.*
+
+# 临时文件
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# ====================
+# 测试和覆盖率
+# ====================
+
+# 测试覆盖率报告
+lcov.info
+coverage/
+test-results/
+*.profraw
+
+# ====================
+# 文档生成
+# ====================
+
+# 自动生成的文档
+docs/_build/
+docs/.doctrees/
+site/
+
+# ====================
+# 依赖和包管理
+# ====================
+
+# Node modules（如果使用）
+node_modules/
+package-lock.json
+yarn.lock
+
+# Python（如果使用）
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# ====================
+# 演示数据（可选保留）
+# ====================
+
+# 如果不想提交演示数据，取消下面的注释
+# demo_data/
+
+# ====================
+# 编译输出
+# ====================
+
+# 动态库
+*.so
+*.dylib
+*.dll
+
+# 静态库
+*.a
+*.lib
+
+# 可执行文件
+*.exe
+*.out
+*.app
+
+# ====================
+# 其他
+# ====================
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# 压缩文件（导出的数据）
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# 大文件
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.pdf
+*.dmg
+*.iso

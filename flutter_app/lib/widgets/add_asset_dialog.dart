@@ -92,9 +92,9 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SafeArea(
           child: Form(
@@ -108,7 +108,7 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

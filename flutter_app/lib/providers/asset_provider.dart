@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/portfolio_summary.dart';
+import '../core/ffi_bridge.dart';
 
 /// 资产数据状态管理
 class AssetProvider with ChangeNotifier {
   final List<Asset> _assets = [];
   bool _isLoading = false;
   String? _error;
+  final FfiBridge _ffi = FfiBridge();
 
   List<Asset> get assets => List.unmodifiable(_assets);
   bool get isLoading => _isLoading;
@@ -30,6 +32,20 @@ class AssetProvider with ChangeNotifier {
     );
   }
 
+  /// 按类型获取资产
+  List<Asset> getAssetsByType(AssetType type) {
+    return _assets.where((asset) => asset.type == type).toList();
+  }
+
+  /// 获取单个资产
+  Asset? getAssetById(String id) {
+    try {
+      return _assets.firstWhere((asset) => asset.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// 加载所有资产
   Future<void> loadAssets() async {
     _isLoading = true;
@@ -37,31 +53,50 @@ class AssetProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: 调用 Rust Core 加载数据
-      // 暂时使用模拟数据
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 调用 Rust Core 加载数据
+      final assetsJson = await _ffi.getAllAssets();
 
       _assets.clear();
-      _assets.addAll(_demoAssets);
+      for (final json in assetsJson) {
+        try {
+          _assets.add(Asset.fromJson(json));
+        } catch (e) {
+          debugPrint('解析资产失败: $e, JSON: $json');
+        }
+      }
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = e.toString();
+      _error = '加载资产失败: $e';
       _isLoading = false;
       notifyListeners();
+      debugPrint(_error);
     }
   }
 
   /// 添加资产
   Future<bool> addAsset(Asset asset) async {
     try {
-      // TODO: 调用 Rust Core 保存数据
-      _assets.add(asset);
-      notifyListeners();
-      return true;
+      final success = await _ffi.addAsset(
+        name: asset.name,
+        assetType: asset.type.value,
+        amount: asset.amount,
+        currency: asset.currency,
+        symbol: asset.account,
+        notes: asset.note,
+      );
+
+      if (success) {
+        // 重新加载资产列表
+        await loadAssets();
+        return true;
+      }
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = '添加资产失败: $e';
       notifyListeners();
+      debugPrint(_error);
       return false;
     }
   }
@@ -69,17 +104,26 @@ class AssetProvider with ChangeNotifier {
   /// 更新资产
   Future<bool> updateAsset(Asset asset) async {
     try {
-      final index = _assets.indexWhere((a) => a.id == asset.id);
-      if (index >= 0) {
-        // TODO: 调用 Rust Core 更新数据
-        _assets[index] = asset;
-        notifyListeners();
+      final success = await _ffi.updateAsset(
+        id: asset.id,
+        name: asset.name,
+        assetType: asset.type.value,
+        amount: asset.amount,
+        currency: asset.currency,
+        symbol: asset.account,
+        notes: asset.note,
+      );
+
+      if (success) {
+        // 重新加载资产列表
+        await loadAssets();
         return true;
       }
       return false;
     } catch (e) {
-      _error = e.toString();
+      _error = '更新资产失败: $e';
       notifyListeners();
+      debugPrint(_error);
       return false;
     }
   }
@@ -87,71 +131,25 @@ class AssetProvider with ChangeNotifier {
   /// 删除资产
   Future<bool> deleteAsset(String id) async {
     try {
-      // TODO: 调用 Rust Core 删除数据
-      _assets.removeWhere((a) => a.id == id);
-      notifyListeners();
-      return true;
+      final success = await _ffi.deleteAsset(id);
+
+      if (success) {
+        _assets.removeWhere((a) => a.id == id);
+        notifyListeners();
+        return true;
+      }
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = '删除资产失败: $e';
       notifyListeners();
+      debugPrint(_error);
       return false;
     }
   }
 
-  /// 导出加密数据
-  Future<String?> exportData(String password) async {
-    try {
-      // TODO: 调用 Rust Core 导出
-      return '/storage/export/backup_${DateTime.now().millisecondsSinceEpoch}.zip';
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return null;
-    }
+  /// 清除错误
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
-
-  /// 导入加密数据
-  Future<bool> importData(String filePath, String password) async {
-    try {
-      // TODO: 调用 Rust Core 导入
-      await loadAssets();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  /// Demo 数据
-  static List<Asset> get _demoAssets => [
-        Asset(
-          id: '1',
-          name: '伯克希尔哈撒韦 A 类',
-          type: AssetType.stock,
-          amount: 150000,
-          currency: 'USD',
-          symbol: 'BRK.A',
-          createdAt: DateTime.now().subtract(const Duration(days: 365)),
-          updatedAt: DateTime.now(),
-        ),
-        Asset(
-          id: '2',
-          name: '现金储备',
-          type: AssetType.cash,
-          amount: 50000,
-          currency: 'USD',
-          createdAt: DateTime.now().subtract(const Duration(days: 180)),
-          updatedAt: DateTime.now(),
-        ),
-        Asset(
-          id: '3',
-          name: '美国国债',
-          type: AssetType.bond,
-          amount: 100000,
-          currency: 'USD',
-          createdAt: DateTime.now().subtract(const Duration(days: 90)),
-          updatedAt: DateTime.now(),
-        ),
-      ];
 }
