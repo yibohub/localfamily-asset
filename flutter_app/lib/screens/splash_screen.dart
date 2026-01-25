@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
 
 import 'package:provider/provider.dart';
@@ -10,7 +11,10 @@ import 'auth/setup_screen.dart';
 
 /// 启动页
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  /// 测试模式：跳过延迟
+  final bool testMode;
+
+  const SplashScreen({super.key, this.testMode = false});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -24,7 +28,10 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _init() async {
-    await Future.delayed(const Duration(seconds: 1));
+    // 测试模式下跳过延迟
+    if (!widget.testMode) {
+      await Future.delayed(const Duration(seconds: 1));
+    }
 
     if (!mounted) return;
 
