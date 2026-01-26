@@ -1,11 +1,16 @@
 /// 资产类型枚举（与 Rust Core 保持一致）
 enum AssetType {
-  property,   // 房产
-  deposit,    // 存款
-  stock,      // 股票
-  fund,       // 基金
-  insurance,  // 保单
-  debt,       // 负债
+  property,     // 房产
+  deposit,      // 存款
+  stock,        // 股票
+  fund,         // 基金
+  insurance,    // 保单
+  debt,         // 负债（通用）
+  mortgage,     // 房贷
+  carLoan,      // 车贷
+  creditCard,   // 信用卡
+  personalLoan, // 个人贷款
+  privateLoan,  // 私人借款
 }
 
 /// 资产类型扩展 - 提供本地化和图标
@@ -25,6 +30,16 @@ extension AssetTypeExtension on AssetType {
         return '保单';
       case AssetType.debt:
         return '负债';
+      case AssetType.mortgage:
+        return '房贷';
+      case AssetType.carLoan:
+        return '车贷';
+      case AssetType.creditCard:
+        return '信用卡';
+      case AssetType.personalLoan:
+        return '个人贷款';
+      case AssetType.privateLoan:
+        return '私人借款';
     }
   }
 
@@ -43,6 +58,16 @@ extension AssetTypeExtension on AssetType {
         return 'security';
       case AssetType.debt:
         return 'credit_card';
+      case AssetType.mortgage:
+        return 'home_work';
+      case AssetType.carLoan:
+        return 'directions_car';
+      case AssetType.creditCard:
+        return 'credit_card';
+      case AssetType.personalLoan:
+        return 'person';
+      case AssetType.privateLoan:
+        return 'handshake';
     }
   }
 
@@ -61,6 +86,16 @@ extension AssetTypeExtension on AssetType {
         return 4;
       case AssetType.debt:
         return 5;
+      case AssetType.mortgage:
+        return 6;
+      case AssetType.carLoan:
+        return 7;
+      case AssetType.creditCard:
+        return 8;
+      case AssetType.personalLoan:
+        return 9;
+      case AssetType.privateLoan:
+        return 10;
     }
   }
 
@@ -79,6 +114,16 @@ extension AssetTypeExtension on AssetType {
         return AssetType.insurance;
       case 5:
         return AssetType.debt;
+      case 6:
+        return AssetType.mortgage;
+      case 7:
+        return AssetType.carLoan;
+      case 8:
+        return AssetType.creditCard;
+      case 9:
+        return AssetType.personalLoan;
+      case 10:
+        return AssetType.privateLoan;
       default:
         return AssetType.deposit;
     }
@@ -99,6 +144,16 @@ extension AssetTypeExtension on AssetType {
         return AssetType.insurance;
       case 'debt':
         return AssetType.debt;
+      case 'mortgage':
+        return AssetType.mortgage;
+      case 'car_loan':
+        return AssetType.carLoan;
+      case 'credit_card':
+        return AssetType.creditCard;
+      case 'personal_loan':
+        return AssetType.personalLoan;
+      case 'private_loan':
+        return AssetType.privateLoan;
       default:
         return AssetType.deposit;
     }
@@ -106,12 +161,22 @@ extension AssetTypeExtension on AssetType {
 
   /// 判断是否为负债类型
   bool get isLiability {
-    return this == AssetType.debt;
+    return this == AssetType.debt ||
+           this == AssetType.mortgage ||
+           this == AssetType.carLoan ||
+           this == AssetType.creditCard ||
+           this == AssetType.personalLoan ||
+           this == AssetType.privateLoan;
   }
 
   /// 获取所有资产类型（排除负债）
   static List<AssetType> get assetTypes {
     return AssetType.values.where((t) => !t.isLiability).toList();
+  }
+
+  /// 获取所有负债类型
+  static List<AssetType> get liabilityTypes {
+    return AssetType.values.where((t) => t.isLiability).toList();
   }
 }
 

@@ -14,6 +14,12 @@ class AssetProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// 获取仅资产（排除负债）
+  List<Asset> get assetsOnly => _assets.where((a) => !a.type.isLiability).toList();
+
+  /// 获取仅负债
+  List<Asset> get liabilitiesOnly => _assets.where((a) => a.type.isLiability).toList();
+
   /// 获取投资组合摘要
   PortfolioSummary get summary {
     final breakdown = <AssetType, double>{};

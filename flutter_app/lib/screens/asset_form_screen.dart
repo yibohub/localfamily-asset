@@ -8,11 +8,14 @@ import '../providers/asset_provider.dart';
 class AssetFormScreen extends StatefulWidget {
   final Asset? asset;
   final AssetType? defaultType;
+  /// 资产类型筛选：true=仅负债类型，false=仅资产类型，null=显示所有类型
+  final bool? assetTypesFilter;
 
   const AssetFormScreen({
     super.key,
     this.asset,
     this.defaultType,
+    this.assetTypesFilter,
   });
 
   @override
@@ -39,7 +42,22 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     );
     _accountController = TextEditingController(text: widget.asset?.account);
     _noteController = TextEditingController(text: widget.asset?.note);
-    _selectedType = widget.asset?.type ?? widget.defaultType ?? AssetType.deposit;
+
+    // 确定默认类型
+    AssetType defaultType = AssetType.deposit;
+    if (widget.asset?.type != null) {
+      defaultType = widget.asset!.type;
+    } else if (widget.defaultType != null) {
+      defaultType = widget.defaultType!;
+    } else if (widget.assetTypesFilter == true) {
+      // 负债类型筛选，默认选房贷
+      defaultType = AssetType.mortgage;
+    } else if (widget.assetTypesFilter == false) {
+      // 资产类型筛选，默认选存款
+      defaultType = AssetType.deposit;
+    }
+
+    _selectedType = defaultType;
     _selectedCurrency = widget.asset?.currency ?? 'CNY';
   }
 
@@ -82,7 +100,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.asset == null ? '资产已添加' : '资产已更新'),
+          content: Text(_getSuccessMessage()),
         ),
       );
     } else {
@@ -95,10 +113,13 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   Future<void> _handleDelete() async {
     if (widget.asset == null) return;
 
+    final isLiability = widget.asset!.type.isLiability;
+    final itemType = isLiability ? '负债' : '资产';
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除资产'),
+        title: Text('删除$itemType'),
         content: Text('确定要删除 "${widget.asset!.name}" 吗？'),
         actions: [
           TextButton(
@@ -128,7 +149,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     if (success) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('资产已删除')),
+        SnackBar(content: Text('$itemType 已删除')),
       );
     }
   }
@@ -137,7 +158,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.asset == null ? '添加资产' : '编辑资产'),
+        title: Text(_getPageTitle()),
         actions: widget.asset != null
             ? [
                 IconButton(
@@ -153,15 +174,15 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             // 资产类型选择
-            const Text(
-              '资产类型',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              _getTypeTitle(),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: AssetType.values.map((type) {
+              children: _getFilteredTypes().map((type) {
                 final isSelected = _selectedType == type;
                 return ChoiceChip(
                   label: Text(type.displayName),
@@ -172,7 +193,9 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                     size: 18,
                     color: isSelected ? Colors.white : const Color(0xFF2563EB),
                   ),
-                  selectedColor: const Color(0xFF2563EB),
+                  selectedColor: widget.assetTypesFilter == true
+                      ? Colors.red[400]
+                      : const Color(0xFF2563EB),
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : Colors.black,
                   ),
@@ -184,14 +207,14 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             // 资产名称
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: '资产名称',
-                prefixIcon: Icon(Icons.label),
-                hintText: '例如：招商银行储蓄卡',
+              decoration: InputDecoration(
+                labelText: _getNameLabel(),
+                prefixIcon: const Icon(Icons.label),
+                hintText: _getNameHint(),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return '请输入资产名称';
+                  return '请输入${_getNameLabel()}';
                 }
                 return null;
               },
@@ -281,7 +304,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                       ),
                     )
                   : Text(
-                      widget.asset == null ? '添加资产' : '保存更改',
+                      _getButtonTitle(),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -292,6 +315,92 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
         ),
       ),
     );
+  }
+
+  /// 根据筛选条件获取可用的类型列表
+  List<AssetType> _getFilteredTypes() {
+    if (widget.assetTypesFilter == true) {
+      // 仅显示负债类型
+      return AssetTypeExtension.liabilityTypes;
+    } else if (widget.assetTypesFilter == false) {
+      // 仅显示资产类型
+      return AssetTypeExtension.assetTypes;
+    } else {
+      // 显示所有类型
+      return AssetType.values;
+    }
+  }
+
+  /// 获取页面标题
+  String _getPageTitle() {
+    if (widget.asset != null) {
+      return widget.asset!.type.isLiability ? '编辑负债' : '编辑资产';
+    } else {
+      if (widget.assetTypesFilter == true) {
+        return '添加负债';
+      } else if (widget.assetTypesFilter == false) {
+        return '添加资产';
+      } else {
+        return '添加资产';
+      }
+    }
+  }
+
+  /// 获取按钮文字
+  String _getButtonTitle() {
+    if (widget.asset != null) {
+      return '保存更改';
+    } else {
+      if (widget.assetTypesFilter == true) {
+        return '添加负债';
+      } else if (widget.assetTypesFilter == false) {
+        return '添加资产';
+      } else {
+        return '添加资产';
+      }
+    }
+  }
+
+  /// 获取成功消息
+  String _getSuccessMessage() {
+    if (widget.asset != null) {
+      return widget.asset!.type.isLiability ? '负债已更新' : '资产已更新';
+    } else {
+      if (widget.assetTypesFilter == true) {
+        return '负债已添加';
+      } else if (widget.assetTypesFilter == false) {
+        return '资产已添加';
+      } else {
+        return '资产已添加';
+      }
+    }
+  }
+
+  /// 获取类型标题
+  String _getTypeTitle() {
+    if (widget.assetTypesFilter == true) {
+      return '负债类型';
+    } else {
+      return '资产类型';
+    }
+  }
+
+  /// 获取名称标签
+  String _getNameLabel() {
+    if (widget.assetTypesFilter == true) {
+      return '负债名称';
+    } else {
+      return '资产名称';
+    }
+  }
+
+  /// 获取名称提示
+  String _getNameHint() {
+    if (widget.assetTypesFilter == true) {
+      return '例如：招商银行房贷';
+    } else {
+      return '例如：招商银行储蓄卡';
+    }
   }
 
   IconData _getIconData(String name) {
@@ -308,6 +417,14 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
         return Icons.security;
       case 'credit_card':
         return Icons.credit_card;
+      case 'home_work':
+        return Icons.home_work;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'person':
+        return Icons.person;
+      case 'handshake':
+        return Icons.handshake;
       default:
         return Icons.help_outline;
     }

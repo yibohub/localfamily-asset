@@ -152,6 +152,26 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
         icon = Icons.credit_card;
         color = const Color(0xFFEF4444);
         break;
+      case AssetType.mortgage:
+        icon = Icons.home_work;
+        color = const Color(0xFFDC2626);
+        break;
+      case AssetType.carLoan:
+        icon = Icons.directions_car;
+        color = const Color(0xFFEA580C);
+        break;
+      case AssetType.creditCard:
+        icon = Icons.credit_card;
+        color = const Color(0xFFF59E0B);
+        break;
+      case AssetType.personalLoan:
+        icon = Icons.person;
+        color = const Color(0xFFD97706);
+        break;
+      case AssetType.privateLoan:
+        icon = Icons.handshake;
+        color = const Color(0xFFCA8A04);
+        break;
     }
 
     return Container(
@@ -188,12 +208,12 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   }
 
   String _formatAmount(double amount) {
-    if (amount >= 1000000) {
-      return '\$${(amount / 1000000).toStringAsFixed(2)}M';
-    } else if (amount >= 1000) {
-      return '\$${(amount / 1000).toStringAsFixed(2)}K';
+    if (amount >= 100000000) {
+      return '¥ ${(amount / 100000000).toStringAsFixed(2)} 亿';
+    } else if (amount >= 10000) {
+      return '¥ ${(amount / 10000).toStringAsFixed(2)} 万';
     }
-    return '\$${amount.toStringAsFixed(2)}';
+    return '¥ ${amount.toStringAsFixed(2)}';
   }
 
   String _getTypeName(AssetType type) {

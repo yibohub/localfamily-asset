@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../home_screen.dart';
+import '../main/main_navigation_screen.dart';
 
 /// 锁定屏幕
 class LockScreen extends StatefulWidget {
@@ -39,7 +39,7 @@ class _LockScreenState extends State<LockScreen> {
 
     if (success) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     } else {
       setState(() => _error = '密码错误');

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'theme.dart';
 import '../screens/splash_screen.dart';
-import '../screens/home_screen.dart';
+import '../screens/main/main_navigation_screen.dart';
 import '../screens/auth/lock_screen.dart';
 import '../screens/auth/setup_screen.dart';
 
@@ -37,7 +37,7 @@ class AuthWrapper extends StatelessWidget {
       case AuthStatus.locked:
         return const LockScreen();
       case AuthStatus.unlocked:
-        return const HomeScreen();
+        return const MainNavigationScreen();
       case AuthStatus.setup:
         return const SetupScreen();
     }

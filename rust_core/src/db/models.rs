@@ -7,17 +7,27 @@ use chrono::Utc;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssetType {
     #[serde(rename = "property")]
-    Property,      // 房产
+    Property,       // 房产
     #[serde(rename = "deposit")]
-    Deposit,       // 存款
+    Deposit,        // 存款
     #[serde(rename = "stock")]
-    Stock,         // 股票
+    Stock,          // 股票
     #[serde(rename = "fund")]
-    Fund,          // 基金
+    Fund,           // 基金
     #[serde(rename = "insurance")]
-    Insurance,     // 保单
+    Insurance,      // 保单
     #[serde(rename = "debt")]
-    Debt,          // 负债
+    Debt,           // 负债（通用）
+    #[serde(rename = "mortgage")]
+    Mortgage,       // 房贷
+    #[serde(rename = "car_loan")]
+    CarLoan,        // 车贷
+    #[serde(rename = "credit_card")]
+    CreditCard,     // 信用卡
+    #[serde(rename = "personal_loan")]
+    PersonalLoan,   // 个人贷款
+    #[serde(rename = "private_loan")]
+    PrivateLoan,    // 私人借款
 }
 
 impl AssetType {
@@ -29,6 +39,11 @@ impl AssetType {
             "fund" => Some(AssetType::Fund),
             "insurance" => Some(AssetType::Insurance),
             "debt" => Some(AssetType::Debt),
+            "mortgage" => Some(AssetType::Mortgage),
+            "car_loan" => Some(AssetType::CarLoan),
+            "credit_card" => Some(AssetType::CreditCard),
+            "personal_loan" => Some(AssetType::PersonalLoan),
+            "private_loan" => Some(AssetType::PrivateLoan),
             _ => None,
         }
     }
@@ -41,7 +56,24 @@ impl AssetType {
             AssetType::Fund => "fund",
             AssetType::Insurance => "insurance",
             AssetType::Debt => "debt",
+            AssetType::Mortgage => "mortgage",
+            AssetType::CarLoan => "car_loan",
+            AssetType::CreditCard => "credit_card",
+            AssetType::PersonalLoan => "personal_loan",
+            AssetType::PrivateLoan => "private_loan",
         }
+    }
+
+    /// 判断是否为负债类型
+    pub fn is_liability(&self) -> bool {
+        matches!(self,
+            AssetType::Debt |
+            AssetType::Mortgage |
+            AssetType::CarLoan |
+            AssetType::CreditCard |
+            AssetType::PersonalLoan |
+            AssetType::PrivateLoan
+        )
     }
 }
 

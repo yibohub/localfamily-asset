@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import 'home_screen.dart';
+import 'main/main_navigation_screen.dart';
 import 'auth/lock_screen.dart';
 import 'auth/setup_screen.dart';
 
@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
         screen = const LockScreen();
         break;
       case AuthStatus.unlocked:
-        screen = const HomeScreen();
+        screen = const MainNavigationScreen();
         break;
     }
 

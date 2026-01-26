@@ -196,6 +196,11 @@ fn asset_type_from_int(value: c_int) -> AssetType {
         3 => AssetType::Fund,
         4 => AssetType::Insurance,
         5 => AssetType::Debt,
+        6 => AssetType::Mortgage,
+        7 => AssetType::CarLoan,
+        8 => AssetType::CreditCard,
+        9 => AssetType::PersonalLoan,
+        10 => AssetType::PrivateLoan,
         _ => AssetType::Stock,
     }
 }

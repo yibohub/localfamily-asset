@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../models/asset.dart';
-import '../home_screen.dart';
+import '../main/main_navigation_screen.dart';
 
 /// 初始设置页
 class SetupScreen extends StatefulWidget {
@@ -134,7 +134,7 @@ class _SetupScreenState extends State<SetupScreen> {
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
     );
   }
 

@@ -212,12 +212,12 @@ class AssetSummaryCard extends StatelessWidget {
   }
 
   String _formatAmount(double amount) {
-    if (amount >= 1000000) {
-      return '\$${(amount / 1000000).toStringAsFixed(2)}M';
-    } else if (amount >= 1000) {
-      return '\$${(amount / 1000).toStringAsFixed(2)}K';
+    if (amount >= 100000000) {
+      return '¥ ${(amount / 100000000).toStringAsFixed(2)} 亿';
+    } else if (amount >= 10000) {
+      return '¥ ${(amount / 10000).toStringAsFixed(2)} 万';
     }
-    return '\$${amount.toStringAsFixed(2)}';
+    return '¥ ${amount.toStringAsFixed(2)}';
   }
 
   String _getTypeName(AssetType type) {
@@ -238,6 +238,16 @@ class AssetSummaryCard extends StatelessWidget {
         return const Color(0xFF8B5CF6);
       case AssetType.debt:
         return const Color(0xFFEF4444);
+      case AssetType.mortgage:
+        return const Color(0xFFDC2626);
+      case AssetType.carLoan:
+        return const Color(0xFFEA580C);
+      case AssetType.creditCard:
+        return const Color(0xFFF59E0B);
+      case AssetType.personalLoan:
+        return const Color(0xFFD97706);
+      case AssetType.privateLoan:
+        return const Color(0xFFCA8A04);
     }
   }
 }
