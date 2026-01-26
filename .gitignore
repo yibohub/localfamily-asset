@@ -257,3 +257,6 @@ env/
 #临时图片
 /png
 flutter_app/pubspec.lock
+
+# Windows 空设备文件
+nul
