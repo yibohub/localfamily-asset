@@ -12,6 +12,7 @@ import '../widgets/asset_summary_card.dart';
 import '../widgets/asset_list_item.dart';
 import '../widgets/add_asset_dialog.dart';
 import 'asset_detail_screen.dart';
+import 'auth/lock_screen.dart';
 
 /// 主页
 class HomeScreen extends StatefulWidget {
@@ -30,12 +31,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() => context.read<AssetProvider>().loadAssets());
+
+    // 监听认证状态变化，当锁定时导航到锁定页面
+    context.read<AuthProvider>().addListener(_onAuthStatusChanged);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    context.read<AuthProvider>().removeListener(_onAuthStatusChanged);
     super.dispose();
+  }
+
+  /// 监听认证状态变化
+  void _onAuthStatusChanged() {
+    if (!mounted) return;
+
+    final authStatus = context.read<AuthProvider>().status;
+    if (authStatus == AuthStatus.locked) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LockScreen()),
+        (route) => false,
+      );
+    }
   }
 
   @override
