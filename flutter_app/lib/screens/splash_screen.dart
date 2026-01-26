@@ -38,7 +38,11 @@ class _SplashScreenState extends State<SplashScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     // 初始化 Rust FFI 和数据库
-    await authProvider.init();
+    try {
+      await authProvider.init();
+    } catch (e) {
+      debugPrint('初始化失败: $e');
+    }
 
     Widget screen;
     switch (authProvider.status) {

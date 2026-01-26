@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/asset_provider.dart';
+import '../../models/asset.dart';
 import '../home_screen.dart';
 
 /// 初始设置页
@@ -21,6 +25,7 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String? _selectedDemo; // 'buffett' or 'musk' or null
 
   @override
   void dispose() {
@@ -28,6 +33,74 @@ class _SetupScreenState extends State<SetupScreen> {
     _confirmController.dispose();
     _hintController.dispose();
     super.dispose();
+  }
+
+  /// 加载 Demo 数据
+  Future<void> _loadDemoData() async {
+    if (_selectedDemo == null) return;
+
+    try {
+      final String jsonString = await rootBundle.loadString(
+        'assets/demo/${_selectedDemo}_assets.json',
+      );
+      final Map<String, dynamic> demoData = jsonDecode(jsonString);
+      final List<dynamic> assetsJson = demoData['assets'] as List<dynamic>;
+
+      final assetProvider = context.read<AssetProvider>();
+
+      for (var assetJson in assetsJson) {
+        final asset = Asset(
+          id: assetJson['id'] as String,
+          name: assetJson['name'] as String,
+          type: _assetTypeFromString(assetJson['type'] as String),
+          amount: (assetJson['amount'] as num).toDouble(),
+          currency: assetJson['currency'] as String?,
+          account: assetJson['account'] as String?,
+          note: assetJson['note'] as String?,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        await assetProvider.addAsset(asset);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已加载 ${demoData['name']}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('加载 Demo 数据失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('加载 Demo 数据失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  AssetType _assetTypeFromString(String type) {
+    switch (type) {
+      case 'property':
+        return AssetType.property;
+      case 'deposit':
+        return AssetType.deposit;
+      case 'stock':
+        return AssetType.stock;
+      case 'fund':
+        return AssetType.fund;
+      case 'insurance':
+        return AssetType.insurance;
+      case 'debt':
+        return AssetType.debt;
+      default:
+        return AssetType.deposit;
+    }
   }
 
   Future<void> _setup() async {
@@ -41,19 +114,28 @@ class _SetupScreenState extends State<SetupScreen> {
       hint: _hintController.text.isEmpty ? null : _hintController.text,
     );
 
+    if (!success) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('设置失败，请重试')),
+        );
+      }
+      return;
+    }
+
+    // 如果选择了 Demo 模式，加载演示数据
+    if (_selectedDemo != null) {
+      await _loadDemoData();
+    }
+
     setState(() => _isLoading = false);
 
     if (!mounted) return;
 
-    if (success) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置失败，请重试')),
-      );
-    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   @override
@@ -90,7 +172,69 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Demo 模式选择
+                Card(
+                  elevation: 0,
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.lightbulb_outline, color: Colors.amber[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              '体验 Demo 模式',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.amber[700],
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '选择预设的演示数据快速体验应用功能',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildDemoChip(null, '空白数据'),
+                            _buildDemoChip('buffett', '巴菲特组合'),
+                            _buildDemoChip('musk', '马斯克资产'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // 密码设置部分标题
+                if (_selectedDemo == null)
+                  Text(
+                    '设置安全密码',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  )
+                else
+                  Text(
+                    '设置 Demo 密码',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -157,6 +301,23 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDemoChip(String? value, String label) {
+    final isSelected = _selectedDemo == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedDemo = value),
+      avatar: isSelected
+          ? const Icon(Icons.check_circle, size: 18)
+          : Icon(value == null ? Icons.add_circle_outline : Icons.person_outline, size: 18),
+      selectedColor: value == null ? Colors.grey : Colors.amber,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.black87,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
       ),
     );
   }

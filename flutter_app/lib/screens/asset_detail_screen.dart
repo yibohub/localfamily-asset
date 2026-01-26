@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
+import 'asset_form_screen.dart';
 
 /// 资产详情页
 class AssetDetailScreen extends StatefulWidget {
@@ -44,7 +45,14 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AssetFormScreen(asset: _asset),
+                ),
+              ).then((_) => _loadAsset());
+            },
           ),
         ],
       ),

@@ -48,6 +48,8 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
   ) _updateAsset;
   late final int Function(ffi.Pointer<ffi.Char>) _deleteAsset;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _exportData;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _importData;
 
   FfiBridge._internal() {
     _loadLibrary();
@@ -140,6 +142,20 @@ class FfiBridge {
 
     _deleteAsset = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('delete_asset')
+        .asFunction();
+
+    _exportData = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('export_data')
+        .asFunction();
+
+    _importData = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('import_data')
         .asFunction();
   }
 
@@ -299,6 +315,72 @@ class FfiBridge {
       return result == FfiErrorCode.success;
     } finally {
       malloc.free(idPtr);
+    }
+  }
+
+  /// 导出数据到加密 Zip
+  ///
+  /// 返回格式: {"success": true, "path": "..."} 或 {"error": "..."}
+  Future<Map<String, dynamic>> exportData({
+    required String password,
+    required String outputPath,
+  }) async {
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
+    final pathPtr = outputPath.toNativeUtf8().cast<ffi.Char>();
+
+    try {
+      final resultPtr = _exportData(passwordPtr, pathPtr);
+      if (resultPtr == ffi.nullptr) {
+        return {'error': '导出失败：返回空指针'};
+      }
+
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final result = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      _freeString(resultPtr);
+      return result;
+    } catch (e) {
+      debugPrint('exportData 异常: $e');
+      return {'error': '导出异常: $e'};
+    } finally {
+      malloc.free(passwordPtr);
+      malloc.free(pathPtr);
+    }
+  }
+
+  /// 从加密 Zip 导入数据
+  ///
+  /// 返回格式: {"success": true, "imported": 1234} 或 {"error": "..."}
+  Future<Map<String, dynamic>> importData({
+    required String password,
+    required String inputPath,
+  }) async {
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
+    final pathPtr = inputPath.toNativeUtf8().cast<ffi.Char>();
+
+    try {
+      final resultPtr = _importData(passwordPtr, pathPtr);
+      if (resultPtr == ffi.nullptr) {
+        return {'error': '导入失败：返回空指针'};
+      }
+
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final result = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      _freeString(resultPtr);
+      return result;
+    } catch (e) {
+      debugPrint('importData 异常: $e');
+      return {'error': '导入异常: $e'};
+    } finally {
+      malloc.free(passwordPtr);
+      malloc.free(pathPtr);
     }
   }
 }

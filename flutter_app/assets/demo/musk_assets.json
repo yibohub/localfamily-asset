@@ -1,0 +1,96 @@
+{
+  "name": "马斯克资产演示",
+  "description": "埃隆·马斯克的多元化资产组合",
+  "assets": [
+    {
+      "id": "musk-001",
+      "name": "Tesla (特斯拉)",
+      "type": "stock",
+      "amount": 1200000000000,
+      "currency": "USD",
+      "account": "个人持股",
+      "note": "主要财富来源，约占个人净资产60%"
+    },
+    {
+      "id": "musk-002",
+      "name": "SpaceX（太空探索技术）",
+      "type": "stock",
+      "amount": 150000000000,
+      "currency": "USD",
+      "account": "私有股权",
+      "note": "私营航天公司，估值约1500亿美元"
+    },
+    {
+      "id": "musk-003",
+      "name": "X (原 Twitter)",
+      "type": "stock",
+      "amount": 20000000000,
+      "currency": "USD",
+      "account": "全资拥有",
+      "note": "社交媒体平台，2022年收购"
+    },
+    {
+      "id": "musk-004",
+      "name": "The Boring Company",
+      "type": "stock",
+      "amount": 7000000000,
+      "currency": "USD",
+      "account": "创始人股份",
+      "note": "隧道挖掘技术公司"
+    },
+    {
+      "id": "musk-005",
+      "name": "Neuralink",
+      "type": "stock",
+      "amount": 5000000000,
+      "currency": "USD",
+      "account": "联合创始人",
+      "note": "脑机接口公司"
+    },
+    {
+      "id": "musk-006",
+      "name": "xAI",
+      "type": "stock",
+      "amount": 24000000000,
+      "currency": "USD",
+      "account": "创始人",
+      "note": "人工智能公司，Grok 聊天机器人"
+    },
+    {
+      "id": "musk-007",
+      "name": "德克萨斯州房产",
+      "type": "property",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "自有物业",
+      "note": "位于奥斯汀的住宅"
+    },
+    {
+      "id": "musk-008",
+      "name": "银行存款",
+      "type": "deposit",
+      "amount": 3000000000,
+      "currency": "USD",
+      "account": "现金储备",
+      "note": "用于日常运营和投资"
+    },
+    {
+      "id": "musk-009",
+      "name": "SolarCity（已并入Tesla）",
+      "type": "stock",
+      "amount": 2000000000,
+      "currency": "USD",
+      "account": "Tesla子公司",
+      "note": "太阳能发电系统"
+    },
+    {
+      "id": "musk-010",
+      "name": "OpenAI 早期投资",
+      "type": "fund",
+      "amount": 100000000,
+      "currency": "USD",
+      "account": "历史投资",
+      "note": "已退出，早期联合创始人"
+    }
+  ]
+}

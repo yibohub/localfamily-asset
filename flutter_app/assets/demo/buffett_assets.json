@@ -1,0 +1,96 @@
+{
+  "name": "巴菲特资产演示",
+  "description": "沃伦·巴菲特的经典投资组合示例",
+  "assets": [
+    {
+      "id": "demo-001",
+      "name": "苹果公司 (Apple Inc.)",
+      "type": "stock",
+      "amount": 1750000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "巴菲特最大的持仓，占投资组合约40%"
+    },
+    {
+      "id": "demo-002",
+      "name": "美国银行 (Bank of America)",
+      "type": "stock",
+      "amount": 330000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "第二大银行股持仓"
+    },
+    {
+      "id": "demo-003",
+      "name": "美国运通 (American Express)",
+      "type": "stock",
+      "amount": 280000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "持有超过30年的经典投资"
+    },
+    {
+      "id": "demo-004",
+      "name": "可口可乐 (Coca-Cola)",
+      "type": "stock",
+      "amount": 250000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "巴菲特最爱的消费股，持有35年+"
+    },
+    {
+      "id": "demo-005",
+      "name": "西方石油 (Occidental Petroleum)",
+      "type": "stock",
+      "amount": 150000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "能源股投资"
+    },
+    {
+      "id": "demo-006",
+      "name": "伯克希尔总部",
+      "type": "property",
+      "amount": 500000000,
+      "currency": "USD",
+      "account": "自有物业",
+      "note": "位于内布拉斯加州奥马哈"
+    },
+    {
+      "id": "demo-007",
+      "name": "现金储备",
+      "type": "deposit",
+      "amount": 157000000000,
+      "currency": "USD",
+      "account": "美国国债",
+      "note": "用于应对突发机会的现金"
+    },
+    {
+      "id": "demo-008",
+      "name": "雪佛龙 (Chevron)",
+      "type": "stock",
+      "amount": 190000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "石油能源投资"
+    },
+    {
+      "id": "demo-009",
+      "name": "穆迪公司 (Moody's)",
+      "type": "stock",
+      "amount": 10000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "信用评级机构"
+    },
+    {
+      "id": "demo-010",
+      "name": "达维塔 (DaVita)",
+      "type": "stock",
+      "amount": 4000000000,
+      "currency": "USD",
+      "account": "伯克希尔·哈撒韦",
+      "note": "肾脏护理服务"
+    }
+  ]
+}

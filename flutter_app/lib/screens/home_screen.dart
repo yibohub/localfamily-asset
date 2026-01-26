@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 import '../models/asset.dart';
 import '../providers/auth_provider.dart';
 import '../providers/asset_provider.dart';
+import '../core/ffi_bridge.dart';
 import '../widgets/asset_summary_card.dart';
 import '../widgets/asset_list_item.dart';
 import '../widgets/add_asset_dialog.dart';
@@ -17,11 +21,62 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  DateTime? _pausedAt;
+  static const _autoLockDuration = Duration(minutes: 3);
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() => context.read<AssetProvider>().loadAssets());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        // 应用进入后台，记录时间
+        _pausedAt = DateTime.now();
+        debugPrint('应用进入后台，记录时间: $_pausedAt');
+        break;
+      case AppLifecycleState.resumed:
+        // 应用恢复到前台，检查是否超时
+        _checkAutoLock();
+        break;
+      case AppLifecycleState.hidden:
+        // 应用隐藏（新的 Flutter 版本）
+        _pausedAt = DateTime.now();
+        debugPrint('应用隐藏，记录时间: $_pausedAt');
+        break;
+    }
+  }
+
+  /// 检查是否需要自动锁定
+  void _checkAutoLock() {
+    if (_pausedAt == null) return;
+
+    final pausedDuration = DateTime.now().difference(_pausedAt!);
+    debugPrint('应用恢复，后台时长: ${pausedDuration.inSeconds}秒');
+
+    if (pausedDuration >= _autoLockDuration) {
+      debugPrint('超过自动锁定时长，锁定应用');
+      if (mounted) {
+        context.read<AuthProvider>().lock();
+      }
+    }
+
+    _pausedAt = null;
   }
 
   @override
@@ -235,16 +290,205 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _exportData(BuildContext context) async {
-    // TODO: 实现导出功能
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('导出功能待实现')),
+    // 1. 让用户输入密码确认
+    final password = await _promptForPassword(context, '请输入密码以确认导出');
+    if (password == null) return;
+
+    // 2. 选择保存位置
+    final outputPath = await FilePicker.platform.saveFile(
+      dialogTitle: '选择导出文件保存位置',
+      fileName: 'localfamily_asset_backup.zip',
+      type: FileType.any,
     );
+
+    if (outputPath == null || outputPath.isEmpty) {
+      return;
+    }
+
+    // 3. 显示加载对话框
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('正在导出...'),
+          ],
+        ),
+      ),
+    );
+
+    // 4. 执行导出
+    try {
+      final ffi = FfiBridge();
+      final result = await ffi.exportData(
+        password: password,
+        outputPath: outputPath,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // 关闭加载对话框
+
+      if (result.containsKey('success')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导出成功：$outputPath'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导出失败：${result['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导出异常：$e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _importData(BuildContext context) async {
-    // TODO: 实现导入功能
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('导入功能待实现')),
+    // 1. 让用户选择文件
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: '选择导入文件',
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final inputPath = result.files.single.path;
+    if (inputPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法获取文件路径'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 2. 让用户输入密码确认
+    final password = await _promptForPassword(context, '请输入密码以解密导入');
+    if (password == null) return;
+
+    // 3. 显示加载对话框
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('正在导入...'),
+          ],
+        ),
+      ),
+    );
+
+    // 4. 执行导入
+    try {
+      final ffi = FfiBridge();
+      final importResult = await ffi.importData(
+        password: password,
+        inputPath: inputPath,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // 关闭加载对话框
+
+      if (importResult.containsKey('success')) {
+        // 重新加载资产数据
+        await context.read<AssetProvider>().loadAssets();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('导入成功！数据已恢复'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导入失败：${importResult['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导入异常：$e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 密码输入对话框
+  Future<String?> _promptForPassword(BuildContext context, String message) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('安全确认'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '密码',
+                prefixIcon: Icon(Icons.lock),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('请输入密码')),
+                );
+                return;
+              }
+              Navigator.pop(context, controller.text);
+            },
+            child: const Text('确认'),
+          ),
+        ],
+      ),
     );
   }
 }

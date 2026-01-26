@@ -28,6 +28,9 @@ dependencies:
   ffi: ^2.1.0
   path_provider: ^2.1.1
 
+  # File picker for export/import
+  file_picker: ^8.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -39,4 +42,5 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/demo/
     - ../rust_core/target/debug/
