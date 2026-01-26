@@ -14,74 +14,136 @@ class AssetSummaryCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 标题栏
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '总资产',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.trending_up, size: 16, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Text(
-                        '+2.5%',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.green, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
+                  '资产负债总览',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              _formatAmount(summary.totalValue),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+            const SizedBox(height: 20),
+
+            // 三栏显示：总资产 | 总负债 | 净资产
+            Row(
+              children: [
+                Expanded(child: _buildMetricCard(
+                  context,
+                  '总资产',
+                  summary.totalAssets,
+                  Colors.green,
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _buildMetricCard(
+                  context,
+                  '总负债',
+                  summary.totalLiabilities,
+                  Colors.red,
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _buildMetricCard(
+                  context,
+                  '净资产',
+                  summary.netAssets,
+                  Colors.blue,
+                )),
+              ],
             ),
             const SizedBox(height: 20),
-            _buildBreakdown(context),
+
+            // 资产分布
+            if (summary.totalAssets > 0) _buildAssetBreakdown(context),
+
+            // 负债分布（如果存在）
+            if (summary.totalLiabilities > 0) _buildLiabilityBreakdown(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBreakdown(BuildContext context) {
-    if (summary.breakdown.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildMetricCard(
+    BuildContext context,
+    String label,
+    double value,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _formatAmount(value),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetBreakdown(BuildContext context) {
+    final assetBreakdown = summary.breakdown.entries
+        .where((e) => !e.key.isLiability)
+        .toList();
+
+    if (assetBreakdown.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '资产分布',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
+        Text('资产分布', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
-        ...summary.breakdown.entries.map((entry) {
+        ...assetBreakdown.map((entry) {
           final percentage = summary.getPercentage(entry.key);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildBreakdownItem(
+              context,
+              _getTypeName(entry.key),
+              _getTypeColor(entry.key),
+              percentage,
+              entry.value,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildLiabilityBreakdown(BuildContext context) {
+    final liabilityBreakdown = summary.breakdown.entries
+        .where((e) => e.key.isLiability)
+        .toList();
+
+    if (liabilityBreakdown.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text('负债分布', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 12),
+        ...liabilityBreakdown.map((entry) {
+          final percentage = summary.liabilityRatio;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _buildBreakdownItem(

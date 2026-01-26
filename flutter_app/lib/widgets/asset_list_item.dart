@@ -82,17 +82,18 @@ class AssetListItem extends StatelessWidget {
                   Text(
                     _formatAmount(asset.amount),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: asset.type.isLiability
+                            ? Colors.red
+                            : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  if (asset.currency != null)
-                    Text(
-                      asset.currency!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[500],
-                          ),
-                    ),
+                  Text(
+                    asset.currency,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                  ),
                 ],
               ),
             ],

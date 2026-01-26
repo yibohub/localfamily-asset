@@ -17,16 +17,24 @@ class AssetProvider with ChangeNotifier {
   /// 获取投资组合摘要
   PortfolioSummary get summary {
     final breakdown = <AssetType, double>{};
-    double total = 0;
+    double totalAssets = 0;
+    double totalLiabilities = 0;
 
     for (final asset in _assets) {
       final value = breakdown[asset.type] ?? 0;
       breakdown[asset.type] = value + asset.amount;
-      total += asset.amount;
+
+      if (asset.type.isLiability) {
+        totalLiabilities += asset.amount;
+      } else {
+        totalAssets += asset.amount;
+      }
     }
 
     return PortfolioSummary(
-      totalValue: total,
+      totalAssets: totalAssets,
+      totalLiabilities: totalLiabilities,
+      netAssets: totalAssets - totalLiabilities,
       breakdown: breakdown,
       lastUpdated: DateTime.now(),
     );

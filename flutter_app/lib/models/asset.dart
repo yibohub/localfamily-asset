@@ -103,6 +103,16 @@ extension AssetTypeExtension on AssetType {
         return AssetType.deposit;
     }
   }
+
+  /// 判断是否为负债类型
+  bool get isLiability {
+    return this == AssetType.debt;
+  }
+
+  /// 获取所有资产类型（排除负债）
+  static List<AssetType> get assetTypes {
+    return AssetType.values.where((t) => !t.isLiability).toList();
+  }
 }
 
 /// 资产模型
