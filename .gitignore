@@ -254,9 +254,15 @@ env/
 *.dmg
 *.iso
 
-#临时图片
+# 临时图片
 /png
-flutter_app/pubspec.lock
+
+# ====================
+# Flutter 特定文件
+# ====================
+flutter_app/*.iml
+flutter_app/.metadata
+flutter_app/test_dll.dart
 
 # Windows 空设备文件
 nul
