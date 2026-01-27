@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -23,20 +20,22 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen>
     with WidgetsBindingObserver {
-  int _currentIndex = 0;
+  // 默认显示总览（索引 1）
+  int _currentIndex = 1;
   DateTime? _pausedAt;
   static const Duration _autoLockDuration = Duration(minutes: 3);
 
+  // Tab 顺序：资产 → 总览 → 负债
   static const List<Widget> _tabScreens = [
     AssetsTabScreen(),
-    LiabilitiesTabScreen(),
     OverviewTabScreen(),
+    LiabilitiesTabScreen(),
   ];
 
   static const List<String> _tabTitles = [
     '资产',
-    '负债',
     '总览',
+    '负债',
   ];
 
   void _onTabTapped(int index) {
@@ -67,9 +66,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
     switch (state) {
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
-        // 应用进入后台，记录时间
+      case AppLifecycleState.hidden:
+        // 应用进入后台/隐藏，记录时间
         _pausedAt = DateTime.now();
         debugPrint('应用进入后台，记录时间: $_pausedAt');
         break;
@@ -77,12 +76,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         // 应用恢复到前台，检查是否超时
         _checkAutoLock();
         break;
-      case AppLifecycleState.hidden:
-        // 应用隐藏（新的 Flutter 版本）
-        _pausedAt = DateTime.now();
-        debugPrint('应用隐藏，记录时间: $_pausedAt');
-        break;
       case AppLifecycleState.inactive:
+        // 应用处于非活动状态
         break;
     }
   }
@@ -134,14 +129,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                 label: '资产',
               ),
               NavigationDestination(
-                icon: Icon(Icons.credit_card),
-                selectedIcon: Icon(Icons.credit_card),
-                label: '负债',
-              ),
-              NavigationDestination(
                 icon: Icon(Icons.pie_chart),
                 selectedIcon: Icon(Icons.pie_chart),
                 label: '总览',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.credit_card),
+                selectedIcon: Icon(Icons.credit_card),
+                label: '负债',
               ),
             ],
           ),

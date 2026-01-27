@@ -3,10 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
-import '../../widgets/asset_list_item.dart';
 import '../../widgets/two_level_grouped_asset_list.dart';
+import '../../widgets/asset_type_filter_bar.dart';
 import '../asset_form_screen.dart';
-import '../asset_detail_screen.dart';
 
 /// 负债标签页 - 显示所有负债
 class LiabilitiesTabScreen extends StatelessWidget {
@@ -16,7 +15,7 @@ class LiabilitiesTabScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AssetProvider>(
       builder: (context, provider, child) {
-        final liabilities = provider.liabilitiesOnly;
+        final liabilities = provider.filteredLiabilitiesOnly;
 
         if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
@@ -30,6 +29,16 @@ class LiabilitiesTabScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: _LiabilitiesSummaryCard(total: provider.summary.totalLiabilities),
+                ),
+              ),
+
+              // 类型筛选栏（排除通用负债类型，只显示具体负债小类）
+              SliverToBoxAdapter(
+                child: AssetTypeFilterBar(
+                  availableTypes: AssetTypeExtension.liabilityTypes.where((t) => t != AssetType.debt).toList(),
+                  selectedType: provider.liabilityTypeFilter,
+                  onTypeSelected: (type) => provider.setLiabilityTypeFilter(type),
+                  allLabel: '全部负债',
                 ),
               ),
 
@@ -53,34 +62,9 @@ class LiabilitiesTabScreen extends StatelessWidget {
               // 负债列表
               liabilities.isEmpty
                   ? SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.credit_card_off,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              '还没有负债记录',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '点击右下角按钮添加',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: provider.liabilityTypeFilter != null
+                          ? _EmptyFilterState(onClear: () => provider.clearLiabilityTypeFilter())
+                          : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
                       child: TwoLevelGroupedAssetList(assets: liabilities),
@@ -119,7 +103,6 @@ class _LiabilitiesSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Card(
       elevation: 2,
@@ -166,5 +149,52 @@ class _LiabilitiesSummaryCard extends StatelessWidget {
     } else {
       return amount.toStringAsFixed(2);
     }
+  }
+}
+
+/// 筛选后无结果状态的空状态
+class _EmptyFilterState extends StatelessWidget {
+  final VoidCallback onClear;
+  const _EmptyFilterState({required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.filter_list_off, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text('该类型下暂无负债', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          const SizedBox(height: 24),
+          FilledButton.tonalIcon(
+            onPressed: onClear,
+            icon: const Icon(Icons.clear_all),
+            label: const Text('清除筛选'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 默认空状态
+class _EmptyListState extends StatelessWidget {
+  const _EmptyListState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.credit_card_off, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text('还没有负债记录', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          const SizedBox(height: 8),
+          Text('点击右下角按钮添加', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+        ],
+      ),
+    );
   }
 }

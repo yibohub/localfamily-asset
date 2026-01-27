@@ -3,11 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
-import '../../widgets/asset_summary_card.dart';
-import '../../widgets/asset_list_item.dart';
 import '../../widgets/two_level_grouped_asset_list.dart';
+import '../../widgets/asset_type_filter_bar.dart';
 import '../asset_form_screen.dart';
-import '../asset_detail_screen.dart';
 
 /// 资产标签页 - 显示所有资产（不含负债）
 class AssetsTabScreen extends StatelessWidget {
@@ -17,7 +15,7 @@ class AssetsTabScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AssetProvider>(
       builder: (context, provider, child) {
-        final assets = provider.assetsOnly;
+        final assets = provider.filteredAssetsOnly;
 
         if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
@@ -31,6 +29,16 @@ class AssetsTabScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: _AssetsSummaryCard(total: provider.summary.totalAssets),
+                ),
+              ),
+
+              // 类型筛选栏
+              SliverToBoxAdapter(
+                child: AssetTypeFilterBar(
+                  availableTypes: AssetTypeExtension.assetTypes,
+                  selectedType: provider.assetTypeFilter,
+                  onTypeSelected: (type) => provider.setAssetTypeFilter(type),
+                  allLabel: '全部资产',
                 ),
               ),
 
@@ -54,34 +62,9 @@ class AssetsTabScreen extends StatelessWidget {
               // 资产列表
               assets.isEmpty
                   ? SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.account_balance_wallet_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              '还没有资产记录',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '点击右下角按钮添加',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: provider.assetTypeFilter != null
+                          ? _EmptyFilterState(onClear: () => provider.clearAssetTypeFilter())
+                          : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
                       child: TwoLevelGroupedAssetList(assets: assets),
@@ -166,5 +149,52 @@ class _AssetsSummaryCard extends StatelessWidget {
     } else {
       return amount.toStringAsFixed(2);
     }
+  }
+}
+
+/// 筛选后无结果状态的空状态
+class _EmptyFilterState extends StatelessWidget {
+  final VoidCallback onClear;
+  const _EmptyFilterState({required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.filter_list_off, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text('该类型下暂无资产', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          const SizedBox(height: 24),
+          FilledButton.tonalIcon(
+            onPressed: onClear,
+            icon: const Icon(Icons.clear_all),
+            label: const Text('清除筛选'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 默认空状态
+class _EmptyListState extends StatelessWidget {
+  const _EmptyListState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text('还没有资产记录', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          const SizedBox(height: 8),
+          Text('点击右下角按钮添加', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+        ],
+      ),
+    );
   }
 }

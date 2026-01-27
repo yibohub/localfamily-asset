@@ -14,6 +14,10 @@ class AssetProvider with ChangeNotifier {
   String? _error;
   final FfiBridge _ffi = FfiBridge();
 
+  // 类型筛选状态
+  AssetType? _assetTypeFilter;
+  AssetType? _liabilityTypeFilter;
+
   List<Asset> get assets => List.unmodifiable(_assets);
   List<AssetChange> get assetChanges => List.unmodifiable(_assetChanges);
   List<Asset> get searchResults => List.unmodifiable(_searchResults);
@@ -26,6 +30,30 @@ class AssetProvider with ChangeNotifier {
 
   /// 获取仅负债
   List<Asset> get liabilitiesOnly => _assets.where((a) => a.type.isLiability).toList();
+
+  /// 获取筛选后的资产列表
+  List<Asset> get filteredAssetsOnly {
+    var assets = assetsOnly;
+    if (_assetTypeFilter != null) {
+      assets = assets.where((a) => a.type == _assetTypeFilter).toList();
+    }
+    return assets;
+  }
+
+  /// 获取筛选后的负债列表
+  List<Asset> get filteredLiabilitiesOnly {
+    var liabilities = liabilitiesOnly;
+    if (_liabilityTypeFilter != null) {
+      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilter).toList();
+    }
+    return liabilities;
+  }
+
+  /// 获取当前资产类型筛选器
+  AssetType? get assetTypeFilter => _assetTypeFilter;
+
+  /// 获取当前负债类型筛选器
+  AssetType? get liabilityTypeFilter => _liabilityTypeFilter;
 
   /// 获取投资组合摘要
   PortfolioSummary get summary {
@@ -278,6 +306,30 @@ class AssetProvider with ChangeNotifier {
   void clearSearch() {
     _searchResults.clear();
     _isSearching = false;
+    notifyListeners();
+  }
+
+  /// 设置资产类型筛选器
+  void setAssetTypeFilter(AssetType? type) {
+    _assetTypeFilter = type;
+    notifyListeners();
+  }
+
+  /// 设置负债类型筛选器
+  void setLiabilityTypeFilter(AssetType? type) {
+    _liabilityTypeFilter = type;
+    notifyListeners();
+  }
+
+  /// 清除资产类型筛选器
+  void clearAssetTypeFilter() {
+    _assetTypeFilter = null;
+    notifyListeners();
+  }
+
+  /// 清除负债类型筛选器
+  void clearLiabilityTypeFilter() {
+    _liabilityTypeFilter = null;
     notifyListeners();
   }
 }
