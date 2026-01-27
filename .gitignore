@@ -11,6 +11,9 @@
 rust_core/target/
 rust_core/Cargo.lock
 
+# Rust 临时测试文件
+rust_core/check_db.rs
+
 # Rust 调试符号
 rust_core/**/*.pdb
 
