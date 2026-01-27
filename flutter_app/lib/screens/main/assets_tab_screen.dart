@@ -76,8 +76,9 @@ class AssetsTabScreen extends StatelessWidget {
               final result = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AssetFormScreen(
+                  builder: (_) => AssetFormScreen(
                     assetTypesFilter: false, // 仅显示资产类型
+                    defaultType: provider.assetTypeFilter, // 传递当前筛选的类型
                   ),
                 ),
               );

@@ -77,8 +77,9 @@ class LiabilitiesTabScreen extends StatelessWidget {
               final result = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AssetFormScreen(
+                  builder: (_) => AssetFormScreen(
                     assetTypesFilter: true, // 仅显示负债类型
+                    defaultType: provider.liabilityTypeFilter, // 传递当前筛选的类型
                   ),
                 ),
               );
