@@ -3,9 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
-import '../../widgets/asset_list_item.dart';
-import '../asset_form_screen.dart';
-import '../asset_detail_screen.dart';
 
 /// 总览标签页 - 显示资产和负债总览
 class OverviewTabScreen extends StatelessWidget {
@@ -60,20 +57,6 @@ class OverviewTabScreen extends StatelessWidget {
                   ),
                 ),
             ],
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () async {
-              final result = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AssetFormScreen(),
-                ),
-              );
-              if (result == true && context.mounted) {
-                context.read<AssetProvider>().loadAssets();
-              }
-            },
-            child: const Icon(Icons.add),
           ),
         );
       },
