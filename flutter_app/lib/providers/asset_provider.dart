@@ -1,17 +1,24 @@
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
+import '../models/asset_change.dart';
 import '../models/portfolio_summary.dart';
 import '../core/ffi_bridge.dart';
 
 /// 资产数据状态管理
 class AssetProvider with ChangeNotifier {
   final List<Asset> _assets = [];
+  final List<AssetChange> _assetChanges = [];
+  final List<Asset> _searchResults = [];
   bool _isLoading = false;
+  bool _isSearching = false;
   String? _error;
   final FfiBridge _ffi = FfiBridge();
 
   List<Asset> get assets => List.unmodifiable(_assets);
+  List<AssetChange> get assetChanges => List.unmodifiable(_assetChanges);
+  List<Asset> get searchResults => List.unmodifiable(_searchResults);
   bool get isLoading => _isLoading;
+  bool get isSearching => _isSearching;
   String? get error => _error;
 
   /// 获取仅资产（排除负债）
@@ -99,6 +106,7 @@ class AssetProvider with ChangeNotifier {
         currency: asset.currency,
         symbol: asset.account,
         notes: asset.note,
+        occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
       );
 
       if (success) {
@@ -126,6 +134,7 @@ class AssetProvider with ChangeNotifier {
         currency: asset.currency,
         symbol: asset.account,
         notes: asset.note,
+        occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
       );
 
       if (success) {
@@ -164,6 +173,111 @@ class AssetProvider with ChangeNotifier {
   /// 清除错误
   void clearError() {
     _error = null;
+    notifyListeners();
+  }
+
+  /// 加载所有审计日志
+  Future<void> loadAssetChanges() async {
+    try {
+      final changesJson = await _ffi.getAssetChanges();
+
+      _assetChanges.clear();
+      for (final json in changesJson) {
+        try {
+          _assetChanges.add(AssetChange.fromJson(json));
+        } catch (e) {
+          debugPrint('解析审计日志失败: $e, JSON: $json');
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = '加载审计日志失败: $e';
+      notifyListeners();
+      debugPrint(_error);
+    }
+  }
+
+  /// 加载指定资产的审计日志
+  Future<void> loadAssetChangesByAssetId(String assetId) async {
+    try {
+      final changesJson = await _ffi.getAssetChangesByAssetId(assetId);
+
+      _assetChanges.clear();
+      for (final json in changesJson) {
+        try {
+          _assetChanges.add(AssetChange.fromJson(json));
+        } catch (e) {
+          debugPrint('解析审计日志失败: $e, JSON: $json');
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = '加载审计日志失败: $e';
+      notifyListeners();
+      debugPrint(_error);
+    }
+  }
+
+  /// 按名称搜索资产
+  Future<void> searchAssetsByName(String namePattern, {List<AssetType>? types}) async {
+    if (namePattern.trim().isEmpty) {
+      _searchResults.clear();
+      _isSearching = false;
+      notifyListeners();
+      return;
+    }
+
+    _isSearching = true;
+    notifyListeners();
+
+    try {
+      final typeFilter = types?.map((t) => t.value).toList();
+      final assetsJson = await _ffi.searchAssetsByName(
+        namePattern: namePattern,
+        typeFilter: typeFilter,
+      );
+
+      _searchResults.clear();
+      for (final json in assetsJson) {
+        try {
+          _searchResults.add(Asset.fromJson(json));
+        } catch (e) {
+          debugPrint('解析搜索结果失败: $e');
+        }
+      }
+
+      _isSearching = false;
+      notifyListeners();
+    } catch (e) {
+      _error = '搜索失败: $e';
+      _isSearching = false;
+      _searchResults.clear();
+      notifyListeners();
+    }
+  }
+
+  /// 按名称分组资产
+  ///
+  /// [types] 可选的类型过滤器
+  /// 返回 Map<资产名称, List<资产>>
+  Map<String, List<Asset>> groupAssetsByName({List<AssetType>? types}) {
+    final filtered = types != null
+        ? _assets.where((a) => types.contains(a.type))
+        : _assets;
+
+    final grouped = <String, List<Asset>>{};
+    for (final asset in filtered) {
+      grouped.putIfAbsent(asset.name, () => []).add(asset);
+    }
+    return grouped;
+  }
+
+  /// 清除搜索结果
+  void clearSearch() {
+    _searchResults.clear();
+    _isSearching = false;
     notifyListeners();
   }
 }

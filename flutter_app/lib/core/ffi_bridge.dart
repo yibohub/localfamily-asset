@@ -36,6 +36,7 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
   ) _addAsset;
   late final ffi.Pointer<ffi.Char> Function() _getAllAssets;
   late final int Function(
@@ -46,10 +47,14 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
   ) _updateAsset;
   late final int Function(ffi.Pointer<ffi.Char>) _deleteAsset;
+  late final ffi.Pointer<ffi.Char> Function() _getAssetChanges;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>) _getAssetChangesByAssetId;
   late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _exportData;
   late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _importData;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _searchAssetsByName;
 
   FfiBridge._internal() {
     _loadLibrary();
@@ -121,6 +126,7 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
         )>>('add_asset')
         .asFunction();
 
@@ -137,11 +143,20 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
         )>>('update_asset')
         .asFunction();
 
     _deleteAsset = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('delete_asset')
+        .asFunction();
+
+    _getAssetChanges = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_asset_changes')
+        .asFunction();
+
+    _getAssetChangesByAssetId = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>)>>('get_asset_changes_by_asset_id')
         .asFunction();
 
     _exportData = _dylib
@@ -156,6 +171,13 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
         )>>('import_data')
+        .asFunction();
+
+    _searchAssetsByName = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('search_assets_by_name')
         .asFunction();
   }
 
@@ -217,11 +239,13 @@ class FfiBridge {
     required String currency,
     String? symbol,
     String? notes,
+    required String occurrenceDate,
   }) async {
     final namePtr = name.toNativeUtf8().cast<ffi.Char>();
     final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
     final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final occurrenceDatePtr = occurrenceDate.toNativeUtf8().cast<ffi.Char>();
 
     try {
       final result = _addAsset(
@@ -231,6 +255,7 @@ class FfiBridge {
         currencyPtr,
         symbolPtr,
         notesPtr,
+        occurrenceDatePtr,
       );
       return result == FfiErrorCode.success;
     } finally {
@@ -238,6 +263,7 @@ class FfiBridge {
       malloc.free(currencyPtr);
       if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
       if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
+      malloc.free(occurrenceDatePtr);
     }
   }
 
@@ -280,12 +306,14 @@ class FfiBridge {
     required String currency,
     String? symbol,
     String? notes,
+    String? occurrenceDate,
   }) async {
     final idPtr = id.toNativeUtf8().cast<ffi.Char>();
     final namePtr = name.toNativeUtf8().cast<ffi.Char>();
     final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
     final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final occurrenceDatePtr = occurrenceDate != null ? occurrenceDate.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
 
     try {
       final result = _updateAsset(
@@ -296,6 +324,7 @@ class FfiBridge {
         currencyPtr,
         symbolPtr,
         notesPtr,
+        occurrenceDatePtr,
       );
       return result == FfiErrorCode.success;
     } finally {
@@ -304,6 +333,7 @@ class FfiBridge {
       malloc.free(currencyPtr);
       if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
       if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
+      if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
     }
   }
 
@@ -381,6 +411,75 @@ class FfiBridge {
     } finally {
       malloc.free(passwordPtr);
       malloc.free(pathPtr);
+    }
+  }
+
+  /// 获取所有资产变更记录（审计日志）
+  Future<List<Map<String, dynamic>>> getAssetChanges() async {
+    final resultPtr = _getAssetChanges();
+    if (resultPtr == ffi.nullptr) {
+      return [];
+    }
+
+    try {
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList.cast<Map<String, dynamic>>();
+    } finally {
+      _freeString(resultPtr);
+    }
+  }
+
+  /// 获取指定资产的变更记录
+  Future<List<Map<String, dynamic>>> getAssetChangesByAssetId(String assetId) async {
+    final assetIdPtr = assetId.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final resultPtr = _getAssetChangesByAssetId(assetIdPtr);
+      if (resultPtr == ffi.nullptr) {
+        return [];
+      }
+
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList.cast<Map<String, dynamic>>();
+    } finally {
+      malloc.free(assetIdPtr);
+    }
+  }
+
+  /// 按名称搜索资产
+  ///
+  /// [namePattern] 搜索关键词（支持模糊匹配）
+  /// [typeFilter] 资产类型过滤器，为 null 时搜索所有类型
+  Future<List<Map<String, dynamic>>> searchAssetsByName({
+    required String namePattern,
+    List<int>? typeFilter,
+  }) async {
+    final namePtr = namePattern.toNativeUtf8().cast<ffi.Char>();
+    final typeJson = jsonEncode(typeFilter ?? []);
+    final typePtr = typeJson.toNativeUtf8().cast<ffi.Char>();
+
+    try {
+      final resultPtr = _searchAssetsByName(namePtr, typePtr);
+      if (resultPtr == ffi.nullptr) {
+        return [];
+      }
+
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList.cast<Map<String, dynamic>>();
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(typePtr);
     }
   }
 }

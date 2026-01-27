@@ -6,9 +6,9 @@ pub mod models;
 pub mod schema;
 pub mod crud;
 
-pub use models::{Asset, AssetHistory, Attachment, AssetType};
+pub use models::{Asset, AssetHistory, Attachment, AssetType, AssetChange, ChangeType};
 pub use schema::{create_schema, init_db};
-pub use crud::{AssetRepository, HistoryRepository, AttachmentRepository};
+pub use crud::{AssetRepository, HistoryRepository, AttachmentRepository, AssetChangeRepository};
 
 use rusqlite::Connection;
 

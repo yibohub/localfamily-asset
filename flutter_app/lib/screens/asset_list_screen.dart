@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/asset_provider.dart';
 import '../models/asset.dart';
+import '../widgets/grouped_asset_list_item.dart';
 import 'asset_form_screen.dart';
 
 /// 资产列表页面（按类型筛选）
@@ -21,17 +21,20 @@ class AssetListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(assetType?.displayName ?? '所有资产'),
+        actions: [
+          // 切换显示模式的按钮
+          IconButton(
+            icon: const Icon(Icons.view_list),
+            onPressed: () {
+              // TODO: 实现显示模式切换
+            },
+            tooltip: '切换显示模式',
+          ),
+        ],
       ),
       body: assets.isEmpty
           ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: assets.length,
-              itemBuilder: (context, index) {
-                final asset = assets[index];
-                return _AssetCard(asset: asset);
-              },
-            ),
+          : _buildGroupedList(assets),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -44,6 +47,55 @@ class AssetListScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF2563EB),
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  /// 构建分组列表
+  Widget _buildGroupedList(List<Asset> assets) {
+    // 按名称分组
+    final grouped = <String, List<Asset>>{};
+    for (final asset in assets) {
+      grouped.putIfAbsent(asset.name, () => []).add(asset);
+    }
+
+    // 转换为列表并按总金额排序
+    final sortedGroups = grouped.entries.toList()
+      ..sort((a, b) {
+        final totalA = a.value.fold(0.0, (sum, asset) => sum + asset.amount);
+        final totalB = b.value.fold(0.0, (sum, asset) => sum + asset.amount);
+        return totalB.compareTo(totalA);
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: sortedGroups.length,
+      itemBuilder: (context, index) {
+        final entry = sortedGroups[index];
+        return GroupedAssetListItem(
+          groupName: entry.key,
+          assets: entry.value,
+          onTap: () {
+            // 点击任意资产进入详情
+            if (entry.value.length == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AssetFormScreen(asset: entry.value.first),
+                ),
+              );
+            }
+          },
+          onAssetTap: (asset) {
+            // 对于分组中的每个资产，点击进入编辑页
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AssetFormScreen(asset: asset),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -76,115 +128,5 @@ class AssetListScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// 资产卡片
-class _AssetCard extends StatelessWidget {
-  final Asset asset;
-
-  const _AssetCard({required this.asset});
-
-  @override
-  Widget build(BuildContext context) {
-    final formatter = NumberFormat.currency(locale: 'zh_CN', symbol: '¥');
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AssetFormScreen(asset: asset),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: const Color(0xFF2563EB).withOpacity(0.1),
-                    child: Icon(
-                      _getIconData(asset.type.iconName),
-                      color: const Color(0xFF2563EB),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          asset.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          asset.type.displayName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    formatter.format(asset.amount),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563EB),
-                    ),
-                  ),
-                ],
-              ),
-              if (asset.note != null) ...[
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-                Text(
-                  asset.note!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData _getIconData(String name) {
-    switch (name) {
-      case 'home':
-        return Icons.home;
-      case 'account_balance':
-        return Icons.account_balance;
-      case 'trending_up':
-        return Icons.trending_up;
-      case 'pie_chart':
-        return Icons.pie_chart;
-      case 'security':
-        return Icons.security;
-      case 'credit_card':
-        return Icons.credit_card;
-      default:
-        return Icons.help_outline;
-    }
   }
 }

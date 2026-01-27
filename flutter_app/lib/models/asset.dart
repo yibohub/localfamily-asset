@@ -188,7 +188,7 @@ class Asset {
   final double amount;
   final String currency;
   final String? account;
-  final DateTime? buyDate;
+  final DateTime occurrenceDate;  // 发生日期，必填
   final double? buyPrice;
   final double? currentPrice;
   final String? note;
@@ -203,7 +203,7 @@ class Asset {
     required this.amount,
     this.currency = 'CNY',
     this.account,
-    this.buyDate,
+    required this.occurrenceDate,
     this.buyPrice,
     this.currentPrice,
     this.note,
@@ -236,7 +236,7 @@ class Asset {
     double? amount,
     String? currency,
     String? account,
-    DateTime? buyDate,
+    DateTime? occurrenceDate,
     double? buyPrice,
     double? currentPrice,
     String? note,
@@ -251,7 +251,7 @@ class Asset {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       account: account ?? this.account,
-      buyDate: buyDate ?? this.buyDate,
+      occurrenceDate: occurrenceDate ?? this.occurrenceDate,
       buyPrice: buyPrice ?? this.buyPrice,
       currentPrice: currentPrice ?? this.currentPrice,
       note: note ?? this.note,
@@ -270,7 +270,7 @@ class Asset {
       'amount': amount,
       'currency': currency,
       'account': account,
-      'buy_date': buyDate?.toIso8601String(),
+      'occurrenceDate': occurrenceDate.toIso8601String(),
       'buy_price': buyPrice,
       'current_price': currentPrice,
       'note': note,
@@ -289,9 +289,9 @@ class Asset {
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'CNY',
       account: json['account'] as String?,
-      buyDate: json['buy_date'] != null
-          ? DateTime.parse(json['buy_date'] as String)
-          : null,
+      occurrenceDate: json['occurrenceDate'] != null
+          ? DateTime.parse(json['occurrenceDate'] as String)
+          : DateTime.now(),
       buyPrice: json['buy_price'] != null
           ? (json['buy_price'] as num).toDouble()
           : null,

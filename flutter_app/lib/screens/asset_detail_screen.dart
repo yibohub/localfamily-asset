@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
 import 'asset_form_screen.dart';
+import 'asset_history_screen.dart';
 
 /// 资产详情页
 class AssetDetailScreen extends StatefulWidget {
@@ -44,6 +45,18 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
         title: Text(_asset!.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '查看历史',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AssetHistoryScreen(assetId: _asset!.id),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.push(
@@ -69,7 +82,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '资产价值',
+                        _asset!.type.isLiability ? '负债金额' : '资产价值',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       _buildTypeIcon(_asset!.type),
@@ -79,7 +92,9 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                   Text(
                     _formatAmount(_asset!.amount),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: _asset!.type.isLiability
+                              ? Colors.red
+                              : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -88,8 +103,9 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoTile('资产类型', _getTypeName(_asset!.type)),
-          _buildInfoTile('货币', _asset!.currency ?? 'N/A'),
+          _buildInfoTile(_asset!.type.isLiability ? '负债类型' : '资产类型', _getTypeName(_asset!.type)),
+          _buildInfoTile('货币', _asset!.currency),
+          _buildInfoTile('发生日期', _formatDate(_asset!.occurrenceDate)),
           _buildInfoTile('账号', _asset!.account ?? 'N/A'),
           _buildInfoTile(
             '创建时间',

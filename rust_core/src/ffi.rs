@@ -9,7 +9,7 @@ use std::ptr;
 use once_cell::sync::Lazy;
 
 use crate::crypto::{derive_key, generate_salt};
-use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult};
+use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository};
 use rusqlite::Connection;
 
 /// 全局应用状态
@@ -214,6 +214,7 @@ pub unsafe extern "C" fn add_asset(
     currency: *const c_char,
     symbol: *const c_char,
     notes: *const c_char,
+    occurrence_date: *const c_char,
 ) -> c_int {
     let name = match CStr::from_ptr(name).to_str() {
         Ok(s) => s.to_string(),
@@ -243,6 +244,16 @@ pub unsafe extern "C" fn add_asset(
         }
     };
 
+    let occurrence_date = if occurrence_date.is_null() {
+        // 默认为今天
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
     let asset_type = asset_type_from_int(asset_type);
 
     let state = APP_STATE.lock().unwrap();
@@ -259,14 +270,23 @@ pub unsafe extern "C" fn add_asset(
     let asset = Asset::new(asset_type, name, amount);
     let asset = Asset {
         currency,
+        account: _symbol,
         note,
+        occurrence_date,
         ..asset
     };
 
-    match AssetRepository::create(&conn, &asset) {
-        Ok(_) => FfiErrorCode::Success as c_int,
-        Err(_) => FfiErrorCode::DatabaseError as c_int,
-    }
+    let asset_id = match AssetRepository::create(&conn, &asset) {
+        Ok(id) => id,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 记录审计日志
+    let change = AssetChange::new(asset_id.clone(), ChangeType::Created)
+        .with_created_snapshot(&asset);
+    let _ = AssetChangeRepository::create(&conn, &change);
+
+    FfiErrorCode::Success as c_int
 }
 
 /// 获取所有资产（JSON 格式）
@@ -304,6 +324,7 @@ pub unsafe extern "C" fn update_asset(
     currency: *const c_char,
     symbol: *const c_char,
     notes: *const c_char,
+    occurrence_date: *const c_char,
 ) -> c_int {
     let id = match CStr::from_ptr(id).to_str() {
         Ok(s) => s.to_string(),
@@ -338,6 +359,16 @@ pub unsafe extern "C" fn update_asset(
         }
     };
 
+    let occurrence_date = if occurrence_date.is_null() {
+        // 如果为 null，保持原值
+        None
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
     let asset_type = asset_type_from_int(asset_type);
 
     let state = APP_STATE.lock().unwrap();
@@ -358,6 +389,19 @@ pub unsafe extern "C" fn update_asset(
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
+    // 计算修改的字段
+    let mut changed_fields = Vec::new();
+    if existing.name != name { changed_fields.push("name"); }
+    if existing.amount != amount { changed_fields.push("amount"); }
+    if existing.currency != currency { changed_fields.push("currency"); }
+    if existing.asset_type != asset_type { changed_fields.push("type"); }
+    if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
+        changed_fields.push("occurrence_date");
+    }
+
+    // 克隆 id 用于后续使用
+    let id_clone = id.clone();
+
     // 更新字段
     let asset = Asset {
         id,
@@ -365,12 +409,33 @@ pub unsafe extern "C" fn update_asset(
         amount,
         currency,
         asset_type,
+        account: _symbol,
         note,
-        ..existing
+        occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
+        buy_price: existing.buy_price,
+        current_price: existing.current_price,
+        tags: existing.tags.clone(),
+        created_at: existing.created_at,
+        updated_at: existing.updated_at,
     };
 
     match AssetRepository::update(&conn, &asset) {
-        Ok(_) => FfiErrorCode::Success as c_int,
+        Ok(_) => {
+            // 记录审计日志
+            let changed_field = if changed_fields.is_empty() {
+                None
+            } else if changed_fields.len() == 1 {
+                Some(changed_fields[0].to_string())
+            } else {
+                Some(changed_fields.join(", "))
+            };
+
+            let change = AssetChange::new(id_clone, ChangeType::Updated)
+                .with_updated_snapshots(&existing, &asset, changed_field);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        },
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
 }
@@ -379,7 +444,7 @@ pub unsafe extern "C" fn update_asset(
 #[no_mangle]
 pub unsafe extern "C" fn delete_asset(id: *const c_char) -> c_int {
     let id = match CStr::from_ptr(id).to_str() {
-        Ok(s) => s,
+        Ok(s) => s.to_string(),
         Err(_) => return FfiErrorCode::GenericError as c_int,
     };
 
@@ -394,8 +459,22 @@ pub unsafe extern "C" fn delete_asset(id: *const c_char) -> c_int {
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
-    match AssetRepository::delete(&conn, id) {
-        Ok(_) => FfiErrorCode::Success as c_int,
+    // 先获取现有资产用于审计日志
+    let existing = match AssetRepository::get(&conn, &id) {
+        Ok(a) => a,
+        Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    match AssetRepository::delete(&conn, &id) {
+        Ok(_) => {
+            // 记录审计日志
+            let change = AssetChange::new(id, ChangeType::Deleted)
+                .with_deleted_snapshot(&existing);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        },
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
@@ -504,5 +583,112 @@ pub unsafe extern "C" fn import_data(
         Err(e) => string_to_c_char(
             serde_json::json!({"error": format!("导入失败: {}", e)}).to_string()
         ),
+    }
+}
+
+/// 获取所有资产变更记录（审计日志）
+#[no_mangle]
+pub unsafe extern "C" fn get_asset_changes() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let changes = match AssetChangeRepository::list_all(&conn, Some(1000)) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&changes) {
+        Ok(json) => string_to_c_char(json),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 获取指定资产的变更记录
+#[no_mangle]
+pub unsafe extern "C" fn get_asset_changes_by_asset_id(asset_id: *const c_char) -> *mut c_char {
+    let asset_id = match CStr::from_ptr(asset_id).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let changes = match AssetChangeRepository::list_by_asset(&conn, &asset_id) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&changes) {
+        Ok(json) => string_to_c_char(json),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 按名称搜索资产
+#[no_mangle]
+pub unsafe extern "C" fn search_assets_by_name(
+    name_pattern: *const c_char,
+    type_filter_json: *const c_char,
+) -> *mut c_char {
+    let name_pattern = match CStr::from_ptr(name_pattern).to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let type_filter_json = if type_filter_json.is_null() {
+        "[]"
+    } else {
+        match CStr::from_ptr(type_filter_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    // 解析类型过滤器 JSON数组
+    let type_values: Vec<i32> = match serde_json::from_str(type_filter_json) {
+        Ok(v) => v,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    // 转换为AssetType枚举
+    let types: Vec<AssetType> = type_values
+        .into_iter()
+        .map(|v| asset_type_from_int(v))
+        .collect();
+
+    match AssetRepository::search_by_name(&conn, name_pattern, &types) {
+        Ok(assets) => match serde_json::to_string(&assets) {
+            Ok(json) => string_to_c_char(json),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(_) => ptr::null_mut(),
     }
 }

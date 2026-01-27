@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
+import '../widgets/smart_asset_name_input.dart';
 
 /// 添加/编辑资产表单页面
 class AssetFormScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   late AssetType _selectedType;
   String _selectedCurrency = 'CNY';
+  late DateTime _occurrenceDate;
   bool _isLoading = false;
 
   @override
@@ -59,6 +61,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
     _selectedType = defaultType;
     _selectedCurrency = widget.asset?.currency ?? 'CNY';
+    _occurrenceDate = widget.asset?.occurrenceDate ?? DateTime.now();
   }
 
   @override
@@ -82,6 +85,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
       amount: double.parse(_amountController.text),
       currency: _selectedCurrency,
       account: _accountController.text.isEmpty ? null : _accountController.text,
+      occurrenceDate: _occurrenceDate,
       note: _noteController.text.isEmpty ? null : _noteController.text,
       createdAt: widget.asset?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -107,6 +111,19 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('操作失败，请重试')),
       );
+    }
+  }
+
+  Future<void> _pickOccurrenceDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _occurrenceDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 50)),
+      locale: const Locale('zh', 'CN'),
+    );
+    if (picked != null) {
+      setState(() => _occurrenceDate = picked);
     }
   }
 
@@ -204,20 +221,24 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 资产名称
+            // 智能资产名称输入（包含账户自动填充）
+            SmartAssetNameInput(
+              nameController: _nameController,
+              accountController: _accountController,
+              typeFilter: _getFilteredTypes(),
+              labelText: _getNameLabel(),
+              hintText: _getNameHint(),
+            ),
+            const SizedBox(height: 16),
+
+            // 账户/编号（可选）- 移到名称下方
             TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: _getNameLabel(),
-                prefixIcon: const Icon(Icons.label),
-                hintText: _getNameHint(),
+              controller: _accountController,
+              decoration: const InputDecoration(
+                labelText: '账户/编号（可选）',
+                prefixIcon: Icon(Icons.credit_card),
+                hintText: '例如：尾号1234',
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '请输入${_getNameLabel()}';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 16),
 
@@ -263,13 +284,17 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 账户/编号（可选）
-            TextFormField(
-              controller: _accountController,
-              decoration: const InputDecoration(
-                labelText: '账户/编号（可选）',
-                prefixIcon: Icon(Icons.credit_card),
-                hintText: '例如：尾号1234',
+            // 发生日期选择器
+            InkWell(
+              onTap: _pickOccurrenceDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '发生日期',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  '${_occurrenceDate.year}年${_occurrenceDate.month}月${_occurrenceDate.day}日',
+                ),
               ),
             ),
             const SizedBox(height: 16),

@@ -62,6 +62,7 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
       amount: double.parse(_amountController.text),
       currency: _currencyController.text.isEmpty ? 'CNY' : _currencyController.text,
       account: _accountController.text.isEmpty ? null : _accountController.text,
+      occurrenceDate: DateTime.now(),
       createdAt: widget.asset?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
       note: _noteController.text.isEmpty ? null : _noteController.text,

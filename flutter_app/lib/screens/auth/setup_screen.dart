@@ -56,6 +56,7 @@ class _SetupScreenState extends State<SetupScreen> {
           amount: (assetJson['amount'] as num).toDouble(),
           currency: assetJson['currency'] as String? ?? 'CNY',
           account: assetJson['account'] as String?,
+          occurrenceDate: DateTime.now(),
           note: assetJson['note'] as String?,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
