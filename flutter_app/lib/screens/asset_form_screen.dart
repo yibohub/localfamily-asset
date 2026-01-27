@@ -344,6 +344,14 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   /// 根据筛选条件获取可用的类型列表
   List<AssetType> _getFilteredTypes() {
+    // 编辑现有资产时，根据当前资产类型判断
+    if (widget.asset != null) {
+      return widget.asset!.type.isLiability
+          ? AssetTypeExtension.liabilityTypes
+          : AssetTypeExtension.assetTypes;
+    }
+
+    // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
       // 仅显示负债类型
       return AssetTypeExtension.liabilityTypes;
@@ -403,6 +411,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   /// 获取类型标题
   String _getTypeTitle() {
+    // 编辑现有资产时，根据当前资产类型判断
+    if (widget.asset != null) {
+      return widget.asset!.type.isLiability ? '负债类型' : '资产类型';
+    }
+    // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
       return '负债类型';
     } else {
@@ -412,6 +425,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   /// 获取名称标签
   String _getNameLabel() {
+    // 编辑现有资产时，根据当前资产类型判断
+    if (widget.asset != null) {
+      return widget.asset!.type.isLiability ? '负债名称' : '资产名称';
+    }
+    // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
       return '负债名称';
     } else {
@@ -421,6 +439,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   /// 获取名称提示
   String _getNameHint() {
+    // 编辑现有资产时，不显示提示
+    if (widget.asset != null) {
+      return '';
+    }
+    // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
       return '例如：招商银行房贷';
     } else {

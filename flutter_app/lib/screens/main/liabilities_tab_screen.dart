@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
 import '../../widgets/asset_list_item.dart';
-import '../../widgets/grouped_asset_list_item.dart';
+import '../../widgets/two_level_grouped_asset_list.dart';
 import '../asset_form_screen.dart';
 import '../asset_detail_screen.dart';
 
@@ -82,7 +82,9 @@ class LiabilitiesTabScreen extends StatelessWidget {
                         ),
                       ),
                     )
-                  : _buildGroupedLiabilityList(liabilities),
+                  : SliverFillRemaining(
+                      child: TwoLevelGroupedAssetList(assets: liabilities),
+                    ),
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -165,54 +167,4 @@ class _LiabilitiesSummaryCard extends StatelessWidget {
       return amount.toStringAsFixed(2);
     }
   }
-}
-
-/// 构建分组负债列表
-Widget _buildGroupedLiabilityList(List<Asset> liabilities) {
-  // 按名称分组
-  final grouped = <String, List<Asset>>{};
-  for (final asset in liabilities) {
-    grouped.putIfAbsent(asset.name, () => []).add(asset);
-  }
-
-  // 转换为列表并按总金额排序
-  final sortedGroups = grouped.entries.toList()
-    ..sort((a, b) {
-      final totalA = a.value.fold(0.0, (sum, asset) => sum + asset.amount);
-      final totalB = b.value.fold(0.0, (sum, asset) => sum + asset.amount);
-      return totalB.compareTo(totalA);
-    });
-
-  return SliverList(
-    delegate: SliverChildBuilderDelegate(
-      (context, index) {
-        final entry = sortedGroups[index];
-        return GroupedAssetListItem(
-          groupName: entry.key,
-          assets: entry.value,
-          onTap: () {
-            // 对于单个资产，点击进入详情页
-            if (entry.value.length == 1) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AssetDetailScreen(assetId: entry.value.first.id),
-                ),
-              );
-            }
-          },
-          onAssetTap: (asset) {
-            // 对于分组中的每个资产，点击进入详情页
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AssetDetailScreen(assetId: asset.id),
-              ),
-            );
-          },
-        );
-      },
-      childCount: sortedGroups.length,
-    ),
-  );
 }

@@ -233,10 +233,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _deleteAsset(BuildContext context, Asset asset) {
+    final isLiability = asset.type.isLiability;
+    final itemType = isLiability ? '负债' : '资产';
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除资产'),
+        title: Text('删除$itemType'),
         content: Text('确定要删除 "${asset.name}" 吗？'),
         actions: [
           TextButton(
@@ -250,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('资产已删除')),
+                  SnackBar(content: Text('$itemType已删除')),
                 );
               }
             },

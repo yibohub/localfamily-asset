@@ -78,9 +78,11 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
 
     if (success) {
       Navigator.pop(context);
+      final isLiability = _selectedType.isLiability;
+      final itemType = isLiability ? '负债' : '资产';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.asset == null ? '资产已添加' : '资产已更新'),
+          content: Text(widget.asset == null ? '$itemType已添加' : '$itemType已更新'),
         ),
       );
     }
@@ -119,7 +121,9 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
                   child: Row(
                     children: [
                       Text(
-                        widget.asset == null ? '添加资产' : '编辑资产',
+                        widget.asset == null
+                            ? (_selectedType.isLiability ? '添加负债' : '添加资产')
+                            : (_selectedType.isLiability ? '编辑负债' : '编辑资产'),
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const Spacer(),
@@ -137,13 +141,13 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
                     children: [
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: '资产名称',
-                          hintText: '例如：苹果公司股票',
+                        decoration: InputDecoration(
+                          labelText: _selectedType.isLiability ? '负债名称' : '资产名称',
+                          hintText: _selectedType.isLiability ? '例如：招商银行房贷' : '例如：苹果公司股票',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return '请输入资产名称';
+                            return '请输入${_selectedType.isLiability ? "负债" : "资产"}名称';
                           }
                           return null;
                         },
@@ -151,8 +155,8 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
                       const SizedBox(height: 16),
                       DropdownButtonFormField<AssetType>(
                         value: _selectedType,
-                        decoration: const InputDecoration(
-                          labelText: '资产类型',
+                        decoration: InputDecoration(
+                          labelText: _selectedType.isLiability ? '负债类型' : '资产类型',
                         ),
                         items: AssetType.values.map((type) {
                           return DropdownMenuItem(

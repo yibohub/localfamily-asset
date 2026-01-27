@@ -394,6 +394,7 @@ pub unsafe extern "C" fn update_asset(
     if existing.name != name { changed_fields.push("name"); }
     if existing.amount != amount { changed_fields.push("amount"); }
     if existing.currency != currency { changed_fields.push("currency"); }
+    if existing.account != _symbol { changed_fields.push("account"); }
     if existing.asset_type != asset_type { changed_fields.push("type"); }
     if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
         changed_fields.push("occurrence_date");

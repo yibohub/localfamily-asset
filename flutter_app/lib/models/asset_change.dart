@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'asset.dart';
 
 /// 变更类型枚举
 enum ChangeType {
@@ -68,18 +69,51 @@ class AssetChange {
     required this.changedAt,
   });
 
+  /// 判断是否为负债类型
+  bool get _isLiability {
+    // 优先从新数据快照获取类型
+    if (dataSnapshotNew != null) {
+      final typeStr = dataSnapshotNew!['type'] as String?;
+      if (typeStr != null) {
+        try {
+          final type = AssetTypeExtension.fromString(typeStr);
+          return type.isLiability;
+        } catch (_) {
+          // 忽略解析错误
+        }
+      }
+    }
+    // 其次从旧数据快照获取类型
+    if (dataSnapshotOld != null) {
+      final typeStr = dataSnapshotOld!['type'] as String?;
+      if (typeStr != null) {
+        try {
+          final type = AssetTypeExtension.fromString(typeStr);
+          return type.isLiability;
+        } catch (_) {
+          // 忽略解析错误
+        }
+      }
+    }
+    // 默认为资产类型
+    return false;
+  }
+
+  /// 获取类型名称（资产或负债）
+  String get _typeName => _isLiability ? '负债' : '资产';
+
   /// 获取变更描述
   String get changeDescription {
     switch (changeType) {
       case ChangeType.created:
-        return '新增了资产 ${nameNew ?? ""}';
+        return '新增了$_typeName ${nameNew ?? ""}';
       case ChangeType.deleted:
-        return '删除了资产 ${nameOld ?? ""}';
+        return '删除了$_typeName ${nameOld ?? ""}';
       case ChangeType.updated:
         if (changedField != null) {
-          return '修改了 ${_translateField(changedField!)}';
+          return '修改了${_typeName}的${_translateField(changedField!)}';
         }
-        return '修改了资产';
+        return '修改了$_typeName';
     }
   }
 
@@ -90,6 +124,8 @@ class AssetChange {
         return '名称';
       case 'amount':
         return '金额';
+      case 'account':
+        return '账户/编号';
       case 'occurrence_date':
         return '发生日期';
       case 'type':

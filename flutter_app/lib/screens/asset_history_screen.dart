@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/asset_change.dart';
+import '../models/asset.dart';
 import '../providers/asset_provider.dart';
 
 /// 资产审计日志历史页面
@@ -18,6 +19,7 @@ class AssetHistoryScreen extends StatefulWidget {
 
 class _AssetHistoryScreenState extends State<AssetHistoryScreen> {
   bool _isLoading = true;
+  Asset? _asset;
 
   @override
   void initState() {
@@ -32,15 +34,27 @@ class _AssetHistoryScreenState extends State<AssetHistoryScreen> {
       await provider.loadAssetChanges();
     } else {
       await provider.loadAssetChangesByAssetId(widget.assetId!);
+      // 获取资产信息以确定类型
+      _asset = provider.assets.firstWhere((a) => a.id == widget.assetId);
     }
     setState(() => _isLoading = false);
+  }
+
+  String _getTitle() {
+    if (widget.assetId == null) {
+      return '全部操作记录';
+    }
+    if (_asset != null && _asset!.type.isLiability) {
+      return '负债修改历史';
+    }
+    return '资产修改历史';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.assetId == null ? '全部操作记录' : '资产修改历史'),
+        title: Text(_getTitle()),
         actions: [
           if (_isLoading)
             const Center(
