@@ -82,7 +82,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _asset!.type.isLiability ? '负债金额' : '资产价值',
+                        _isLiabilityType(_asset!.type) ? '负债金额' : '资产价值',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       _buildTypeIcon(_asset!.type),
@@ -92,7 +92,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                   Text(
                     _formatAmount(_asset!.amount),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: _asset!.type.isLiability
+                          color: _isLiabilityType(_asset!.type)
                               ? Colors.red
                               : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -103,7 +103,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoTile(_asset!.type.isLiability ? '负债类型' : '资产类型', _getTypeName(_asset!.type)),
+          _buildInfoTile(_isLiabilityType(_asset!.type) ? '负债类型' : '资产类型', _getTypeName(_asset!.type)),
           _buildInfoTile('货币', _asset!.currency),
           _buildInfoTile('发生日期', _formatDate(_asset!.occurrenceDate)),
           _buildInfoTile('账号', _asset!.account ?? 'N/A'),
@@ -139,55 +139,65 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  Widget _buildTypeIcon(AssetType type) {
+  Widget _buildTypeIcon(String typeStr) {
+    // 解析类型字符串
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+
     IconData icon;
     Color color;
 
-    switch (type) {
-      case AssetType.property:
-        icon = Icons.home;
-        color = const Color(0xFF2563EB);
-        break;
-      case AssetType.deposit:
-        icon = Icons.account_balance;
-        color = const Color(0xFF10B981);
-        break;
-      case AssetType.stock:
-        icon = Icons.trending_up;
-        color = const Color(0xFFF59E0B);
-        break;
-      case AssetType.fund:
-        icon = Icons.pie_chart;
-        color = const Color(0xFF7C3AED);
-        break;
-      case AssetType.insurance:
-        icon = Icons.security;
-        color = const Color(0xFF8B5CF6);
-        break;
-      case AssetType.debt:
-        icon = Icons.credit_card;
-        color = const Color(0xFFEF4444);
-        break;
-      case AssetType.mortgage:
-        icon = Icons.home_work;
-        color = const Color(0xFFDC2626);
-        break;
-      case AssetType.carLoan:
-        icon = Icons.directions_car;
-        color = const Color(0xFFEA580C);
-        break;
-      case AssetType.creditCard:
-        icon = Icons.credit_card;
-        color = const Color(0xFFF59E0B);
-        break;
-      case AssetType.personalLoan:
-        icon = Icons.person;
-        color = const Color(0xFFD97706);
-        break;
-      case AssetType.privateLoan:
-        icon = Icons.handshake;
-        color = const Color(0xFFCA8A04);
-        break;
+    if (builtInType != null) {
+      // 内置类型
+      switch (builtInType) {
+        case AssetType.property:
+          icon = Icons.home;
+          color = const Color(0xFF2563EB);
+          break;
+        case AssetType.deposit:
+          icon = Icons.account_balance;
+          color = const Color(0xFF10B981);
+          break;
+        case AssetType.stock:
+          icon = Icons.trending_up;
+          color = const Color(0xFFF59E0B);
+          break;
+        case AssetType.fund:
+          icon = Icons.pie_chart;
+          color = const Color(0xFF7C3AED);
+          break;
+        case AssetType.insurance:
+          icon = Icons.security;
+          color = const Color(0xFF8B5CF6);
+          break;
+        case AssetType.debt:
+          icon = Icons.credit_card;
+          color = const Color(0xFFEF4444);
+          break;
+        case AssetType.mortgage:
+          icon = Icons.home_work;
+          color = const Color(0xFFDC2626);
+          break;
+        case AssetType.carLoan:
+          icon = Icons.directions_car;
+          color = const Color(0xFFEA580C);
+          break;
+        case AssetType.creditCard:
+          icon = Icons.credit_card;
+          color = const Color(0xFFF59E0B);
+          break;
+        case AssetType.personalLoan:
+          icon = Icons.person;
+          color = const Color(0xFFD97706);
+          break;
+        case AssetType.privateLoan:
+          icon = Icons.handshake;
+          color = const Color(0xFFCA8A04);
+          break;
+      }
+    } else {
+      // 自定义类型 - 使用默认图标和颜色
+      icon = Icons.category;
+      color = const Color(0xFF6B7280);
     }
 
     return Container(
@@ -232,8 +242,23 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     return '¥ ${amount.toStringAsFixed(2)}';
   }
 
-  String _getTypeName(AssetType type) {
-    return type.displayName;
+  String _getTypeName(String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.displayName;
+    }
+    // 自定义类型：移除 custom_ 前缀
+    return typeStr.replaceAll('custom_', '');
+  }
+
+  /// 判断字符串类型是否为负债
+  bool _isLiabilityType(String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型暂时当作资产处理
+    return false;
   }
 
   String _formatDate(DateTime date) {

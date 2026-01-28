@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
+import '../providers/custom_type_provider.dart';
 import '../widgets/smart_asset_name_input.dart';
 
 /// 添加/编辑资产表单页面
@@ -30,7 +31,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   late final TextEditingController _accountController;
   late final TextEditingController _noteController;
 
-  late AssetType _selectedType;
+  late String _selectedTypeId; // 改为 String 类型，支持内置类型名称和自定义类型 ID
   String _selectedCurrency = 'CNY';
   late DateTime _occurrenceDate;
   bool _isLoading = false;
@@ -46,20 +47,20 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     _noteController = TextEditingController(text: widget.asset?.note);
 
     // 确定默认类型
-    AssetType defaultType = AssetType.deposit;
+    String defaultTypeId = 'deposit';
     if (widget.asset?.type != null) {
-      defaultType = widget.asset!.type;
+      defaultTypeId = widget.asset!.type;
     } else if (widget.defaultType != null) {
-      defaultType = widget.defaultType!;
+      defaultTypeId = widget.defaultType!.name;
     } else if (widget.assetTypesFilter == true) {
       // 负债类型筛选，默认选房贷
-      defaultType = AssetType.mortgage;
+      defaultTypeId = 'mortgage';
     } else if (widget.assetTypesFilter == false) {
       // 资产类型筛选，默认选存款
-      defaultType = AssetType.deposit;
+      defaultTypeId = 'deposit';
     }
 
-    _selectedType = defaultType;
+    _selectedTypeId = defaultTypeId;
     _selectedCurrency = widget.asset?.currency ?? 'CNY';
     _occurrenceDate = widget.asset?.occurrenceDate ?? DateTime.now();
   }
@@ -81,7 +82,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     final asset = Asset(
       id: widget.asset?.id ?? const Uuid().v4(),
       name: _nameController.text,
-      type: _selectedType,
+      type: _selectedTypeId, // 直接使用字符串类型
       amount: double.parse(_amountController.text),
       currency: _selectedCurrency,
       account: _accountController.text.isEmpty ? null : _accountController.text,
@@ -130,7 +131,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   Future<void> _handleDelete() async {
     if (widget.asset == null) return;
 
-    final isLiability = widget.asset!.type.isLiability;
+    final isLiability = _isLiabilityType(widget.asset!.type);
     final itemType = isLiability ? '负债' : '资产';
 
     final confirmed = await showDialog<bool>(
@@ -165,14 +166,21 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
     if (success) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$itemType 已删除')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$itemType 已删除')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    final customTypes = widget.assetTypesFilter == true
+        ? customTypeProvider.liabilityCustomTypes
+        : customTypeProvider.assetCustomTypes;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_getPageTitle()),
@@ -199,25 +207,48 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _getFilteredTypes().map((type) {
-                final isSelected = _selectedType == type;
-                return ChoiceChip(
-                  label: Text(type.displayName),
-                  selected: isSelected,
-                  onSelected: (_) => setState(() => _selectedType = type),
-                  avatar: Icon(
-                    _getIconData(type.iconName),
-                    size: 18,
-                    color: isSelected ? Colors.white : const Color(0xFF2563EB),
-                  ),
-                  selectedColor: widget.assetTypesFilter == true
-                      ? Colors.red[400]
-                      : const Color(0xFF2563EB),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
-                  ),
-                );
-              }).toList(),
+              children: [
+                // 内置类型
+                ..._getFilteredTypes().map((type) {
+                  final isSelected = _selectedTypeId == type.name;
+                  return ChoiceChip(
+                    label: Text(type.displayName),
+                    selected: isSelected,
+                    onSelected: (_) => setState(() => _selectedTypeId = type.name),
+                    avatar: Icon(
+                      _getIconData(type.iconName),
+                      size: 18,
+                      color: isSelected ? Colors.white : const Color(0xFF2563EB),
+                    ),
+                    selectedColor: widget.assetTypesFilter == true
+                        ? Colors.red[400]
+                        : const Color(0xFF2563EB),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                    ),
+                  );
+                }),
+                // 自定义类型
+                ...customTypes.map((type) {
+                  final isSelected = _selectedTypeId == type.id;
+                  return ChoiceChip(
+                    label: Text(type.name),
+                    selected: isSelected,
+                    onSelected: (_) => setState(() => _selectedTypeId = type.id),
+                    avatar: Icon(
+                      _getIconData(type.iconName),
+                      size: 18,
+                      color: isSelected ? Colors.white : const Color(0xFF2563EB),
+                    ),
+                    selectedColor: widget.assetTypesFilter == true
+                        ? Colors.red[400]
+                        : const Color(0xFF2563EB),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                    ),
+                  );
+                }),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -265,7 +296,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
             // 币种选择
             DropdownButtonFormField<String>(
-              value: _selectedCurrency,
+              initialValue: _selectedCurrency,
               decoration: const InputDecoration(
                 labelText: '币种',
                 prefixIcon: Icon(Icons.currency_exchange),
@@ -342,11 +373,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     );
   }
 
-  /// 根据筛选条件获取可用的类型列表
+  /// 根据筛选条件获取可用的内置类型列表
   List<AssetType> _getFilteredTypes() {
     // 编辑现有资产时，根据当前资产类型判断
     if (widget.asset != null) {
-      return widget.asset!.type.isLiability
+      return _isLiabilityType(widget.asset!.type)
           ? AssetTypeExtension.liabilityTypes
           : AssetTypeExtension.assetTypes;
     }
@@ -364,10 +395,20 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     }
   }
 
+  /// 判断是否为负债类型
+  bool _isLiabilityType(String typeId) {
+    final builtInType = AssetTypeExtension.fromString(typeId);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型需要查询 CustomTypeProvider
+    return typeId.startsWith('custom_');
+  }
+
   /// 获取页面标题
   String _getPageTitle() {
     if (widget.asset != null) {
-      return widget.asset!.type.isLiability ? '编辑负债' : '编辑资产';
+      return _isLiabilityType(widget.asset!.type) ? '编辑负债' : '编辑资产';
     } else {
       if (widget.assetTypesFilter == true) {
         return '添加负债';
@@ -397,7 +438,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   /// 获取成功消息
   String _getSuccessMessage() {
     if (widget.asset != null) {
-      return widget.asset!.type.isLiability ? '负债已更新' : '资产已更新';
+      return _isLiabilityType(widget.asset!.type) ? '负债已更新' : '资产已更新';
     } else {
       if (widget.assetTypesFilter == true) {
         return '负债已添加';
@@ -413,7 +454,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   String _getTypeTitle() {
     // 编辑现有资产时，根据当前资产类型判断
     if (widget.asset != null) {
-      return widget.asset!.type.isLiability ? '负债类型' : '资产类型';
+      return _isLiabilityType(widget.asset!.type) ? '负债类型' : '资产类型';
     }
     // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
@@ -427,7 +468,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   String _getNameLabel() {
     // 编辑现有资产时，根据当前资产类型判断
     if (widget.asset != null) {
-      return widget.asset!.type.isLiability ? '负债名称' : '资产名称';
+      return _isLiabilityType(widget.asset!.type) ? '负债名称' : '资产名称';
     }
     // 新增时，根据筛选器判断
     if (widget.assetTypesFilter == true) {
@@ -473,6 +514,27 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
         return Icons.person;
       case 'handshake':
         return Icons.handshake;
+      // 自定义类型图标
+      case 'star':
+        return Icons.star;
+      case 'favorite':
+        return Icons.favorite;
+      case 'bookmark':
+        return Icons.bookmark;
+      case 'label':
+        return Icons.label;
+      case 'tag':
+        return Icons.tag;
+      case 'diamond':
+        return Icons.diamond;
+      case 'pets':
+        return Icons.pets;
+      case 'flight':
+        return Icons.flight;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'shopping_bag':
+        return Icons.shopping_bag;
       default:
         return Icons.help_outline;
     }

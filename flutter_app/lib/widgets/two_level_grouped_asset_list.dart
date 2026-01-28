@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
+import '../providers/custom_type_provider.dart';
 import 'asset_list_item.dart';
 import '../screens/asset_form_screen.dart';
 import '../screens/asset_detail_screen.dart';
@@ -60,8 +63,21 @@ class _AssetGroupCard extends StatelessWidget {
     return assets.fold(0.0, (sum, asset) => sum + asset.amount);
   }
 
-  bool get _isLiability {
-    return assets.first.type.isLiability;
+  /// 判断字符串类型是否为负债
+  bool _isLiabilityType(BuildContext context, String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型：从 Provider 获取
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    for (final type in customTypeProvider.customTypes) {
+      if (type.id == typeStr) {
+        return type.isLiability;
+      }
+    }
+    // 找不到则当作资产处理
+    return false;
   }
 
   @override
@@ -72,6 +88,8 @@ class _AssetGroupCard extends StatelessWidget {
       final accountKey = asset.account ?? '无账户';
       byAccount.putIfAbsent(accountKey, () => []).add(asset);
     }
+
+    final isLiability = _isLiabilityType(context, assets.first.type);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -91,7 +109,7 @@ class _AssetGroupCard extends StatelessWidget {
               Text(
                 '¥${_formatAmount(_totalAmount)}',
                 style: TextStyle(
-                  color: _isLiability ? Colors.red : Colors.green,
+                  color: isLiability ? Colors.red : Colors.green,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -166,7 +184,7 @@ class _AccountGroupTile extends StatelessWidget {
       trailing: Text(
         '¥${_formatAmount(_totalAmount)}',
         style: TextStyle(
-          color: assets.first.type.isLiability ? Colors.red : Colors.green,
+          color: _isLiabilityType(context, assets.first.type) ? Colors.red : Colors.green,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -179,11 +197,11 @@ class _AccountGroupTile extends StatelessWidget {
                 children: [
                   ListTile(
                     dense: true,
-                    title: Text(_formatAssetInfo(asset)),
+                    title: Text(_formatAssetInfo(context, asset)),
                     trailing: Text(
                       '¥${asset.amount.toStringAsFixed(2)}',
                       style: TextStyle(
-                        color: asset.type.isLiability
+                        color: _isLiabilityType(context, asset.type)
                             ? Colors.red
                             : Colors.green,
                         fontWeight: FontWeight.bold,
@@ -215,14 +233,51 @@ class _AccountGroupTile extends StatelessWidget {
     return amount.toStringAsFixed(2);
   }
 
-  String _formatAssetInfo(Asset asset) {
+  String _formatAssetInfo(BuildContext context, Asset asset) {
+    // 获取类型显示名称
+    final typeDisplayName = _getTypeDisplayName(context, asset.type);
+
     final parts = <String>[
-      asset.type.displayName,
+      typeDisplayName,
       if (asset.occurrenceDate != null)
         '发生日期: ${asset.occurrenceDate!.year}-${asset.occurrenceDate!.month.toString().padLeft(2, '0')}-${asset.occurrenceDate!.day.toString().padLeft(2, '0')}',
       if (asset.note != null && asset.note!.isNotEmpty)
         '备注: ${asset.note!}',
     ];
     return parts.join(' | ');
+  }
+
+  /// 获取类型的显示名称
+  String _getTypeDisplayName(BuildContext context, String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.displayName;
+    }
+    // 自定义类型：从 Provider 获取名称
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    for (final type in customTypeProvider.customTypes) {
+      if (type.id == typeStr) {
+        return type.name;
+      }
+    }
+    // 找不到则返回原始字符串（移除 custom_ 前缀作为后备）
+    return typeStr.replaceAll('custom_', '');
+  }
+
+  /// 判断字符串类型是否为负债
+  bool _isLiabilityType(BuildContext context, String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型：从 Provider 获取
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    for (final type in customTypeProvider.customTypes) {
+      if (type.id == typeStr) {
+        return type.isLiability;
+      }
+    }
+    // 找不到则当作资产处理
+    return false;
   }
 }

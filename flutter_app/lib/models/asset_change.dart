@@ -75,11 +75,9 @@ class AssetChange {
     if (dataSnapshotNew != null) {
       final typeStr = dataSnapshotNew!['type'] as String?;
       if (typeStr != null) {
-        try {
-          final type = AssetTypeExtension.fromString(typeStr);
+        final type = AssetTypeExtension.fromString(typeStr);
+        if (type != null) {
           return type.isLiability;
-        } catch (_) {
-          // 忽略解析错误
         }
       }
     }
@@ -87,11 +85,9 @@ class AssetChange {
     if (dataSnapshotOld != null) {
       final typeStr = dataSnapshotOld!['type'] as String?;
       if (typeStr != null) {
-        try {
-          final type = AssetTypeExtension.fromString(typeStr);
+        final type = AssetTypeExtension.fromString(typeStr);
+        if (type != null) {
           return type.isLiability;
-        } catch (_) {
-          // 忽略解析错误
         }
       }
     }

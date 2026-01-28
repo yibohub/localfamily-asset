@@ -187,8 +187,8 @@ class _TypeBreakdownSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 按类型分组
-    final typeGroups = <AssetType, double>{};
+    // 按类型分组（使用 String 作为键）
+    final typeGroups = <String, double>{};
     for (final asset in assets) {
       typeGroups[asset.type] = (typeGroups[asset.type] ?? 0.0) + asset.amount;
     }
@@ -225,7 +225,7 @@ class _TypeBreakdownSection extends StatelessWidget {
 
 /// 类型分布项
 class _TypeBreakdownItem extends StatelessWidget {
-  final AssetType type;
+  final String type; // 改为 String 类型
   final double amount;
   final double percentage;
   final bool isLiability;
@@ -241,6 +241,9 @@ class _TypeBreakdownItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // 从字符串类型获取显示名称和图标
+    final typeInfo = _getTypeInfo(type);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -252,13 +255,13 @@ class _TypeBreakdownItem extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    _getIconData(type.iconName),
+                    typeInfo.icon,
                     size: 16,
                     color: isLiability ? Colors.red[400] : null,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    type.displayName,
+                    typeInfo.name,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],
@@ -330,4 +333,31 @@ class _TypeBreakdownItem extends StatelessWidget {
       return amount.toStringAsFixed(2);
     }
   }
+
+  /// 从字符串类型获取类型信息
+  _TypeInfo _getTypeInfo(String typeStr) {
+    // 尝试解析为内置类型
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return _TypeInfo(
+        name: builtInType.displayName,
+        icon: _getIconData(builtInType.iconName),
+      );
+    }
+
+    // 自定义类型 - 从类型字符串本身获取名称
+    // TODO: 未来可以从 CustomTypeProvider 获取更详细的信息
+    return _TypeInfo(
+      name: typeStr.replaceAll('custom_', ''), // 移除 custom_ 前缀
+      icon: Icons.category, // 自定义类型默认图标
+    );
+  }
+}
+
+/// 类型信息（名称和图标）
+class _TypeInfo {
+  final String name;
+  final IconData icon;
+
+  const _TypeInfo({required this.name, required this.icon});
 }

@@ -193,7 +193,7 @@ class _SmartAssetNameInputState extends State<SmartAssetNameInput> {
                     trailing: Text(
                       asset.amount.toStringAsFixed(2),
                       style: TextStyle(
-                        color: asset.type.isLiability
+                        color: _isLiabilityType(asset.type)
                             ? Colors.red
                             : Colors.green,
                       ),
@@ -206,5 +206,15 @@ class _SmartAssetNameInputState extends State<SmartAssetNameInput> {
           ),
       ],
     );
+  }
+
+  /// 判断字符串类型是否为负债
+  bool _isLiabilityType(String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型暂时当作资产处理
+    return false;
   }
 }

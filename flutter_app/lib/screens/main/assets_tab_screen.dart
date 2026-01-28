@@ -3,21 +3,37 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
+import '../../providers/custom_type_provider.dart';
 import '../../widgets/two_level_grouped_asset_list.dart';
 import '../../widgets/asset_type_filter_bar.dart';
+import '../../widgets/custom_type_manage_dialog.dart';
 import '../asset_form_screen.dart';
 
 /// 资产标签页 - 显示所有资产（不含负债）
-class AssetsTabScreen extends StatelessWidget {
+class AssetsTabScreen extends StatefulWidget {
   const AssetsTabScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<AssetProvider>(
-      builder: (context, provider, child) {
-        final assets = provider.filteredAssetsOnly;
+  State<AssetsTabScreen> createState() => _AssetsTabScreenState();
+}
 
-        if (provider.isLoading) {
+class _AssetsTabScreenState extends State<AssetsTabScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 加载自定义类型
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomTypeProvider>().loadCustomTypes();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<AssetProvider, CustomTypeProvider>(
+      builder: (context, assetProvider, customTypeProvider, child) {
+        final assets = assetProvider.filteredAssetsOnly;
+
+        if (assetProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -28,16 +44,18 @@ class AssetsTabScreen extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _AssetsSummaryCard(total: provider.summary.totalAssets),
+                  child: _AssetsSummaryCard(total: assetProvider.summary.totalAssets),
                 ),
               ),
 
               // 类型筛选栏
               SliverToBoxAdapter(
                 child: AssetTypeFilterBar(
-                  availableTypes: AssetTypeExtension.assetTypes,
-                  selectedType: provider.assetTypeFilter,
-                  onTypeSelected: (type) => provider.setAssetTypeFilter(type),
+                  builtInTypes: AssetTypeExtension.assetTypes,
+                  customTypes: customTypeProvider.assetCustomTypes,
+                  selectedTypeId: assetProvider.assetTypeFilterId,
+                  onTypeSelected: (id) => assetProvider.setAssetTypeFilterById(id),
+                  onManageCustomTypes: () => _showManageDialog(context),
                   allLabel: '全部资产',
                 ),
               ),
@@ -62,8 +80,8 @@ class AssetsTabScreen extends StatelessWidget {
               // 资产列表
               assets.isEmpty
                   ? SliverFillRemaining(
-                      child: provider.assetTypeFilter != null
-                          ? _EmptyFilterState(onClear: () => provider.clearAssetTypeFilter())
+                      child: assetProvider.assetTypeFilterId != null
+                          ? _EmptyFilterState(onClear: () => assetProvider.clearAssetTypeFilter())
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
@@ -78,11 +96,11 @@ class AssetsTabScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => AssetFormScreen(
                     assetTypesFilter: false, // 仅显示资产类型
-                    defaultType: provider.assetTypeFilter, // 传递当前筛选的类型
+                    defaultType: assetProvider.assetTypeFilter, // 传递当前筛选的类型
                   ),
                 ),
               );
-              if (result == true && context.mounted) {
+              if (result == true && mounted) {
                 context.read<AssetProvider>().loadAssets();
               }
             },
@@ -91,6 +109,21 @@ class AssetsTabScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// 显示管理对话框
+  void _showManageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const CustomTypeManageDialog(isLiability: false),
+    ).then((result) {
+      if (result == true && mounted) {
+        if (mounted) {
+          context.read<CustomTypeProvider>().loadCustomTypes();
+        }
+        // TODO: 重新加载资产列表
+      }
+    });
   }
 }
 

@@ -52,7 +52,7 @@ class _SetupScreenState extends State<SetupScreen> {
         final asset = Asset(
           id: assetJson['id'] as String,
           name: assetJson['name'] as String,
-          type: _assetTypeFromString(assetJson['type'] as String),
+          type: assetJson['type'] as String, // 直接使用字符串类型
           amount: (assetJson['amount'] as num).toDouble(),
           currency: assetJson['currency'] as String? ?? 'CNY',
           account: assetJson['account'] as String?,
@@ -82,25 +82,6 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         );
       }
-    }
-  }
-
-  AssetType _assetTypeFromString(String type) {
-    switch (type) {
-      case 'property':
-        return AssetType.property;
-      case 'deposit':
-        return AssetType.deposit;
-      case 'stock':
-        return AssetType.stock;
-      case 'fund':
-        return AssetType.fund;
-      case 'insurance':
-        return AssetType.insurance;
-      case 'debt':
-        return AssetType.debt;
-      default:
-        return AssetType.deposit;
     }
   }
 

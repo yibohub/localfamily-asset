@@ -17,6 +17,8 @@ class AssetProvider with ChangeNotifier {
   // 类型筛选状态
   AssetType? _assetTypeFilter;
   AssetType? _liabilityTypeFilter;
+  String? _assetTypeFilterId; // 支持自定义类型 ID (格式: "custom_xxx")
+  String? _liabilityTypeFilterId; // 支持自定义类型 ID (格式: "custom_xxx")
 
   List<Asset> get assets => List.unmodifiable(_assets);
   List<AssetChange> get assetChanges => List.unmodifiable(_assetChanges);
@@ -26,16 +28,26 @@ class AssetProvider with ChangeNotifier {
   String? get error => _error;
 
   /// 获取仅资产（排除负债）
-  List<Asset> get assetsOnly => _assets.where((a) => !a.type.isLiability).toList();
+  List<Asset> get assetsOnly => _assets.where((a) {
+    final builtInType = AssetTypeExtension.fromString(a.type);
+    return builtInType != null && !builtInType.isLiability;
+  }).toList();
 
   /// 获取仅负债
-  List<Asset> get liabilitiesOnly => _assets.where((a) => a.type.isLiability).toList();
+  List<Asset> get liabilitiesOnly => _assets.where((a) {
+    final builtInType = AssetTypeExtension.fromString(a.type);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型暂时排除，需要通过 CustomAssetType 判断
+    return false;
+  }).toList();
 
   /// 获取筛选后的资产列表
   List<Asset> get filteredAssetsOnly {
     var assets = assetsOnly;
-    if (_assetTypeFilter != null) {
-      assets = assets.where((a) => a.type == _assetTypeFilter).toList();
+    if (_assetTypeFilterId != null) {
+      assets = assets.where((a) => a.type == _assetTypeFilterId).toList();
     }
     return assets;
   }
@@ -43,21 +55,27 @@ class AssetProvider with ChangeNotifier {
   /// 获取筛选后的负债列表
   List<Asset> get filteredLiabilitiesOnly {
     var liabilities = liabilitiesOnly;
-    if (_liabilityTypeFilter != null) {
-      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilter).toList();
+    if (_liabilityTypeFilterId != null) {
+      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilterId).toList();
     }
     return liabilities;
   }
 
-  /// 获取当前资产类型筛选器
+  /// 获取当前资产类型筛选器（枚举）
   AssetType? get assetTypeFilter => _assetTypeFilter;
 
-  /// 获取当前负债类型筛选器
+  /// 获取当前负债类型筛选器（枚举）
   AssetType? get liabilityTypeFilter => _liabilityTypeFilter;
+
+  /// 获取当前资产类型筛选器 ID（支持自定义类型）
+  String? get assetTypeFilterId => _assetTypeFilterId ?? _assetTypeFilter?.name;
+
+  /// 获取当前负债类型筛选器 ID（支持自定义类型）
+  String? get liabilityTypeFilterId => _liabilityTypeFilterId ?? _liabilityTypeFilter?.name;
 
   /// 获取投资组合摘要
   PortfolioSummary get summary {
-    final breakdown = <AssetType, double>{};
+    final breakdown = <String, double>{};
     double totalAssets = 0;
     double totalLiabilities = 0;
 
@@ -65,7 +83,12 @@ class AssetProvider with ChangeNotifier {
       final value = breakdown[asset.type] ?? 0;
       breakdown[asset.type] = value + asset.amount;
 
-      if (asset.type.isLiability) {
+      final builtInType = AssetTypeExtension.fromString(asset.type);
+      if (builtInType != null && builtInType.isLiability) {
+        totalLiabilities += asset.amount;
+      } else if (asset.type.startsWith('custom_')) {
+        // 自定义负债类型（需要更精确的判断，这里暂时假设都是负债）
+        // TODO: 需要结合 CustomAssetType 判断
         totalLiabilities += asset.amount;
       } else {
         totalAssets += asset.amount;
@@ -81,9 +104,14 @@ class AssetProvider with ChangeNotifier {
     );
   }
 
-  /// 按类型获取资产
-  List<Asset> getAssetsByType(AssetType type) {
-    return _assets.where((asset) => asset.type == type).toList();
+  /// 按类型获取资产（支持字符串类型）
+  List<Asset> getAssetsByType(String typeId) {
+    return _assets.where((asset) => asset.type == typeId).toList();
+  }
+
+  /// 按内置类型获取资产（向后兼容）
+  List<Asset> getAssetsByBuiltInType(AssetType type) {
+    return getAssetsByType(type.name);
   }
 
   /// 获取单个资产
@@ -127,9 +155,9 @@ class AssetProvider with ChangeNotifier {
   /// 添加资产
   Future<bool> addAsset(Asset asset) async {
     try {
-      final success = await _ffi.addAsset(
+      final success = await _ffi.addAssetWithType(
         name: asset.name,
-        assetType: asset.type.value,
+        assetType: asset.type, // 直接使用字符串类型
         amount: asset.amount,
         currency: asset.currency,
         symbol: asset.account,
@@ -154,10 +182,10 @@ class AssetProvider with ChangeNotifier {
   /// 更新资产
   Future<bool> updateAsset(Asset asset) async {
     try {
-      final success = await _ffi.updateAsset(
+      final success = await _ffi.updateAssetWithType(
         id: asset.id,
         name: asset.name,
-        assetType: asset.type.value,
+        assetType: asset.type, // 直接使用字符串类型
         amount: asset.amount,
         currency: asset.currency,
         symbol: asset.account,
@@ -288,11 +316,11 @@ class AssetProvider with ChangeNotifier {
 
   /// 按名称分组资产
   ///
-  /// [types] 可选的类型过滤器
+  /// [typeIds] 可选的类型 ID 过滤器（支持内置类型名称和自定义类型 ID）
   /// 返回 Map<资产名称, List<资产>>
-  Map<String, List<Asset>> groupAssetsByName({List<AssetType>? types}) {
-    final filtered = types != null
-        ? _assets.where((a) => types.contains(a.type))
+  Map<String, List<Asset>> groupAssetsByName({List<String>? typeIds}) {
+    final filtered = typeIds != null
+        ? _assets.where((a) => typeIds.contains(a.type))
         : _assets;
 
     final grouped = <String, List<Asset>>{};
@@ -309,27 +337,65 @@ class AssetProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 设置资产类型筛选器
-  void setAssetTypeFilter(AssetType? type) {
-    _assetTypeFilter = type;
+  /// 设置资产类型筛选器（支持字符串 ID）
+  void setAssetTypeFilterById(String? typeId) {
+    if (typeId == null) {
+      _assetTypeFilter = null;
+      _assetTypeFilterId = null;
+    } else if (typeId.startsWith('custom_')) {
+      // 自定义类型
+      _assetTypeFilter = null;
+      _assetTypeFilterId = typeId;
+    } else {
+      // 内置类型
+      _assetTypeFilter = AssetTypeExtension.fromString(typeId);
+      _assetTypeFilterId = null;
+    }
     notifyListeners();
   }
 
-  /// 设置负债类型筛选器
+  /// 设置负债类型筛选器（支持字符串 ID）
+  void setLiabilityTypeFilterById(String? typeId) {
+    if (typeId == null) {
+      _liabilityTypeFilter = null;
+      _liabilityTypeFilterId = null;
+    } else if (typeId.startsWith('custom_')) {
+      // 自定义类型
+      _liabilityTypeFilter = null;
+      _liabilityTypeFilterId = typeId;
+    } else {
+      // 内置类型
+      _liabilityTypeFilter = AssetTypeExtension.fromString(typeId);
+      _liabilityTypeFilterId = null;
+    }
+    notifyListeners();
+  }
+
+  /// 设置资产类型筛选器（旧版本兼容）
+  void setAssetTypeFilter(AssetType? type) {
+    _assetTypeFilter = type;
+    _assetTypeFilterId = null;
+    notifyListeners();
+  }
+
+  /// 设置负债类型筛选器（旧版本兼容）
   void setLiabilityTypeFilter(AssetType? type) {
     _liabilityTypeFilter = type;
+    _liabilityTypeFilterId = null;
     notifyListeners();
   }
 
   /// 清除资产类型筛选器
   void clearAssetTypeFilter() {
     _assetTypeFilter = null;
+    _assetTypeFilterId = null;
     notifyListeners();
   }
 
   /// 清除负债类型筛选器
   void clearLiabilityTypeFilter() {
     _liabilityTypeFilter = null;
+    _liabilityTypeFilterId = null;
     notifyListeners();
   }
 }

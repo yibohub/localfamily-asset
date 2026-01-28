@@ -3,21 +3,37 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
+import '../../providers/custom_type_provider.dart';
 import '../../widgets/two_level_grouped_asset_list.dart';
 import '../../widgets/asset_type_filter_bar.dart';
+import '../../widgets/custom_type_manage_dialog.dart';
 import '../asset_form_screen.dart';
 
 /// 负债标签页 - 显示所有负债
-class LiabilitiesTabScreen extends StatelessWidget {
+class LiabilitiesTabScreen extends StatefulWidget {
   const LiabilitiesTabScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<AssetProvider>(
-      builder: (context, provider, child) {
-        final liabilities = provider.filteredLiabilitiesOnly;
+  State<LiabilitiesTabScreen> createState() => _LiabilitiesTabScreenState();
+}
 
-        if (provider.isLoading) {
+class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 加载自定义类型
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomTypeProvider>().loadCustomTypes();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<AssetProvider, CustomTypeProvider>(
+      builder: (context, assetProvider, customTypeProvider, child) {
+        final liabilities = assetProvider.filteredLiabilitiesOnly;
+
+        if (assetProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -28,16 +44,18 @@ class LiabilitiesTabScreen extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _LiabilitiesSummaryCard(total: provider.summary.totalLiabilities),
+                  child: _LiabilitiesSummaryCard(total: assetProvider.summary.totalLiabilities),
                 ),
               ),
 
               // 类型筛选栏（排除通用负债类型，只显示具体负债小类）
               SliverToBoxAdapter(
                 child: AssetTypeFilterBar(
-                  availableTypes: AssetTypeExtension.liabilityTypes.where((t) => t != AssetType.debt).toList(),
-                  selectedType: provider.liabilityTypeFilter,
-                  onTypeSelected: (type) => provider.setLiabilityTypeFilter(type),
+                  builtInTypes: AssetTypeExtension.liabilityTypes.where((t) => t != AssetType.debt).toList(),
+                  customTypes: customTypeProvider.liabilityCustomTypes,
+                  selectedTypeId: assetProvider.liabilityTypeFilterId,
+                  onTypeSelected: (id) => assetProvider.setLiabilityTypeFilterById(id),
+                  onManageCustomTypes: () => _showManageDialog(context),
                   allLabel: '全部负债',
                 ),
               ),
@@ -62,8 +80,8 @@ class LiabilitiesTabScreen extends StatelessWidget {
               // 负债列表
               liabilities.isEmpty
                   ? SliverFillRemaining(
-                      child: provider.liabilityTypeFilter != null
-                          ? _EmptyFilterState(onClear: () => provider.clearLiabilityTypeFilter())
+                      child: assetProvider.liabilityTypeFilterId != null
+                          ? _EmptyFilterState(onClear: () => assetProvider.clearLiabilityTypeFilter())
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
@@ -79,11 +97,11 @@ class LiabilitiesTabScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => AssetFormScreen(
                     assetTypesFilter: true, // 仅显示负债类型
-                    defaultType: provider.liabilityTypeFilter, // 传递当前筛选的类型
+                    defaultType: assetProvider.liabilityTypeFilter, // 传递当前筛选的类型
                   ),
                 ),
               );
-              if (result == true && context.mounted) {
+              if (result == true && mounted) {
                 context.read<AssetProvider>().loadAssets();
               }
             },
@@ -92,6 +110,21 @@ class LiabilitiesTabScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// 显示管理对话框
+  void _showManageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const CustomTypeManageDialog(isLiability: true),
+    ).then((result) {
+      if (result == true && mounted) {
+        if (mounted) {
+          context.read<CustomTypeProvider>().loadCustomTypes();
+        }
+        // TODO: 重新加载资产列表
+      }
+    });
   }
 }
 

@@ -8,6 +8,7 @@ import 'core/app.dart';
 import 'core/theme.dart';
 import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/custom_type_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AssetProvider()),
+        ChangeNotifierProvider(create: (_) => CustomTypeProvider()),
       ],
       child: const LocalFamilyAssetApp(),
     ),

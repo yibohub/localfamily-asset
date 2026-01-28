@@ -20,7 +20,7 @@ impl AssetRepository {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 asset.id,
-                asset.asset_type.as_str(),
+                &asset.asset_type,
                 asset.name,
                 asset.amount,
                 asset.currency,
@@ -46,9 +46,7 @@ impl AssetRepository {
         ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
         let asset = stmt.query_row(params![id], |row| {
-            let asset_type_str: String = row.get(1)?;
-            let asset_type = AssetType::from_str(&asset_type_str)
-                .ok_or_else(|| rusqlite::Error::InvalidQuery)?;
+            let asset_type: String = row.get(1)?;
 
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
@@ -84,9 +82,7 @@ impl AssetRepository {
         ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
         let assets = stmt.query_map([], |row| {
-            let asset_type_str: String = row.get(1)?;
-            let asset_type = AssetType::from_str(&asset_type_str)
-                .ok_or_else(|| rusqlite::Error::InvalidQuery)?;
+            let asset_type: String = row.get(1)?;
 
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
@@ -125,7 +121,7 @@ impl AssetRepository {
              occurrence_date = ?6, buy_price = ?7, current_price = ?8, note = ?9, tags = ?10, updated_at = ?11
              WHERE id = ?12",
             params![
-                asset.asset_type.as_str(),
+                &asset.asset_type,
                 asset.name,
                 asset.amount,
                 asset.currency,
@@ -158,16 +154,14 @@ impl AssetRepository {
     }
 
     /// 按类型获取资产
-    pub fn list_by_type(conn: &Connection, asset_type: AssetType) -> DbResult<Vec<Asset>> {
+    pub fn list_by_type(conn: &Connection, type_id: &str) -> DbResult<Vec<Asset>> {
         let mut stmt = conn.prepare(
             "SELECT id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at
              FROM assets WHERE type = ?1 ORDER BY created_at DESC"
         ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
-        let assets = stmt.query_map(params![asset_type.as_str()], |row| {
-            let asset_type_str: String = row.get(1)?;
-            let asset_type = AssetType::from_str(&asset_type_str)
-                .ok_or_else(|| rusqlite::Error::InvalidQuery)?;
+        let assets = stmt.query_map(params![type_id], |row| {
+            let asset_type: String = row.get(1)?;
 
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
@@ -198,14 +192,14 @@ impl AssetRepository {
     pub fn search_by_name(
         conn: &Connection,
         name_pattern: &str,
-        types: &[AssetType]
+        type_ids: &[String]
     ) -> DbResult<Vec<Asset>> {
-        if types.is_empty() {
+        if type_ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        let type_strs: Vec<&str> = types.iter().map(|t| t.as_str()).collect();
-        let placeholders = types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let type_strs: Vec<&str> = type_ids.iter().map(|s| s.as_str()).collect();
+        let placeholders = type_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
             "SELECT id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at
              FROM assets
@@ -226,9 +220,7 @@ impl AssetRepository {
         }
 
         let assets = stmt.query_map(params_list.as_slice(), |row| {
-            let asset_type_str: String = row.get(1)?;
-            let asset_type = AssetType::from_str(&asset_type_str)
-                .ok_or_else(|| rusqlite::Error::InvalidQuery)?;
+            let asset_type: String = row.get(1)?;
 
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());

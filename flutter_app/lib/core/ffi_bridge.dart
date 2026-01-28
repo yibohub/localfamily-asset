@@ -55,6 +55,29 @@ class FfiBridge {
   late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _exportData;
   late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _importData;
   late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _searchAssetsByName;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, int) _createCustomAssetType;
+  late final ffi.Pointer<ffi.Char> Function() _getCustomAssetTypes;
+  late final int Function(ffi.Pointer<ffi.Char>) _deleteCustomAssetType;
+  late final int Function(ffi.Pointer<ffi.Char>) _isCustomTypeInUse;
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _addAssetWithType;
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _updateAssetWithType;
 
   FfiBridge._internal() {
     _loadLibrary();
@@ -178,6 +201,51 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
         )>>('search_assets_by_name')
+        .asFunction();
+
+    _createCustomAssetType = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Int32,
+        )>>('create_custom_asset_type')
+        .asFunction();
+
+    _getCustomAssetTypes = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_custom_asset_types')
+        .asFunction();
+
+    _deleteCustomAssetType = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('delete_custom_asset_type')
+        .asFunction();
+
+    _isCustomTypeInUse = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('is_custom_type_in_use')
+        .asFunction();
+
+    _addAssetWithType = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('add_asset_with_type')
+        .asFunction();
+
+    _updateAssetWithType = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('update_asset_with_type')
         .asFunction();
   }
 
@@ -480,6 +548,162 @@ class FfiBridge {
     } finally {
       malloc.free(namePtr);
       malloc.free(typePtr);
+    }
+  }
+
+  /// 创建自定义资产类型
+  ///
+  /// 返回格式: {"id": "custom_xxx", "success": true} 或 {"error": "..."}
+  Future<Map<String, dynamic>> createCustomAssetType({
+    required String name,
+    required String iconName,
+    required bool isLiability,
+  }) async {
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final iconNamePtr = iconName.toNativeUtf8().cast<ffi.Char>();
+    final isLiabilityInt = isLiability ? 1 : 0;
+
+    try {
+      final resultPtr = _createCustomAssetType(namePtr, iconNamePtr, isLiabilityInt);
+      if (resultPtr == ffi.nullptr) {
+        return {'error': '创建失败：返回空指针'};
+      }
+
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final result = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      _freeString(resultPtr);
+      return result;
+    } catch (e) {
+      debugPrint('createCustomAssetType 异常: $e');
+      return {'error': '创建异常: $e'};
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(iconNamePtr);
+    }
+  }
+
+  /// 获取所有自定义类型
+  Future<List<Map<String, dynamic>>> getCustomAssetTypes() async {
+    final resultPtr = _getCustomAssetTypes();
+    if (resultPtr == ffi.nullptr) {
+      return [];
+    }
+
+    try {
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList.cast<Map<String, dynamic>>();
+    } finally {
+      _freeString(resultPtr);
+    }
+  }
+
+  /// 删除自定义类型
+  Future<bool> deleteCustomAssetType(String id) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _deleteCustomAssetType(idPtr);
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(idPtr);
+    }
+  }
+
+  /// 检查自定义类型是否被使用
+  Future<bool> isCustomTypeInUse(String id) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _isCustomTypeInUse(idPtr);
+      return result == 1;
+    } finally {
+      malloc.free(idPtr);
+    }
+  }
+
+  /// 添加资产（使用字符串类型，支持自定义类型）
+  Future<bool> addAssetWithType({
+    required String name,
+    required String assetType,
+    required double amount,
+    required String currency,
+    String? symbol,
+    String? notes,
+    required String occurrenceDate,
+  }) async {
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = assetType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final occurrenceDatePtr = occurrenceDate.toNativeUtf8().cast<ffi.Char>();
+
+    try {
+      final result = _addAssetWithType(
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        symbolPtr,
+        notesPtr,
+        occurrenceDatePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
+      if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
+      malloc.free(occurrenceDatePtr);
+    }
+  }
+
+  /// 更新资产（使用字符串类型，支持自定义类型）
+  Future<bool> updateAssetWithType({
+    required String id,
+    required String name,
+    required String assetType,
+    required double amount,
+    required String currency,
+    String? symbol,
+    String? notes,
+    String? occurrenceDate,
+  }) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = assetType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final occurrenceDatePtr = occurrenceDate != null ? occurrenceDate.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    try {
+      final result = _updateAssetWithType(
+        idPtr,
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        symbolPtr,
+        notesPtr,
+        occurrenceDatePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(idPtr);
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
+      if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
+      if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
     }
   }
 }

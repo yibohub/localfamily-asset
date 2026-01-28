@@ -258,6 +258,31 @@ fn migrate_v3_audit_log(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// 迁移 v4：添加自定义类型表
+fn migrate_v4_custom_types(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("开始数据库迁移 v4：添加自定义类型表");
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS custom_asset_types (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            icon_name TEXT NOT NULL,
+            is_liability INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_custom_types_is_liability
+         ON custom_asset_types(is_liability)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    eprintln!("完成数据库迁移 v4");
+    Ok(())
+}
+
 /// 初始化数据库（创建表结构并执行迁移）
 pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     create_schema(conn)?;
@@ -273,6 +298,11 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     if version < 3 {
         migrate_v3_audit_log(conn)?;
         set_schema_version(conn, 3)?;
+    }
+
+    if version < 4 {
+        migrate_v4_custom_types(conn)?;
+        set_schema_version(conn, 4)?;
     }
 
     // 插入默认设置

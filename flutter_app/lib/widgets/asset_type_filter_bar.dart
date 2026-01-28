@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
 
-/// 资产类型筛选栏组件
+/// 资产类型筛选栏组件（支持内置类型 + 自定义类型）
 class AssetTypeFilterBar extends StatelessWidget {
-  final List<AssetType> availableTypes;
-  final AssetType? selectedType;
-  final ValueChanged<AssetType?> onTypeSelected;
+  final List<AssetType> builtInTypes;
+  final List<CustomAssetType> customTypes;
+  final String? selectedTypeId;
+  final ValueChanged<String?> onTypeSelected;
+  final VoidCallback onManageCustomTypes;
   final String allLabel;
 
   const AssetTypeFilterBar({
     super.key,
-    required this.availableTypes,
-    required this.selectedType,
+    required this.builtInTypes,
+    required this.customTypes,
+    required this.selectedTypeId,
     required this.onTypeSelected,
+    required this.onManageCustomTypes,
     this.allLabel = '全部',
   });
 
@@ -30,21 +35,37 @@ class AssetTypeFilterBar extends StatelessWidget {
             _buildChip(
               allLabel,
               Icons.apps,
-              selectedType == null,
+              selectedTypeId == null,
               () => onTypeSelected(null),
               theme,
             ),
             const SizedBox(width: 8),
-            ...availableTypes.map((type) => Padding(
+            ...builtInTypes.map((type) => Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _buildChip(
                 type.displayName,
                 _getIcon(type.iconName),
-                selectedType == type,
-                () => onTypeSelected(type),
+                selectedTypeId == type.name,
+                () => onTypeSelected(type.name),
                 theme,
               ),
             )),
+            ...customTypes.map((type) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _buildChip(
+                type.name,
+                _getIcon(type.iconName),
+                selectedTypeId == type.id,
+                () => onTypeSelected(type.id),
+                theme,
+              ),
+            )),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: onManageCustomTypes,
+              tooltip: '管理自定义类型',
+            ),
           ],
         ),
       ),
@@ -69,6 +90,7 @@ class AssetTypeFilterBar extends StatelessWidget {
   }
 
   IconData _getIcon(String name) {
+    // 内置类型图标
     switch (name) {
       case 'home':
         return Icons.home;
@@ -90,8 +112,29 @@ class AssetTypeFilterBar extends StatelessWidget {
         return Icons.person;
       case 'handshake':
         return Icons.handshake;
+      // 自定义类型常用图标
+      case 'star':
+        return Icons.star;
+      case 'favorite':
+        return Icons.favorite;
+      case 'bookmark':
+        return Icons.bookmark;
+      case 'label':
+        return Icons.label;
+      case 'tag':
+        return Icons.tag;
+      case 'diamond':
+        return Icons.diamond;
+      case 'pets':
+        return Icons.pets;
+      case 'flight':
+        return Icons.flight;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'shopping_bag':
+        return Icons.shopping_bag;
       default:
-        return Icons.help;
+        return Icons.category;
     }
   }
 }

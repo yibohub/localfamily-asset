@@ -183,7 +183,7 @@ impl AssetChange {
 pub struct Asset {
     pub id: String,
     #[serde(rename = "type")]
-    pub asset_type: AssetType,
+    pub asset_type: String, // 改为 String 类型，支持自定义类型 ID
     pub name: String,
     pub amount: f64,
     pub currency: String,
@@ -200,7 +200,7 @@ pub struct Asset {
 
 impl Asset {
     pub fn new(
-        asset_type: AssetType,
+        asset_type: String,
         name: String,
         amount: f64,
     ) -> Self {

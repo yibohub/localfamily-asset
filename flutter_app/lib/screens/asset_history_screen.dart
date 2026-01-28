@@ -44,10 +44,20 @@ class _AssetHistoryScreenState extends State<AssetHistoryScreen> {
     if (widget.assetId == null) {
       return '全部操作记录';
     }
-    if (_asset != null && _asset!.type.isLiability) {
+    if (_asset != null && _isLiabilityType(_asset!.type)) {
       return '负债修改历史';
     }
     return '资产修改历史';
+  }
+
+  /// 判断字符串类型是否为负债
+  bool _isLiabilityType(String typeStr) {
+    final builtInType = AssetTypeExtension.fromString(typeStr);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+    // 自定义类型暂时当作资产处理
+    return false;
   }
 
   @override

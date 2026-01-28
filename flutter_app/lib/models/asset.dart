@@ -1,3 +1,5 @@
+import 'custom_asset_type.dart';
+
 /// 资产类型枚举（与 Rust Core 保持一致）
 enum AssetType {
   property,     // 房产
@@ -130,7 +132,7 @@ extension AssetTypeExtension on AssetType {
   }
 
   /// 从字符串创建枚举
-  static AssetType fromString(String str) {
+  static AssetType? fromString(String str) {
     switch (str) {
       case 'property':
         return AssetType.property;
@@ -155,7 +157,7 @@ extension AssetTypeExtension on AssetType {
       case 'private_loan':
         return AssetType.privateLoan;
       default:
-        return AssetType.deposit;
+        return null; // 返回 null 表示不是内置类型
     }
   }
 
@@ -180,11 +182,11 @@ extension AssetTypeExtension on AssetType {
   }
 }
 
-/// 资产模型
+/// 资产模型（支持内置类型和自定义类型）
 class Asset {
   final String id;
   final String name;
-  final AssetType type;
+  final String type; // 改为 String 类型，支持内置类型名称和自定义类型 ID
   final double amount;
   final String currency;
   final String? account;
@@ -212,6 +214,25 @@ class Asset {
     required this.updatedAt,
   });
 
+  /// 判断是否为自定义类型
+  bool get isCustomType => type.startsWith('custom_');
+
+  /// 判断是否为负债类型（需要查询自定义类型列表）
+  bool isLiabilityType(List<CustomAssetType> customTypes) {
+    // 检查是否为内置负债类型
+    final builtInType = AssetTypeExtension.fromString(type);
+    if (builtInType != null) {
+      return builtInType.isLiability;
+    }
+
+    // 检查是否为自定义负债类型
+    final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+      (t) => t?.id == type,
+      orElse: () => null,
+    );
+    return customType?.isLiability ?? false;
+  }
+
   /// 计算盈亏百分比
   double? get profitLossPercent {
     if (buyPrice != null && currentPrice != null && buyPrice! > 0) {
@@ -232,7 +253,7 @@ class Asset {
   Asset copyWith({
     String? id,
     String? name,
-    AssetType? type,
+    String? type,
     double? amount,
     String? currency,
     String? account,
@@ -265,7 +286,7 @@ class Asset {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'type': type.name,
+      'type': type,
       'name': name,
       'amount': amount,
       'currency': currency,
@@ -285,7 +306,7 @@ class Asset {
     return Asset(
       id: json['id'] as String,
       name: json['name'] as String,
-      type: AssetTypeExtension.fromString(json['type'] as String),
+      type: json['type'] as String,
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'CNY',
       account: json['account'] as String?,
@@ -311,4 +332,3 @@ class Asset {
     );
   }
 }
-
