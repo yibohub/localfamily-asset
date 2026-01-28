@@ -25,42 +25,47 @@ class AssetTypeFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      color: theme.colorScheme.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _buildChip(
-            allLabel,
-            Icons.apps,
-            selectedTypeId == null,
-            () => onTypeSelected(null),
-            theme,
-          ),
-          ...builtInTypes.map((type) => _buildChip(
-                type.displayName,
-                _getIcon(type.iconName),
-                selectedTypeId == type.name,
-                () => onTypeSelected(type.name),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildChip(
+                allLabel,
+                Icons.apps,
+                selectedTypeId == null,
+                () => onTypeSelected(null),
                 theme,
-              )),
-          ...customTypes.map((type) => _buildChip(
-                type.name,
-                _getIcon(type.iconName),
-                selectedTypeId == type.id,
-                () => onTypeSelected(type.id),
-                theme,
-              )),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: onManageCustomTypes,
-            tooltip: '管理自定义类型',
-            iconSize: 20,
-            padding: const EdgeInsets.all(4),
+              ),
+              ...builtInTypes.map((type) => _buildChip(
+                    type.displayName,
+                    _getIcon(type.iconName),
+                    selectedTypeId == type.name,
+                    () => onTypeSelected(type.name),
+                    theme,
+                  )),
+              ...customTypes.map((type) => _buildChip(
+                    type.name,
+                    _getIcon(type.iconName),
+                    selectedTypeId == type.id,
+                    () => onTypeSelected(type.id),
+                    theme,
+                  )),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: onManageCustomTypes,
+                tooltip: '管理自定义类型',
+                iconSize: 20,
+                padding: const EdgeInsets.all(4),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
