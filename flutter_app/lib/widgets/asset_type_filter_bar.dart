@@ -27,47 +27,40 @@ class AssetTypeFilterBar extends StatelessWidget {
 
     return Container(
       color: theme.colorScheme.surface,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            _buildChip(
-              allLabel,
-              Icons.apps,
-              selectedTypeId == null,
-              () => onTypeSelected(null),
-              theme,
-            ),
-            const SizedBox(width: 8),
-            ...builtInTypes.map((type) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildChip(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _buildChip(
+            allLabel,
+            Icons.apps,
+            selectedTypeId == null,
+            () => onTypeSelected(null),
+            theme,
+          ),
+          ...builtInTypes.map((type) => _buildChip(
                 type.displayName,
                 _getIcon(type.iconName),
                 selectedTypeId == type.name,
                 () => onTypeSelected(type.name),
                 theme,
-              ),
-            )),
-            ...customTypes.map((type) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildChip(
+              )),
+          ...customTypes.map((type) => _buildChip(
                 type.name,
                 _getIcon(type.iconName),
                 selectedTypeId == type.id,
                 () => onTypeSelected(type.id),
                 theme,
-              ),
-            )),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: onManageCustomTypes,
-              tooltip: '管理自定义类型',
-            ),
-          ],
-        ),
+              )),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: onManageCustomTypes,
+            tooltip: '管理自定义类型',
+            iconSize: 20,
+            padding: const EdgeInsets.all(4),
+          ),
+        ],
       ),
     );
   }

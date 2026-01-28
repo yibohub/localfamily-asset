@@ -166,9 +166,13 @@ class AssetListItem extends StatelessWidget {
       final customTypeProvider = context.watch<CustomTypeProvider>();
       final customTypes = customTypeProvider.customTypes;
 
+      // 调试输出
+      debugPrint('查找自定义类型: $typeStr, 可用类型数: ${customTypes.length}');
+
       // 查找匹配的自定义类型
       CustomAssetType? matchedType;
       for (final type in customTypes) {
+        debugPrint('  检查: ${type.id} == $typeStr ? ${type.id == typeStr}');
         if (type.id == typeStr) {
           matchedType = type;
           break;
@@ -176,8 +180,10 @@ class AssetListItem extends StatelessWidget {
       }
 
       if (matchedType != null) {
+        debugPrint('  找到匹配类型: ${matchedType.name}, 图标: ${matchedType.iconName}');
         icon = _getCustomIcon(matchedType.iconName);
       } else {
+        debugPrint('  未找到匹配类型，使用默认图标');
         icon = Icons.category;
       }
       // 自定义类型使用灰色系

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../providers/asset_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/custom_type_provider.dart';
 import '../../core/ffi_bridge.dart';
 import '../auth/lock_screen.dart';
 import 'assets_tab_screen.dart';
@@ -48,9 +49,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 加载资产数据
+    // 加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AssetProvider>().loadAssets();
+      context.read<CustomTypeProvider>().loadCustomTypes();
     });
   }
 
@@ -285,9 +287,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       Navigator.pop(context); // 关闭加载对话框
 
       if (resultMap['success'] == true) {
-        // 重新加载资产数据
+        // 重新加载数据
         if (!context.mounted) return;
         await context.read<AssetProvider>().loadAssets();
+        await context.read<CustomTypeProvider>().loadCustomTypes();
 
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
