@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'asset.dart';
+import '../utils/currency_utils.dart';
 
 /// 变更类型枚举
 enum ChangeType {
@@ -142,21 +143,24 @@ class AssetChange {
         buffer.writeln('名称从 "$nameOld" 改为 "$nameNew"');
       }
       if (amountOld != null && amountNew != null && amountOld != amountNew) {
-        buffer.writeln('金额从 ${_formatAmount(amountOld!)} 改为 ${_formatAmount(amountNew!)}');
+        final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+        buffer.writeln('金额从 ${_formatAmount(amountOld!, currency)} 改为 ${_formatAmount(amountNew!, currency)}');
       }
       if (occurrenceDateOld != null && occurrenceDateNew != null && occurrenceDateOld != occurrenceDateNew) {
         buffer.writeln('发生日期从 ${_formatDate(occurrenceDateOld!)} 改为 ${_formatDate(occurrenceDateNew!)}');
       }
     } else if (changeType == ChangeType.created) {
       if (amountNew != null) {
-        buffer.writeln('金额：${_formatAmount(amountNew!)}');
+        final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+        buffer.writeln('金额：${_formatAmount(amountNew!, currency)}');
       }
       if (occurrenceDateNew != null) {
         buffer.writeln('发生日期：${_formatDate(occurrenceDateNew!)}');
       }
     } else if (changeType == ChangeType.deleted) {
       if (amountOld != null) {
-        buffer.writeln('金额：${_formatAmount(amountOld!)}');
+        final currency = dataSnapshotOld?['currency'] as String? ?? 'CNY';
+        buffer.writeln('金额：${_formatAmount(amountOld!, currency)}');
       }
       if (occurrenceDateOld != null) {
         buffer.writeln('发生日期：${_formatDate(occurrenceDateOld!)}');
@@ -166,8 +170,8 @@ class AssetChange {
     return buffer.toString().trim();
   }
 
-  String _formatAmount(double amount) {
-    return '¥${amount.toStringAsFixed(2)}';
+  String _formatAmount(double amount, String currency) {
+    return CurrencyUtils.formatAmount(amount, currency);
   }
 
   String _formatDate(DateTime date) {

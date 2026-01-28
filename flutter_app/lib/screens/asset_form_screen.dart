@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
 import '../providers/custom_type_provider.dart';
+import '../utils/currency_utils.dart';
 import '../widgets/smart_asset_name_input.dart';
 
 /// 添加/编辑资产表单页面
@@ -276,9 +277,10 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             // 金额
             TextFormField(
               controller: _amountController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '金额',
-                prefixIcon: Icon(Icons.attach_money),
+                prefixIcon: const Icon(Icons.attach_money),
+                prefixText: CurrencyUtils.getSymbol(_selectedCurrency) + ' ',
                 hintText: '0.00',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -296,16 +298,52 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
             // 币种选择
             DropdownButtonFormField<String>(
-              initialValue: _selectedCurrency,
+              value: _selectedCurrency,
               decoration: const InputDecoration(
                 labelText: '币种',
                 prefixIcon: Icon(Icons.currency_exchange),
               ),
               items: const [
-                DropdownMenuItem(value: 'CNY', child: Text('人民币 (CNY)')),
-                DropdownMenuItem(value: 'USD', child: Text('美元 (USD)')),
-                DropdownMenuItem(value: 'HKD', child: Text('港币 (HKD)')),
-                DropdownMenuItem(value: 'EUR', child: Text('欧元 (EUR)')),
+                DropdownMenuItem(
+                  value: 'CNY',
+                  child: Row(
+                    children: [
+                      Text('¥', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 8),
+                      Text('人民币 (CNY)'),
+                    ],
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: 'USD',
+                  child: Row(
+                    children: [
+                      Text('\$', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 8),
+                      Text('美元 (USD)'),
+                    ],
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: 'HKD',
+                  child: Row(
+                    children: [
+                      Text('HK\$', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 8),
+                      Text('港币 (HKD)'),
+                    ],
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: 'EUR',
+                  child: Row(
+                    children: [
+                      Text('€', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 8),
+                      Text('欧元 (EUR)'),
+                    ],
+                  ),
+                ),
               ],
               onChanged: (value) {
                 if (value != null) {

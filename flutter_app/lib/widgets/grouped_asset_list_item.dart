@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/asset.dart';
+import '../utils/currency_utils.dart';
 import 'asset_list_item.dart';
 
 /// 分组资产列表项组件
@@ -71,7 +72,7 @@ class GroupedAssetListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '合计 ¥${_totalAmount.toStringAsFixed(2)}',
+              '合计 ${CurrencyUtils.formatAmount(_totalAmount, assets.first.currency)}',
               style: TextStyle(
                 color: _isLiability ? Colors.red : Colors.green,
                 fontWeight: FontWeight.bold,
@@ -89,7 +90,7 @@ class GroupedAssetListItem extends StatelessWidget {
                       dense: true,
                       title: Text(asset.account ?? '无账户信息'),
                       trailing: Text(
-                        '¥${asset.amount.toStringAsFixed(2)}',
+                        CurrencyUtils.formatAmount(asset.amount, asset.currency),
                         style: TextStyle(
                           color: asset.type.isLiability
                               ? Colors.red

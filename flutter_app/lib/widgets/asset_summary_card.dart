@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/portfolio_summary.dart';
 import '../models/asset.dart';
+import '../utils/currency_utils.dart';
 
 /// 资产总览卡片
 class AssetSummaryCard extends StatelessWidget {
@@ -212,12 +213,7 @@ class AssetSummaryCard extends StatelessWidget {
   }
 
   String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '¥ ${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '¥ ${(amount / 10000).toStringAsFixed(2)} 万';
-    }
-    return '¥ ${amount.toStringAsFixed(2)}';
+    return CurrencyUtils.formatAmount(amount, 'CNY');
   }
 
   String _getTypeName(AssetType type) {

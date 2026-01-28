@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
+import '../utils/currency_utils.dart';
 import 'asset_form_screen.dart';
 import 'asset_history_screen.dart';
 
@@ -90,7 +91,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _formatAmount(_asset!.amount),
+                    _formatAmount(_asset!.amount, _asset!.currency),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: _isLiabilityType(_asset!.type)
                               ? Colors.red
@@ -233,13 +234,8 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '¥ ${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '¥ ${(amount / 10000).toStringAsFixed(2)} 万';
-    }
-    return '¥ ${amount.toStringAsFixed(2)}';
+  String _formatAmount(double amount, String currency) {
+    return CurrencyUtils.formatAmount(amount, currency);
   }
 
   String _getTypeName(String typeStr) {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
 import '../../providers/custom_type_provider.dart';
+import '../../utils/currency_utils.dart';
 import '../../widgets/two_level_grouped_asset_list.dart';
 import '../../widgets/asset_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
@@ -163,7 +164,7 @@ class _LiabilitiesSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '¥ ${_formatAmount(total)}',
+              CurrencyUtils.formatAmount(total, 'CNY'),
               style: theme.textTheme.headlineMedium?.copyWith(
                 color: Colors.red[400],
                 fontWeight: FontWeight.bold,

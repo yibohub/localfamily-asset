@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/asset.dart';
 import '../models/custom_asset_type.dart';
 import '../providers/custom_type_provider.dart';
+import '../utils/currency_utils.dart';
 
 /// 资产列表项
 class AssetListItem extends StatelessWidget {
@@ -83,7 +84,7 @@ class AssetListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _formatAmount(asset.amount),
+                    _formatAmount(asset.amount, asset.currency),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: _isLiabilityType(asset.type)
                             ? Colors.red
@@ -243,13 +244,8 @@ class AssetListItem extends StatelessWidget {
     }
   }
 
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '¥ ${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '¥ ${(amount / 10000).toStringAsFixed(2)} 万';
-    }
-    return '¥ ${amount.toStringAsFixed(2)}';
+  String _formatAmount(double amount, String currency) {
+    return CurrencyUtils.formatAmount(amount, currency);
   }
 
   String _getTypeName(String typeStr) {

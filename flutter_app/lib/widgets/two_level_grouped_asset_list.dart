@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/asset.dart';
 import '../models/custom_asset_type.dart';
 import '../providers/custom_type_provider.dart';
+import '../utils/currency_utils.dart';
 import 'asset_list_item.dart';
 import '../screens/asset_form_screen.dart';
 import '../screens/asset_detail_screen.dart';
@@ -107,7 +108,7 @@ class _AssetGroupCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '¥${_formatAmount(_totalAmount)}',
+                CurrencyUtils.formatAmount(_totalAmount, assets.first.currency),
                 style: TextStyle(
                   color: isLiability ? Colors.red : Colors.green,
                   fontWeight: FontWeight.bold,
@@ -182,7 +183,7 @@ class _AccountGroupTile extends StatelessWidget {
       ),
       title: Text(accountName),
       trailing: Text(
-        '¥${_formatAmount(_totalAmount)}',
+        CurrencyUtils.formatAmount(_totalAmount, assets.first.currency),
         style: TextStyle(
           color: _isLiabilityType(context, assets.first.type) ? Colors.red : Colors.green,
           fontWeight: FontWeight.bold,
@@ -199,7 +200,7 @@ class _AccountGroupTile extends StatelessWidget {
                     dense: true,
                     title: Text(_formatAssetInfo(context, asset)),
                     trailing: Text(
-                      '¥${asset.amount.toStringAsFixed(2)}',
+                      CurrencyUtils.formatAmount(asset.amount, asset.currency),
                       style: TextStyle(
                         color: _isLiabilityType(context, asset.type)
                             ? Colors.red
@@ -222,15 +223,6 @@ class _AccountGroupTile extends StatelessWidget {
             )),
       ],
     );
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)} 万';
-    }
-    return amount.toStringAsFixed(2);
   }
 
   String _formatAssetInfo(BuildContext context, Asset asset) {

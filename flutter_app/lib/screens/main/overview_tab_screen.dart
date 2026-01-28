@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
 import '../../providers/asset_provider.dart';
+import '../../utils/currency_utils.dart';
 
 /// 总览标签页 - 显示资产和负债总览
 class OverviewTabScreen extends StatelessWidget {
@@ -148,7 +149,7 @@ class _SummaryRow extends StatelessWidget {
           ],
         ),
         Text(
-          '¥ ${_formatAmount(amount)}',
+          CurrencyUtils.formatAmount(amount, 'CNY'),
           style: theme.textTheme.titleLarge?.copyWith(
             color: color,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
@@ -267,7 +268,7 @@ class _TypeBreakdownItem extends StatelessWidget {
                 ],
               ),
               Text(
-                '¥ ${_formatAmount(amount)}',
+                CurrencyUtils.formatAmount(amount, 'CNY'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: isLiability ? Colors.red[400] : null,
                 ),
