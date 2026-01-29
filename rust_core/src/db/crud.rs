@@ -11,30 +11,41 @@ pub struct AssetRepository;
 impl AssetRepository {
     /// 创建资产
     pub fn create(conn: &Connection, asset: &Asset) -> DbResult<String> {
+        eprintln!("===== AssetRepository::create 开始 =====");
+        eprintln!("资产 ID: {}", asset.id);
+        eprintln!("资产名称: {}", asset.name);
+        eprintln!("买入价: {}", asset.buy_price);
+        eprintln!("现价: {}", asset.current_price);
+
         let tags_json = asset.tags.as_ref()
             .map(|t| serde_json::to_string(t).ok())
             .flatten();
 
+        // 使用 params! 宏，但显式地将 f64 类型作为引用传递
         conn.execute(
             "INSERT INTO assets (id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            params![
-                asset.id,
-                &asset.asset_type,
-                asset.name,
-                asset.amount,
-                asset.currency,
-                asset.account,
-                asset.occurrence_date,
-                asset.buy_price,
-                asset.current_price,
-                asset.note,
-                tags_json,
-                asset.created_at,
-                asset.updated_at,
+            [
+                &asset.id as &dyn rusqlite::ToSql,
+                &asset.asset_type as &dyn rusqlite::ToSql,
+                &asset.name as &dyn rusqlite::ToSql,
+                &asset.amount as &dyn rusqlite::ToSql,
+                &asset.currency as &dyn rusqlite::ToSql,
+                &asset.account as &dyn rusqlite::ToSql,
+                &asset.occurrence_date as &dyn rusqlite::ToSql,
+                &asset.buy_price as &dyn rusqlite::ToSql,
+                &asset.current_price as &dyn rusqlite::ToSql,
+                &asset.note as &dyn rusqlite::ToSql,
+                &tags_json as &dyn rusqlite::ToSql,
+                &asset.created_at as &dyn rusqlite::ToSql,
+                &asset.updated_at as &dyn rusqlite::ToSql,
             ],
-        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+        ).map_err(|e| {
+            eprintln!("插入失败: {}", e);
+            DbError::DatabaseError(e.to_string())
+        })?;
 
+        eprintln!("插入成功");
         Ok(asset.id.clone())
     }
 

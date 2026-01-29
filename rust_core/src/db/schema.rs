@@ -283,6 +283,76 @@ fn migrate_v4_custom_types(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// 迁移 v5：添加 buy_price 和 current_price 列
+fn migrate_v5_add_price_columns(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("========== 开始数据库迁移 v5：添加 buy_price 和 current_price 列 ==========");
+
+    // 检查列是否已存在
+    let mut stmt = conn.prepare("PRAGMA table_info(assets)")
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let rows = stmt.query_map([], |row| {
+        let col_name: String = row.get(1).unwrap_or_default();
+        Ok(col_name)
+    }).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let mut has_buy_price = false;
+    let mut has_current_price = false;
+    let mut column_names = Vec::new();
+
+    for row in rows {
+        let col_name = row.map_err(|e| DbError::DatabaseError(e.to_string()))?;
+        column_names.push(col_name.clone());
+        if col_name == "buy_price" {
+            has_buy_price = true;
+        } else if col_name == "current_price" {
+            has_current_price = true;
+        }
+    }
+
+    eprintln!("当前 assets 表的列: {:?}", column_names);
+    eprintln!("has_buy_price = {}, has_current_price = {}", has_buy_price, has_current_price);
+
+    // 如果列已存在，跳过迁移
+    if has_buy_price && has_current_price {
+        eprintln!("跳过迁移 v5：buy_price 和 current_price 列已存在");
+        return Ok(());
+    }
+
+    // 添加 buy_price 列（如果不存在）
+    if !has_buy_price {
+        eprintln!("正在添加 buy_price 列...");
+        match conn.execute(
+            "ALTER TABLE assets ADD COLUMN buy_price REAL",
+            [],
+        ) {
+            Ok(_) => eprintln!("已添加 buy_price 列"),
+            Err(e) => {
+                eprintln!("添加 buy_price 列失败: {}", e);
+                return Err(DbError::DatabaseError(e.to_string()));
+            }
+        }
+    }
+
+    // 添加 current_price 列（如果不存在）
+    if !has_current_price {
+        eprintln!("正在添加 current_price 列...");
+        match conn.execute(
+            "ALTER TABLE assets ADD COLUMN current_price REAL",
+            [],
+        ) {
+            Ok(_) => eprintln!("已添加 current_price 列"),
+            Err(e) => {
+                eprintln!("添加 current_price 列失败: {}", e);
+                return Err(DbError::DatabaseError(e.to_string()));
+            }
+        }
+    }
+
+    eprintln!("========== 完成数据库迁移 v5 ==========");
+    Ok(())
+}
+
 /// 初始化数据库（创建表结构并执行迁移）
 pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     create_schema(conn)?;
@@ -303,6 +373,11 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     if version < 4 {
         migrate_v4_custom_types(conn)?;
         set_schema_version(conn, 4)?;
+    }
+
+    if version < 5 {
+        migrate_v5_add_price_columns(conn)?;
+        set_schema_version(conn, 5)?;
     }
 
     // 插入默认设置

@@ -190,8 +190,8 @@ pub struct Asset {
     pub account: Option<String>,
     #[serde(rename = "occurrenceDate")]
     pub occurrence_date: String,
-    pub buy_price: Option<f64>,
-    pub current_price: Option<f64>,
+    pub buy_price: f64,  // 改为 f64，使用 0 表示未设置
+    pub current_price: f64,  // 改为 f64，使用 0 表示未设置
     pub note: Option<String>,
     pub tags: Option<Vec<String>>,
     pub created_at: i64,
@@ -215,8 +215,8 @@ impl Asset {
             currency: "CNY".to_string(),
             account: None,
             occurrence_date: today,
-            buy_price: None,
-            current_price: None,
+            buy_price: 0.0,
+            current_price: 0.0,
             note: None,
             tags: None,
             created_at: now,
@@ -226,23 +226,19 @@ impl Asset {
 
     /// 计算盈亏（百分比）
     pub fn profit_loss_percent(&self) -> Option<f64> {
-        match (self.buy_price, self.current_price) {
-            (Some(buy), Some(current)) => {
-                if buy > 0.0 {
-                    Some((current - buy) / buy * 100.0)
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        if self.buy_price > 0.0 {
+            Some((self.current_price - self.buy_price) / self.buy_price * 100.0)
+        } else {
+            None
         }
     }
 
     /// 计算盈亏金额
     pub fn profit_loss_amount(&self) -> Option<f64> {
-        match (self.buy_price, self.current_price) {
-            (Some(buy), Some(current)) => Some(current - buy),
-            _ => None,
+        if self.buy_price > 0.0 {
+            Some(self.current_price - self.buy_price)
+        } else {
+            None
         }
     }
 }
