@@ -289,20 +289,27 @@ class AssetProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final typeFilter = types?.map((t) => t.value).toList();
-      final assetsJson = await _ffi.searchAssetsByName(
-        namePattern: namePattern,
-        typeFilter: typeFilter,
-      );
+      // 在内存中搜索，因为现在使用字符串类型，而 FFI 仍使用整型类型
+      final results = <Asset>[];
+      for (final asset in _assets) {
+        // 检查名称是否匹配
+        if (!asset.name.toLowerCase().contains(namePattern.toLowerCase())) {
+          continue;
+        }
+
+        // 如果有类型过滤，检查类型是否匹配
+        if (types != null && types.isNotEmpty) {
+          final builtInType = AssetTypeExtension.fromString(asset.type);
+          if (builtInType == null || !types.contains(builtInType)) {
+            continue;
+          }
+        }
+
+        results.add(asset);
+      }
 
       _searchResults.clear();
-      for (final json in assetsJson) {
-        try {
-          _searchResults.add(Asset.fromJson(json));
-        } catch (e) {
-          debugPrint('解析搜索结果失败: $e');
-        }
-      }
+      _searchResults.addAll(results);
 
       _isSearching = false;
       notifyListeners();
