@@ -92,12 +92,17 @@ class AssetListItem extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  Text(
-                    asset.currency,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[500],
-                        ),
-                  ),
+                  // 显示盈亏百分比（如果有买入价和现价）
+                  if (asset.buyPrice != null && asset.currentPrice != null)
+                    _buildProfitLossChip(context),
+                  // 如果没有盈亏信息，显示币种
+                  if (asset.buyPrice == null || asset.currentPrice == null)
+                    Text(
+                      asset.currency,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[500],
+                          ),
+                    ),
                 ],
               ),
             ],
@@ -265,5 +270,30 @@ class AssetListItem extends StatelessWidget {
     }
     // 自定义类型暂时当作资产处理
     return false;
+  }
+
+  /// 构建盈亏标签
+  Widget _buildProfitLossChip(BuildContext context) {
+    final profitLossPercent = asset.profitLossPercent;
+    if (profitLossPercent == null) return const SizedBox.shrink();
+
+    final isProfit = profitLossPercent >= 0;
+    final profitColor = isProfit ? Colors.red : Colors.green; // 中国股市：红涨绿跌
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: profitColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '${isProfit ? '+' : ''}${profitLossPercent.toStringAsFixed(2)}%',
+        style: TextStyle(
+          color: profitColor,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }

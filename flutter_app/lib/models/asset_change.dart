@@ -129,6 +129,14 @@ class AssetChange {
         return '类型';
       case 'currency':
         return '币种';
+      case 'buy_price':
+        return '买入价';
+      case 'current_price':
+        return '现价';
+      case 'note':
+        return '备注';
+      case 'tags':
+        return '标签';
       default:
         return field;
     }
@@ -149,6 +157,56 @@ class AssetChange {
       if (occurrenceDateOld != null && occurrenceDateNew != null && occurrenceDateOld != occurrenceDateNew) {
         buffer.writeln('发生日期从 ${_formatDate(occurrenceDateOld!)} 改为 ${_formatDate(occurrenceDateNew!)}');
       }
+      // 显示买入价变化
+      final buyPriceOld = dataSnapshotOld?['buy_price'] as double?;
+      final buyPriceNew = dataSnapshotNew?['buy_price'] as double?;
+      if (buyPriceOld != null || buyPriceNew != null) {
+        if (buyPriceOld != buyPriceNew) {
+          final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+          if (buyPriceOld != null) {
+            buffer.write('买入价从 ${_formatAmount(buyPriceOld, currency)}');
+          } else {
+            buffer.write('买入价');
+          }
+          if (buyPriceNew != null) {
+            buffer.writeln('改为 ${_formatAmount(buyPriceNew, currency)}');
+          } else {
+            buffer.writeln('已清除');
+          }
+        }
+      }
+      // 显示现价变化
+      final currentPriceOld = dataSnapshotOld?['current_price'] as double?;
+      final currentPriceNew = dataSnapshotNew?['current_price'] as double?;
+      if (currentPriceOld != null || currentPriceNew != null) {
+        if (currentPriceOld != currentPriceNew) {
+          final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+          if (currentPriceOld != null) {
+            buffer.write('现价从 ${_formatAmount(currentPriceOld, currency)}');
+          } else {
+            buffer.write('现价');
+          }
+          if (currentPriceNew != null) {
+            buffer.writeln('改为 ${_formatAmount(currentPriceNew, currency)}');
+          } else {
+            buffer.writeln('已清除');
+          }
+        }
+      }
+      // 显示备注变化
+      final noteOld = dataSnapshotOld?['note'] as String?;
+      final noteNew = dataSnapshotNew?['note'] as String?;
+      if (noteOld != null || noteNew != null) {
+        if (noteOld != noteNew) {
+          if (noteOld != null && noteOld!.isNotEmpty) {
+            buffer.writeln('备注从 "$noteOld" 改为 "$noteNew"');
+          } else if (noteNew != null && noteNew!.isNotEmpty) {
+            buffer.writeln('备注添加为 "$noteNew"');
+          } else if (noteNew != null) {
+            buffer.writeln('备注已清除');
+          }
+        }
+      }
     } else if (changeType == ChangeType.created) {
       if (amountNew != null) {
         final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
@@ -156,6 +214,16 @@ class AssetChange {
       }
       if (occurrenceDateNew != null) {
         buffer.writeln('发生日期：${_formatDate(occurrenceDateNew!)}');
+      }
+      final buyPriceNew = dataSnapshotNew?['buy_price'] as double?;
+      if (buyPriceNew != null) {
+        final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+        buffer.writeln('买入价：${_formatAmount(buyPriceNew, currency)}');
+      }
+      final currentPriceNew = dataSnapshotNew?['current_price'] as double?;
+      if (currentPriceNew != null) {
+        final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
+        buffer.writeln('现价：${_formatAmount(currentPriceNew, currency)}');
       }
     } else if (changeType == ChangeType.deleted) {
       if (amountOld != null) {

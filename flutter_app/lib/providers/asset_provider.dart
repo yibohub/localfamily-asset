@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/asset_change.dart';
@@ -155,6 +157,16 @@ class AssetProvider with ChangeNotifier {
   /// 添加资产
   Future<bool> addAsset(Asset asset) async {
     try {
+      debugPrint('===== AssetProvider.addAsset 开始 =====');
+      debugPrint('资产名称: ${asset.name}');
+      debugPrint('买入价: ${asset.buyPrice}');
+      debugPrint('现价: ${asset.currentPrice}');
+
+      // 将 tags 转换为 JSON 字符串
+      final tagsJson = asset.tags != null
+          ? jsonEncode(asset.tags)
+          : null;
+
       final success = await _ffi.addAssetWithType(
         name: asset.name,
         assetType: asset.type, // 直接使用字符串类型
@@ -163,7 +175,13 @@ class AssetProvider with ChangeNotifier {
         symbol: asset.account,
         notes: asset.note,
         occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
+        buyPrice: asset.buyPrice,
+        currentPrice: asset.currentPrice,
+        tagsJson: tagsJson,
       );
+
+      debugPrint('FFI 调用结果: $success');
+      debugPrint('===== AssetProvider.addAsset 结束 =====');
 
       if (success) {
         // 重新加载资产列表
@@ -182,6 +200,11 @@ class AssetProvider with ChangeNotifier {
   /// 更新资产
   Future<bool> updateAsset(Asset asset) async {
     try {
+      // 将 tags 转换为 JSON 字符串
+      final tagsJson = asset.tags != null
+          ? jsonEncode(asset.tags)
+          : null;
+
       final success = await _ffi.updateAssetWithType(
         id: asset.id,
         name: asset.name,
@@ -191,6 +214,9 @@ class AssetProvider with ChangeNotifier {
         symbol: asset.account,
         notes: asset.note,
         occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
+        buyPrice: asset.buyPrice,
+        currentPrice: asset.currentPrice,
+        tagsJson: tagsJson,
       );
 
       if (success) {

@@ -30,6 +30,8 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _amountController;
   late final TextEditingController _accountController;
+  late final TextEditingController _buyPriceController;
+  late final TextEditingController _currentPriceController;
   late final TextEditingController _noteController;
 
   late String _selectedTypeId; // 改为 String 类型，支持内置类型名称和自定义类型 ID
@@ -45,6 +47,12 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
       text: widget.asset?.amount.toString() ?? '',
     );
     _accountController = TextEditingController(text: widget.asset?.account);
+    _buyPriceController = TextEditingController(
+      text: widget.asset?.buyPrice?.toString() ?? '',
+    );
+    _currentPriceController = TextEditingController(
+      text: widget.asset?.currentPrice?.toString() ?? '',
+    );
     _noteController = TextEditingController(text: widget.asset?.note);
 
     // 确定默认类型
@@ -71,6 +79,8 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     _nameController.dispose();
     _amountController.dispose();
     _accountController.dispose();
+    _buyPriceController.dispose();
+    _currentPriceController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -88,6 +98,12 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
       currency: _selectedCurrency,
       account: _accountController.text.isEmpty ? null : _accountController.text,
       occurrenceDate: _occurrenceDate,
+      buyPrice: _buyPriceController.text.isEmpty
+          ? null
+          : double.tryParse(_buyPriceController.text),
+      currentPrice: _currentPriceController.text.isEmpty
+          ? null
+          : double.tryParse(_currentPriceController.text),
       note: _noteController.text.isEmpty ? null : _noteController.text,
       createdAt: widget.asset?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -350,6 +366,34 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                   setState(() => _selectedCurrency = value);
                 }
               },
+            ),
+            const SizedBox(height: 16),
+
+            // 买入价（可选）
+            TextFormField(
+              controller: _buyPriceController,
+              decoration: InputDecoration(
+                labelText: '买入价（可选）',
+                prefixIcon: const Icon(Icons.show_chart),
+                prefixText: CurrencyUtils.getSymbol(_selectedCurrency) + ' ',
+                hintText: '0.00',
+                helperText: '适用于股票、基金等投资类资产',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+
+            // 现价（可选）
+            TextFormField(
+              controller: _currentPriceController,
+              decoration: InputDecoration(
+                labelText: '现价（可选）',
+                prefixIcon: const Icon(Icons.trending_up),
+                prefixText: CurrencyUtils.getSymbol(_selectedCurrency) + ' ',
+                hintText: '0.00',
+                helperText: '填写后可自动计算盈亏',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
 

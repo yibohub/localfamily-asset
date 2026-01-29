@@ -103,6 +103,11 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
               ),
             ),
           ),
+          // 盈亏信息（仅在有买入价和现价时显示）
+          if (_asset!.buyPrice != null || _asset!.currentPrice != null) ...[
+            const SizedBox(height: 16),
+            _buildProfitLossCard(),
+          ],
           const SizedBox(height: 16),
           _buildInfoTile(_isLiabilityType(_asset!.type) ? '负债类型' : '资产类型', _getTypeName(_asset!.type)),
           _buildInfoTile('货币', _asset!.currency),
@@ -259,5 +264,105 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 构建盈亏信息卡片
+  Widget _buildProfitLossCard() {
+    final buyPrice = _asset!.buyPrice;
+    final currentPrice = _asset!.currentPrice;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.show_chart,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '价格信息',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (buyPrice != null)
+              _buildInfoTile(
+                '买入价',
+                _formatAmount(buyPrice, _asset!.currency),
+              ),
+            if (currentPrice != null)
+              _buildInfoTile(
+                '现价',
+                _formatAmount(currentPrice, _asset!.currency),
+              ),
+            // 显示盈亏
+            if (buyPrice != null && currentPrice != null) ...[
+              const Divider(height: 24),
+              _buildProfitLossInfo(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建盈亏信息
+  Widget _buildProfitLossInfo() {
+    final profitLossPercent = _asset!.profitLossPercent;
+    final profitLossAmount = _asset!.profitLossAmount;
+
+    if (profitLossPercent == null || profitLossAmount == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isProfit = profitLossAmount >= 0;
+    final profitText = isProfit ? '盈利' : '亏损';
+    final profitColor = isProfit ? Colors.red : Colors.green; // 中国股市：红涨绿跌
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '盈亏',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+        ),
+        Row(
+          children: [
+            Text(
+              '$profitText ${_formatAmount(profitLossAmount.abs(), _asset!.currency)}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: profitColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: profitColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${profitLossPercent >= 0 ? '+' : ''}${profitLossPercent.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  color: profitColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
