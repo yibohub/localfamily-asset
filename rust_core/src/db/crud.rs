@@ -14,31 +14,31 @@ impl AssetRepository {
         eprintln!("===== AssetRepository::create 开始 =====");
         eprintln!("资产 ID: {}", asset.id);
         eprintln!("资产名称: {}", asset.name);
-        eprintln!("买入价: {}", asset.buy_price);
-        eprintln!("现价: {}", asset.current_price);
+        eprintln!("买入价: {:?}", asset.buy_price);
+        eprintln!("现价: {:?}", asset.current_price);
 
         let tags_json = asset.tags.as_ref()
             .map(|t| serde_json::to_string(t).ok())
             .flatten();
 
-        // 使用 params! 宏，但显式地将 f64 类型作为引用传递
+        // 使用命名参数，显式指定类型
         conn.execute(
             "INSERT INTO assets (id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            [
-                &asset.id as &dyn rusqlite::ToSql,
-                &asset.asset_type as &dyn rusqlite::ToSql,
-                &asset.name as &dyn rusqlite::ToSql,
-                &asset.amount as &dyn rusqlite::ToSql,
-                &asset.currency as &dyn rusqlite::ToSql,
-                &asset.account as &dyn rusqlite::ToSql,
-                &asset.occurrence_date as &dyn rusqlite::ToSql,
-                &asset.buy_price as &dyn rusqlite::ToSql,
-                &asset.current_price as &dyn rusqlite::ToSql,
-                &asset.note as &dyn rusqlite::ToSql,
-                &tags_json as &dyn rusqlite::ToSql,
-                &asset.created_at as &dyn rusqlite::ToSql,
-                &asset.updated_at as &dyn rusqlite::ToSql,
+             VALUES (:id, :type, :name, :amount, :currency, :account, :occurrence_date, :buy_price, :current_price, :note, :tags, :created_at, :updated_at)",
+            &[
+                (":id", &asset.id as &dyn rusqlite::ToSql),
+                (":type", &asset.asset_type as &dyn rusqlite::ToSql),
+                (":name", &asset.name as &dyn rusqlite::ToSql),
+                (":amount", &asset.amount as &dyn rusqlite::ToSql),
+                (":currency", &asset.currency as &dyn rusqlite::ToSql),
+                (":account", &asset.account as &dyn rusqlite::ToSql),
+                (":occurrence_date", &asset.occurrence_date as &dyn rusqlite::ToSql),
+                (":buy_price", &asset.buy_price as &dyn rusqlite::ToSql),
+                (":current_price", &asset.current_price as &dyn rusqlite::ToSql),
+                (":note", &asset.note as &dyn rusqlite::ToSql),
+                (":tags", &tags_json as &dyn rusqlite::ToSql),
+                (":created_at", &asset.created_at as &dyn rusqlite::ToSql),
+                (":updated_at", &asset.updated_at as &dyn rusqlite::ToSql),
             ],
         ).map_err(|e| {
             eprintln!("插入失败: {}", e);

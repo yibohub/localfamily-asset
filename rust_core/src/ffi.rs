@@ -5,13 +5,34 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int};
 use std::ptr;
+use std::fs::OpenOptions;
 
 use once_cell::sync::Lazy;
 use serde_json::json;
+use chrono::Local;
 
 use crate::crypto::{derive_key, generate_salt};
 use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
 use rusqlite::Connection;
+
+/// 文件日志
+fn write_log(msg: &str) {
+    use std::io::Write;
+    let timestamp = Local::now().to_rfc3339();
+    let log_msg = format!("[{}] {}\n", timestamp, msg);
+    let path = r"C:\Users\86131\Documents\localfamily_asset_rust.log";
+    match OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(path)
+        .and_then(|mut file| file.write_all(log_msg.as_bytes()))
+    {
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("写入日志失败 ({}): {}", path, e);
+        }
+    }
+}
 
 /// 全局应用状态
 static APP_STATE: Lazy<std::sync::Mutex<Option<AppState>>> =
@@ -412,14 +433,15 @@ pub unsafe extern "C" fn update_asset(
 
     // 计算修改的字段
     let mut changed_fields = Vec::new();
-    if existing.name != name { changed_fields.push("name"); }
-    if existing.amount != amount { changed_fields.push("amount"); }
-    if existing.currency != currency { changed_fields.push("currency"); }
-    if existing.account != _symbol { changed_fields.push("account"); }
-    if existing.asset_type != asset_type_str { changed_fields.push("type"); }
+    if existing.name != name { changed_fields.push("名称"); }
+    if existing.amount != amount { changed_fields.push("金额"); }
+    if existing.currency != currency { changed_fields.push("币种"); }
+    if existing.account != _symbol { changed_fields.push("账户"); }
+    if existing.asset_type != asset_type_str { changed_fields.push("类型"); }
     if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
-        changed_fields.push("occurrence_date");
+        changed_fields.push("发生日期");
     }
+    if existing.note != note { changed_fields.push("备注"); }
 
     // 克隆 id 用于后续使用
     let id_clone = id.clone();
@@ -834,6 +856,9 @@ pub unsafe extern "C" fn add_asset_with_type(
     symbol: *const c_char,
     notes: *const c_char,
     occurrence_date: *const c_char,
+    buy_price: c_double,
+    current_price: c_double,
+    tags_json: *const c_char,
 ) -> c_int {
     let name = match CStr::from_ptr(name).to_str() {
         Ok(s) => s.to_string(),
@@ -877,6 +902,49 @@ pub unsafe extern "C" fn add_asset_with_type(
         }
     };
 
+    // 解析买入价（NaN 表示未设置）
+    eprintln!("========== add_asset_with_type ==========");
+    eprintln!("接收到 buy_price = {}, is_nan = {}", buy_price, buy_price.is_nan());
+    write_log(&format!("========== add_asset_with_type ==========\n接收到 buy_price = {}, is_nan = {}", buy_price, buy_price.is_nan()));
+    let buy_price = if buy_price.is_nan() {
+        eprintln!("买入价未设置（NaN）");
+        write_log("买入价未设置（NaN）\n");
+        None
+    } else {
+        eprintln!("买入价设置为: {}", buy_price);
+        write_log(&format!("买入价设置为: {}\n", buy_price));
+        Some(buy_price)
+    };
+
+    // 解析现价（NaN 表示未设置）
+    eprintln!("接收到 current_price = {}, is_nan = {}", current_price, current_price.is_nan());
+    write_log(&format!("接收到 current_price = {}, is_nan = {}\n", current_price, current_price.is_nan()));
+    let current_price = if current_price.is_nan() {
+        eprintln!("现价未设置（NaN）");
+        write_log("现价未设置（NaN）\n");
+        None
+    } else {
+        eprintln!("现价设置为: {}", current_price);
+        write_log(&format!("现价设置为: {}\n", current_price));
+        Some(current_price)
+    };
+
+    // 解析标签（JSON 字符串）
+    let tags = if tags_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(tags_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(s).ok()
+                }
+            },
+            Err(_) => None,
+        }
+    };
+
     let state = APP_STATE.lock().unwrap();
     let state = match state.as_ref() {
         Some(s) => s,
@@ -894,18 +962,41 @@ pub unsafe extern "C" fn add_asset_with_type(
         account: _symbol,
         note,
         occurrence_date,
+        buy_price,
+        current_price,
+        tags,
         ..asset
     };
 
+    write_log(&format!("创建 Asset 对象: buy_price = {:?}, current_price = {:?}\n", asset.buy_price, asset.current_price));
+    write_log(&format!("资产 ID = {}, 名称 = {}\n", asset.id, asset.name));
+
     let asset_id = match AssetRepository::create(&conn, &asset) {
         Ok(id) => id,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+        Err(e) => {
+            write_log(&format!("数据库插入失败: {}\n", e));
+            return FfiErrorCode::DatabaseError as c_int;
+        }
     };
+
+    write_log(&format!("数据库插入成功，资产 ID = {}\n", asset_id));
+
+    // 立即读取验证
+    match AssetRepository::get(&conn, &asset_id) {
+        Ok(read_asset) => {
+            write_log(&format!("验证读取: buy_price = {:?}, current_price = {:?}\n", read_asset.buy_price, read_asset.current_price));
+        },
+        Err(e) => {
+            write_log(&format!("验证读取失败: {}\n", e));
+        }
+    }
 
     // 记录审计日志
     let change = AssetChange::new(asset_id.clone(), ChangeType::Created)
         .with_created_snapshot(&asset);
     let _ = AssetChangeRepository::create(&conn, &change);
+
+    write_log("========== add_asset_with_type 结束 ==========\n");
 
     FfiErrorCode::Success as c_int
 }
@@ -921,6 +1012,9 @@ pub unsafe extern "C" fn update_asset_with_type(
     symbol: *const c_char,
     notes: *const c_char,
     occurrence_date: *const c_char,
+    buy_price: c_double,
+    current_price: c_double,
+    tags_json: *const c_char,
 ) -> c_int {
     let id = match CStr::from_ptr(id).to_str() {
         Ok(s) => s.to_string(),
@@ -969,6 +1063,36 @@ pub unsafe extern "C" fn update_asset_with_type(
         }
     };
 
+    // 解析买入价（NaN 表示未设置）
+    let buy_price = if buy_price.is_nan() {
+        None
+    } else {
+        Some(buy_price)
+    };
+
+    // 解析现价（NaN 表示未设置）
+    let current_price = if current_price.is_nan() {
+        None
+    } else {
+        Some(current_price)
+    };
+
+    // 解析标签（JSON 字符串）
+    let tags = if tags_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(tags_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(s).ok()
+                }
+            },
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
     let state = APP_STATE.lock().unwrap();
     let state = match state.as_ref() {
         Some(s) => s,
@@ -987,6 +1111,21 @@ pub unsafe extern "C" fn update_asset_with_type(
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
+    // 计算修改的字段
+    let mut changed_fields = Vec::new();
+    if existing.name != name { changed_fields.push("名称"); }
+    if existing.amount != amount { changed_fields.push("金额"); }
+    if existing.currency != currency { changed_fields.push("币种"); }
+    if existing.account != _symbol { changed_fields.push("账户"); }
+    if existing.asset_type != asset_type { changed_fields.push("类型"); }
+    if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
+        changed_fields.push("发生日期");
+    }
+    if existing.note != note { changed_fields.push("备注"); }
+    if existing.buy_price != buy_price { changed_fields.push("买入价"); }
+    if existing.current_price != current_price { changed_fields.push("现价"); }
+    if existing.tags != tags { changed_fields.push("标签"); }
+
     let id_clone = id.clone();
 
     let asset = Asset {
@@ -998,9 +1137,9 @@ pub unsafe extern "C" fn update_asset_with_type(
         account: _symbol,
         note,
         occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
-        buy_price: existing.buy_price,
-        current_price: existing.current_price,
-        tags: existing.tags.clone(),
+        buy_price,
+        current_price,
+        tags,
         created_at: existing.created_at,
         updated_at: existing.updated_at,
     };
@@ -1008,8 +1147,16 @@ pub unsafe extern "C" fn update_asset_with_type(
     match AssetRepository::update(&conn, &asset) {
         Ok(_) => {
             // 记录审计日志
+            let changed_field = if changed_fields.is_empty() {
+                None
+            } else if changed_fields.len() == 1 {
+                Some(changed_fields[0].to_string())
+            } else {
+                Some(changed_fields.join(", "))
+            };
+
             let change = AssetChange::new(id_clone, ChangeType::Updated)
-                .with_updated_snapshots(&existing, &asset, None);
+                .with_updated_snapshots(&existing, &asset, changed_field);
             let _ = AssetChangeRepository::create(&conn, &change);
 
             FfiErrorCode::Success as c_int

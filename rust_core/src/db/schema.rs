@@ -353,12 +353,74 @@ fn migrate_v5_add_price_columns(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// 强制检查并添加 buy_price 和 current_price 列
+/// 无论数据库版本如何，都确保这两个列存在
+fn ensure_price_columns_exist(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("========== 强制检查 buy_price 和 current_price 列 ==========");
+
+    let mut stmt = conn.prepare("PRAGMA table_info(assets)")
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let rows = stmt.query_map([], |row| {
+        let col_name: String = row.get(1).unwrap_or_default();
+        Ok(col_name)
+    }).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let mut has_buy_price = false;
+    let mut has_current_price = false;
+
+    for row in rows {
+        let col_name = row.map_err(|e| DbError::DatabaseError(e.to_string()))?;
+        if col_name == "buy_price" {
+            has_buy_price = true;
+        } else if col_name == "current_price" {
+            has_current_price = true;
+        }
+    }
+
+    eprintln!("has_buy_price = {}, has_current_price = {}", has_buy_price, has_current_price);
+
+    // 添加 buy_price 列（如果不存在）
+    if !has_buy_price {
+        eprintln!("强制添加 buy_price 列...");
+        match conn.execute(
+            "ALTER TABLE assets ADD COLUMN buy_price REAL",
+            [],
+        ) {
+            Ok(_) => eprintln!("已添加 buy_price 列"),
+            Err(e) => {
+                eprintln!("添加 buy_price 列失败: {}", e);
+            }
+        }
+    }
+
+    // 添加 current_price 列（如果不存在）
+    if !has_current_price {
+        eprintln!("强制添加 current_price 列...");
+        match conn.execute(
+            "ALTER TABLE assets ADD COLUMN current_price REAL",
+            [],
+        ) {
+            Ok(_) => eprintln!("已添加 current_price 列"),
+            Err(e) => {
+                eprintln!("添加 current_price 列失败: {}", e);
+            }
+        }
+    }
+
+    eprintln!("========== 完成强制检查 ==========");
+    Ok(())
+}
+
 /// 初始化数据库（创建表结构并执行迁移）
 pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     create_schema(conn)?;
 
     // 运行版本迁移
     let version = get_schema_version(conn)?;
+
+    // 强制检查并添加 buy_price 和 current_price 列（无论版本如何）
+    ensure_price_columns_exist(conn)?;
 
     if version < 2 {
         migrate_v2_occurrence_date(conn)?;
