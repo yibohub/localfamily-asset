@@ -12,7 +12,6 @@ import '../core/ffi_bridge.dart';
 import '../widgets/asset_summary_card.dart';
 import '../widgets/asset_list_item.dart';
 import '../widgets/add_asset_dialog.dart';
-import '../widgets/window_title_bar.dart';
 import 'asset_detail_screen.dart';
 import 'auth/lock_screen.dart';
 
@@ -102,8 +101,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowTitleBar(
-        title: '资产概览',
+      appBar: AppBar(
+        title: const Text('资产概览'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),

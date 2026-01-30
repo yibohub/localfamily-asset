@@ -22,7 +22,6 @@ class YincaiApp extends StatelessWidget {
         return MaterialApp(
           title: 'Yincai', // 使用英文标题避免任务栏乱码
           debugShowCheckedModeBanner: false,
-          debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,

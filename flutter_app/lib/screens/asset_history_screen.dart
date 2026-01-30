@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../models/asset_change.dart';
 import '../models/asset.dart';
 import '../providers/asset_provider.dart';
-import '../widgets/window_title_bar.dart';
 
 /// 资产审计日志历史页面
 class AssetHistoryScreen extends StatefulWidget {
@@ -64,7 +63,7 @@ class _AssetHistoryScreenState extends State<AssetHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowTitleBar(
+      appBar: AppBar(
         title: Text(_getTitle()),
         actions: [
           if (_isLoading)

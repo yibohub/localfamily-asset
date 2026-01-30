@@ -7,7 +7,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../models/asset.dart';
 import '../../core/theme.dart';
-import '../../widgets/window_title_bar.dart';
 import '../main/main_navigation_screen.dart';
 
 /// 隐财初始设置页
@@ -125,8 +124,8 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowTitleBar(
-        title: '初始设置',
+      appBar: AppBar(
+        title: const Text('初始设置'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

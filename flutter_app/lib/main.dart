@@ -27,8 +27,8 @@ void main() async {
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden, // 隐藏系统标题栏
-    windowButtonVisibility: true, // 保留最小化/最大化/关闭按钮
+    title: 'Yincai - LocalFamily Asset', // 使用英文标题避免任务栏乱码
+    windowButtonVisibility: true,
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {

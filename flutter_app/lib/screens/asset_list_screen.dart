@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/asset_provider.dart';
 import '../models/asset.dart';
 import '../widgets/grouped_asset_list_item.dart';
-import '../widgets/window_title_bar.dart';
 import 'asset_form_screen.dart';
 
 /// 资产列表页面（按类型筛选）
@@ -20,7 +19,7 @@ class AssetListScreen extends StatelessWidget {
         : assetProvider.assets;
 
     return Scaffold(
-      appBar: WindowTitleBar(
+      appBar: AppBar(
         title: Text(assetType?.displayName ?? '所有资产'),
         actions: [
           // 切换显示模式的按钮
