@@ -1,10 +1,25 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/asset_change.dart';
 import '../models/portfolio_summary.dart';
 import '../core/ffi_bridge.dart';
+
+/// 文件日志
+Future<void> _logToFile(String message) async {
+  try {
+    final file = File('C:\\Users\\86131\\Documents\\localfamily_asset_dart.log');
+    final sink = file.openWrite(mode: FileMode.append);
+    final timestamp = DateTime.now().toIso8601String();
+    sink.writeln('[$timestamp] $message');
+    await sink.flush();
+    await sink.close();
+  } catch (e) {
+    // 忽略日志错误
+  }
+}
 
 /// 资产数据状态管理
 class AssetProvider with ChangeNotifier {
@@ -134,6 +149,18 @@ class AssetProvider with ChangeNotifier {
     try {
       // 调用 Rust Core 加载数据
       final assetsJson = await _ffi.getAllAssets();
+      final logMsg = '===== loadAssets: 从 Rust 返回 ${assetsJson.length} 条资产 =====';
+      debugPrint(logMsg);
+      await _logToFile(logMsg);
+
+      if (assetsJson.isNotEmpty) {
+        final firstLog = '第一条资产 JSON: ${assetsJson.first}';
+        final lastLog = '最后一条资产 JSON: ${assetsJson.last}';
+        debugPrint(firstLog);
+        debugPrint(lastLog);
+        await _logToFile(firstLog);
+        await _logToFile(lastLog);
+      }
 
       _assets.clear();
       for (final json in assetsJson) {
@@ -141,7 +168,21 @@ class AssetProvider with ChangeNotifier {
           _assets.add(Asset.fromJson(json));
         } catch (e) {
           debugPrint('解析资产失败: $e, JSON: $json');
+          await _logToFile('解析资产失败: $e, JSON: $json');
         }
+      }
+
+      final parsedLog = 'loadAssets: 解析后资产数量 = ${_assets.length}';
+      debugPrint(parsedLog);
+      await _logToFile(parsedLog);
+
+      if (_assets.isNotEmpty) {
+        final firstAssetLog = '第一条资产: name=${_assets.first.name}, buyPrice=${_assets.first.buyPrice}, currentPrice=${_assets.first.currentPrice}';
+        final lastAssetLog = '最后一条资产: name=${_assets.last.name}, buyPrice=${_assets.last.buyPrice}, currentPrice=${_assets.last.currentPrice}';
+        debugPrint(firstAssetLog);
+        debugPrint(lastAssetLog);
+        await _logToFile(firstAssetLog);
+        await _logToFile(lastAssetLog);
       }
 
       _isLoading = false;
@@ -151,16 +192,16 @@ class AssetProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       debugPrint(_error);
+      await _logToFile('错误: $_error');
     }
   }
 
   /// 添加资产
   Future<bool> addAsset(Asset asset) async {
     try {
-      debugPrint('===== AssetProvider.addAsset 开始 =====');
-      debugPrint('资产名称: ${asset.name}');
-      debugPrint('买入价: ${asset.buyPrice}');
-      debugPrint('现价: ${asset.currentPrice}');
+      final logMsg = '===== AssetProvider.addAsset 开始 =====\n资产名称: ${asset.name}\n买入价: ${asset.buyPrice}\n现价: ${asset.currentPrice}';
+      debugPrint(logMsg);
+      await _logToFile(logMsg);
 
       // 将 tags 转换为 JSON 字符串
       final tagsJson = asset.tags != null
@@ -179,6 +220,14 @@ class AssetProvider with ChangeNotifier {
         currentPrice: asset.currentPrice,
         tagsJson: tagsJson,
       );
+
+      await _logToFile('FFI 调用结果: $success');
+
+      if (success) {
+        await _logToFile('===== AssetProvider.addAsset 结束（成功）=====\n');
+      } else {
+        await _logToFile('===== AssetProvider.addAsset 结束（失败）=====\n');
+      }
 
       debugPrint('FFI 调用结果: $success');
       debugPrint('===== AssetProvider.addAsset 结束 =====');

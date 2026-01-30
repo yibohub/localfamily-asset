@@ -67,6 +67,9 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
+    double,
+    double,
+    ffi.Pointer<ffi.Char>,
   ) _addAssetWithType;
   late final int Function(
     ffi.Pointer<ffi.Char>,
@@ -76,6 +79,9 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    double,
     ffi.Pointer<ffi.Char>,
   ) _updateAssetWithType;
 
@@ -232,6 +238,9 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
         )>>('add_asset_with_type')
         .asFunction();
 
@@ -244,6 +253,9 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Double,
           ffi.Pointer<ffi.Char>,
         )>>('update_asset_with_type')
         .asFunction();
@@ -636,13 +648,26 @@ class FfiBridge {
     String? symbol,
     String? notes,
     required String occurrenceDate,
+    double? buyPrice,
+    double? currentPrice,
+    String? tagsJson,
   }) async {
+    debugPrint('===== FfiBridge.addAssetWithType 开始 =====');
+    debugPrint('buyPrice: $buyPrice, currentPrice: $currentPrice');
+
     final namePtr = name.toNativeUtf8().cast<ffi.Char>();
     final typePtr = assetType.toNativeUtf8().cast<ffi.Char>();
     final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
     final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final occurrenceDatePtr = occurrenceDate.toNativeUtf8().cast<ffi.Char>();
+    final tagsJsonPtr = tagsJson != null ? tagsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    // 使用 NaN 表示 null（哨兵值方案）
+    final buyPriceValue = buyPrice ?? double.nan;
+    final currentPriceValue = currentPrice ?? double.nan;
+
+    debugPrint('传递给 Rust: buyPrice=$buyPriceValue (isNaN=${buyPriceValue.isNaN}), currentPrice=$currentPriceValue (isNaN=${currentPriceValue.isNaN})');
 
     try {
       final result = _addAssetWithType(
@@ -653,7 +678,11 @@ class FfiBridge {
         symbolPtr,
         notesPtr,
         occurrenceDatePtr,
+        buyPriceValue,
+        currentPriceValue,
+        tagsJsonPtr,
       );
+      debugPrint('Rust 返回结果: $result');
       return result == FfiErrorCode.success;
     } finally {
       malloc.free(namePtr);
@@ -662,6 +691,7 @@ class FfiBridge {
       if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
       if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
       malloc.free(occurrenceDatePtr);
+      if (tagsJsonPtr != ffi.nullptr) malloc.free(tagsJsonPtr);
     }
   }
 
@@ -675,6 +705,9 @@ class FfiBridge {
     String? symbol,
     String? notes,
     String? occurrenceDate,
+    double? buyPrice,
+    double? currentPrice,
+    String? tagsJson,
   }) async {
     final idPtr = id.toNativeUtf8().cast<ffi.Char>();
     final namePtr = name.toNativeUtf8().cast<ffi.Char>();
@@ -683,6 +716,11 @@ class FfiBridge {
     final symbolPtr = symbol != null ? symbol.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final notesPtr = notes != null ? notes.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
     final occurrenceDatePtr = occurrenceDate != null ? occurrenceDate.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final tagsJsonPtr = tagsJson != null ? tagsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    // 使用 NaN 表示 null（哨兵值方案）
+    final buyPriceValue = buyPrice ?? double.nan;
+    final currentPriceValue = currentPrice ?? double.nan;
 
     try {
       final result = _updateAssetWithType(
@@ -694,6 +732,9 @@ class FfiBridge {
         symbolPtr,
         notesPtr,
         occurrenceDatePtr,
+        buyPriceValue,
+        currentPriceValue,
+        tagsJsonPtr,
       );
       return result == FfiErrorCode.success;
     } finally {
@@ -704,6 +745,7 @@ class FfiBridge {
       if (symbolPtr != ffi.nullptr) malloc.free(symbolPtr);
       if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
       if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
+      if (tagsJsonPtr != ffi.nullptr) malloc.free(tagsJsonPtr);
     }
   }
 }
