@@ -13,6 +13,11 @@ rust_core/Cargo.lock
 
 # Rust 临时测试文件
 rust_core/check_db.rs
+rust_core/test_*.rs
+rust_core/src/test_*.rs
+
+# Rust 示例代码
+rust_core/examples/
 
 # Rust 调试符号
 rust_core/**/*.pdb
@@ -180,6 +185,10 @@ lcov.info
 coverage/
 test-results/
 *.profraw
+
+# Flutter 测试文件
+flutter_app/integration_test/
+flutter_app/test_driver/
 
 # ====================
 # 文档生成
