@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/asset.dart';
 import '../models/custom_asset_type.dart';
 import '../providers/custom_type_provider.dart';
+import '../core/theme.dart';
 import '../utils/currency_utils.dart';
 import 'asset_list_item.dart';
 
@@ -46,6 +47,12 @@ class GroupedAssetListItem extends StatelessWidget {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLiability = _isLiability(context);
+    final amountColor = isDark
+        ? (isLiability ? AppTheme.liabilityAmountColorDark : AppTheme.assetAmountColorDark)
+        : (isLiability ? AppTheme.liabilityAmountColor : AppTheme.assetAmountColor);
+
     // 多个同名资产：显示可展开的分组
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -70,7 +77,7 @@ class GroupedAssetListItem extends StatelessWidget {
             Text(
               _isLiability(context) ? '负债' : '资产',
               style: TextStyle(
-                color: _isLiability(context) ? Colors.red : Colors.green,
+                color: amountColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -78,8 +85,9 @@ class GroupedAssetListItem extends StatelessWidget {
             Text(
               '合计 ${CurrencyUtils.formatAmount(_totalAmount, assets.first.currency)}',
               style: TextStyle(
-                color: _isLiability(context) ? Colors.red : Colors.green,
+                color: amountColor,
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
           ],
@@ -124,6 +132,10 @@ class _AssetListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final customTypes = context.read<CustomTypeProvider>().customTypes;
     final isLiability = asset.isLiabilityType(customTypes);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final amountColor = isDark
+        ? (isLiability ? AppTheme.liabilityAmountColorDark : AppTheme.assetAmountColorDark)
+        : (isLiability ? AppTheme.liabilityAmountColor : AppTheme.assetAmountColor);
 
     return ListTile(
       dense: true,
@@ -131,8 +143,9 @@ class _AssetListItem extends StatelessWidget {
       trailing: Text(
         CurrencyUtils.formatAmount(asset.amount, asset.currency),
         style: TextStyle(
-          color: isLiability ? Colors.red : Colors.green,
+          color: amountColor,
           fontWeight: FontWeight.bold,
+          fontSize: 15,
         ),
       ),
       onTap: onTap,

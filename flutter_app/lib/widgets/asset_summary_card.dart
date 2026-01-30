@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/portfolio_summary.dart';
 import '../models/asset.dart';
 import '../models/custom_asset_type.dart';
+import '../core/theme.dart';
 import '../utils/currency_utils.dart';
 import '../screens/asset_list_screen.dart';
 
@@ -18,6 +19,13 @@ class AssetSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final assetColor = isDark ? AppTheme.assetAmountColorDark : AppTheme.assetAmountColor;
+    final liabilityColor = isDark ? AppTheme.liabilityAmountColorDark : AppTheme.liabilityAmountColor;
+    final netAssetColor = summary.netAssets >= 0
+        ? (isDark ? AppTheme.netAssetPositiveColorDark : AppTheme.netAssetPositiveColor)
+        : (isDark ? AppTheme.netAssetNegativeColorDark : AppTheme.netAssetNegativeColor);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -42,21 +50,21 @@ class AssetSummaryCard extends StatelessWidget {
                   context,
                   '总资产',
                   summary.totalAssets,
-                  Colors.green,
+                  assetColor,
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _buildMetricCard(
                   context,
                   '总负债',
                   summary.totalLiabilities,
-                  Colors.red,
+                  liabilityColor,
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _buildMetricCard(
                   context,
                   '净资产',
                   summary.netAssets,
-                  Colors.blue,
+                  netAssetColor,
                 )),
               ],
             ),
@@ -82,17 +90,20 @@ class AssetSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(
+          color: color.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: color,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
@@ -276,9 +287,9 @@ class AssetSummaryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percentage / 100,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
+              minHeight: 8,
             ),
           ),
         ],
@@ -341,9 +352,9 @@ class AssetSummaryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percentage / 100,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
+              minHeight: 8,
             ),
           ),
         ],

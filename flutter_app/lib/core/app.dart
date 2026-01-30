@@ -3,35 +3,40 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import 'theme.dart';
 import '../screens/splash_screen.dart';
 import '../screens/main/main_navigation_screen.dart';
 import '../screens/auth/lock_screen.dart';
 import '../screens/auth/setup_screen.dart';
 
-/// 应用程序根组件
-class LocalFamilyAssetApp extends StatelessWidget {
-  const LocalFamilyAssetApp({super.key});
+/// 隐财应用程序根组件
+class YincaiApp extends StatelessWidget {
+  const YincaiApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '本地家庭资产管理器',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('zh', 'CN'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('zh', 'CN'),
-      home: const SplashScreen(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        return MaterialApp(
+          title: AppTheme.appName,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('en', 'US'),
+          ],
+          locale: const Locale('zh', 'CN'),
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

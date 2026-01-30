@@ -6,9 +6,10 @@ import 'dart:convert';
 import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../models/asset.dart';
+import '../../core/theme.dart';
 import '../main/main_navigation_screen.dart';
 
-/// 初始设置页
+/// 隐财初始设置页
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -134,14 +135,14 @@ class _SetupScreenState extends State<SetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
+                Icon(
                   Icons.lock_person,
                   size: 64,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryColor,
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  '设置主密码',
+                  '设置${AppTheme.appName}主密码',
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),

@@ -1,5 +1,5 @@
 name: localfamily_asset
-description: 本地家庭资产管理器 - 安全加密的家庭资产追踪应用
+description: 隐财 (Yincai) - 本地加密的家庭资产登记管理工具 | 你的资产，只有你知道
 publish_to: 'none'
 version: 0.1.0
 
@@ -32,6 +32,9 @@ dependencies:
 
   # File picker for export/import
   file_picker: ^8.0.0
+
+  # Shared preferences for settings
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

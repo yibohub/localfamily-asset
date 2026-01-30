@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../core/theme.dart';
 import '../main/main_navigation_screen.dart';
 
-/// 锁定屏幕
+/// 隐财锁定屏幕
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
 
@@ -58,16 +59,27 @@ class _LockScreenState extends State<LockScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.lock,
+              // 品牌 Logo 图标 - 使用品牌深海蓝
+              Icon(
+                Icons.lock_rounded,
                 size: 80,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryColor,
               ),
               const SizedBox(height: 24),
+              // 品牌名称
               Text(
-                '本地家庭资产管理器',
+                AppTheme.appName,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              // 品牌标语
+              Text(
+                AppTheme.tagline,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
                     ),
                 textAlign: TextAlign.center,
               ),

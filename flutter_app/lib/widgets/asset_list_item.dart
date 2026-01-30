@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/asset.dart';
 import '../models/custom_asset_type.dart';
 import '../providers/custom_type_provider.dart';
+import '../core/theme.dart';
 import '../utils/currency_utils.dart';
 
 /// 资产列表项
@@ -52,7 +53,7 @@ class AssetListItem extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.1),
+                              color: const Color(0xFFE8E6DC), // 品牌浅灰
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -61,8 +62,8 @@ class AssetListItem extends StatelessWidget {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF141413), // 品牌深色
+                                    fontWeight: FontWeight.w600,
                                   ),
                             ),
                           ),
@@ -71,7 +72,7 @@ class AssetListItem extends StatelessWidget {
                         Text(
                           _getTypeName(context, asset.type),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[500],
+                                color: const Color(0xFFB0AEA5), // 品牌中灰
                               ),
                         ),
                       ],
@@ -85,12 +86,11 @@ class AssetListItem extends StatelessWidget {
                 children: [
                   Text(
                     _formatAmount(asset.amount, asset.currency),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: _isLiabilityType(context, asset.type)
-                            ? Colors.red
-                            : Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _getAmountColor(context),
+                    ),
                   ),
                   // 显示盈亏百分比（如果有买入价和现价）
                   if (asset.buyPrice != null && asset.currentPrice != null)
@@ -197,12 +197,16 @@ class AssetListItem extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
       ),
-      child: Icon(icon, color: color, size: 24),
+      child: Icon(icon, color: color, size: 28),
     );
   }
 
@@ -292,22 +296,46 @@ class AssetListItem extends StatelessWidget {
     if (profitLossPercent == null) return const SizedBox.shrink();
 
     final isProfit = profitLossPercent >= 0;
-    final profitColor = isProfit ? Colors.red : Colors.green; // 中国股市：红涨绿跌
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final profitColor = isProfit
+        ? (isDark ? AppTheme.profitColorDark : AppTheme.profitColor)
+        : (isDark ? AppTheme.lossColorDark : AppTheme.lossColor);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: profitColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
+        color: profitColor.withValues(alpha: isDark ? 0.2 : 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: profitColor.withValues(alpha: isDark ? 0.5 : 0.4),
+          width: 1,
+        ),
       ),
       child: Text(
         '${isProfit ? '+' : ''}${profitLossPercent.toStringAsFixed(2)}%',
         style: TextStyle(
           color: profitColor,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );
+  }
+
+  /// 获取金额颜色（根据主题模式）
+  Color _getAmountColor(BuildContext context) {
+    final isLiability = _isLiabilityType(context, asset.type);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (isDark) {
+      return isLiability
+          ? AppTheme.liabilityAmountColorDark
+          : AppTheme.assetAmountColorDark;
+    } else {
+      return isLiability
+          ? AppTheme.liabilityAmountColor
+          : AppTheme.assetAmountColor;
+    }
   }
 }

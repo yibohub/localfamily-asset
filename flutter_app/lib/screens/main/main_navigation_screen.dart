@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../providers/asset_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/custom_type_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../core/ffi_bridge.dart';
 import '../auth/lock_screen.dart';
 import 'assets_tab_screen.dart';
@@ -154,6 +155,28 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 主题切换
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) {
+                final themeMode = themeProvider.themeMode;
+                final isDark = themeMode == ThemeMode.dark ||
+                    (themeMode == ThemeMode.system &&
+                     MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+                return ListTile(
+                  leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                  title: const Text('主题模式'),
+                  subtitle: Text(_getThemeModeText(themeMode)),
+                  trailing: Switch(
+                    value: isDark,
+                    onChanged: (_) {
+                      themeProvider.toggleTheme();
+                    },
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.lock),
               title: const Text('锁定应用'),
@@ -182,6 +205,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         ),
       ),
     );
+  }
+
+  String _getThemeModeText(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return '浅色';
+      case ThemeMode.dark:
+        return '深色';
+      default:
+        return '跟随系统';
+    }
   }
 
   Future<void> _exportData(BuildContext context) async {

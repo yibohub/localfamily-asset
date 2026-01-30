@@ -1,15 +1,87 @@
 import 'package:flutter/material.dart';
 
-/// 应用主题配置
+/// 隐财 (Yincai) 应用主题配置
+///
+/// 品牌设计规范：Cryptic Sanctuary
+/// - 深海蓝 (#0A2463): 主品牌色，象征安全与可靠
+/// - 翡翠绿 (#059669): 成功状态、安全验证
+/// - 琥珀橙 (#F59E0B): 警告提示
 class AppTheme {
-  // 主色调
-  static const Color primaryColor = Color(0xFF2563EB);
-  static const Color secondaryColor = Color(0xFF7C3AED);
-  static const Color successColor = Color(0xFF10B981);
-  static const Color warningColor = Color(0xFFF59E0B);
-  static const Color errorColor = Color(0xFFEF4444);
+  // ========== 品牌主色系 ==========
+  /// 深海蓝 - 主品牌色、导航栏、按钮
+  static const Color primaryColor = Color(0xFF0A2463);
 
-  // 浅色主题
+  /// 翡翠绿 - 成功状态、安全验证、增长指标
+  static const Color successColor = Color(0xFF059669);
+
+  /// 琥珀橙 - 警告提示、注意事项
+  static const Color warningColor = Color(0xFFF59E0B);
+
+  /// 错误色 - 错误状态
+  static const Color errorColor = Color(0xFFDC2626);
+
+  // ========== 数据展示专用色（高对比度，适配米白背景） ==========
+  /// 资产金额色 - 深蓝色，在米白背景 #FAF9F5 上清晰可见
+  static const Color assetAmountColor = Color(0xFF0D47A1);
+
+  /// 负债金额色 - 深红色，在米白背景上清晰可见
+  static const Color liabilityAmountColor = Color(0xFFC62828);
+
+  /// 盈利色 - 中国股市：红色表示盈利（鲜艳）
+  static const Color profitColor = Color(0xFFD32F2F);
+
+  /// 亏损色 - 中国股市：绿色表示亏损（鲜艳）
+  static const Color lossColor = Color(0xFF388E3C);
+
+  /// 净资产正值色 - 深绿色
+  static const Color netAssetPositiveColor = Color(0xFF2E7D32);
+
+  /// 净资产负值色 - 深红色
+  static const Color netAssetNegativeColor = Color(0xFFB71C1C);
+
+  // ========== 深色主题数据展示专用色（浅色，适配深色背景） ==========
+  /// 资产金额色（深色主题）- 浅蓝色
+  static const Color assetAmountColorDark = Color(0xFF64B5F6);
+
+  /// 负债金额色（深色主题）- 浅红色
+  static const Color liabilityAmountColorDark = Color(0xFFEF5350);
+
+  /// 盈利色（深色主题）- 浅红色
+  static const Color profitColorDark = Color(0xFFFF5252);
+
+  /// 亏损色（深色主题）- 浅绿色
+  static const Color lossColorDark = Color(0xFF66BB6A);
+
+  /// 净资产正值色（深色主题）- 浅绿色
+  static const Color netAssetPositiveColorDark = Color(0xFF81C784);
+
+  /// 净资产负值色（深色主题）- 浅红色
+  static const Color netAssetNegativeColorDark = Color(0xFFE57373);
+
+  // ========== 品牌中性色系 ==========
+  /// 深色 - 主要文字、深色背景
+  static const Color textPrimary = Color(0xFF141413);
+
+  /// 中灰 - 次要文字、分割线
+  static const Color textSecondary = Color(0xFFB0AEA5);
+
+  /// 浅灰 - 边框、禁用状态
+  static const Color borderLight = Color(0xFFE8E6DC);
+
+  /// 米白 - 卡片背景、浅色主题背景
+  static const Color surfaceLight = Color(0xFFFAF9F5);
+
+  // ========== 深色主题专用色 ==========
+  /// 深色背景
+  static const Color darkBackground = Color(0xFF0A0F1D);
+
+  /// 深色表面
+  static const Color darkSurface = Color(0xFF141C2F);
+
+  /// 深色边框
+  static const Color darkBorder = Color(0xFF2A3548);
+
+  // ========== 浅色主题 ==========
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -17,40 +89,46 @@ class AppTheme {
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
-        secondary: secondaryColor,
+        secondary: successColor,
         error: errorColor,
-        surface: Color(0xFFFAFAFA),
+        surface: surfaceLight,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onError: Colors.white,
+        onSurface: textPrimary,
       ),
-      scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+      scaffoldBackgroundColor: surfaceLight,
       appBarTheme: const AppBarTheme(
         elevation: 0,
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF1F2937),
+        foregroundColor: textPrimary,
         titleTextStyle: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF1F2937),
+          color: textPrimary,
+          letterSpacing: -0.5,
         ),
       ),
       cardTheme: const CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
-          side: BorderSide(color: Color(0xFFE5E7EB)),
+          side: BorderSide(color: borderLight),
         ),
         color: Colors.white,
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF9FAFB),
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          borderSide: const BorderSide(color: borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          borderSide: const BorderSide(color: borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -63,17 +141,67 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.3,
+          ),
         ),
+      ),
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: textPrimary,
+          letterSpacing: -1,
+        ),
+        headlineMedium: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+          letterSpacing: -0.7,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+          letterSpacing: -0.5,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: textPrimary,
+          letterSpacing: -0.3,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: textPrimary,
+          letterSpacing: -0.2,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: textSecondary,
+          letterSpacing: 0,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: borderLight,
+        thickness: 1,
+        space: 1,
       ),
     );
   }
 
-  // 深色主题
+  // ========== 深色主题 ==========
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
@@ -81,40 +209,46 @@ class AppTheme {
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
-        secondary: secondaryColor,
+        secondary: successColor,
         error: errorColor,
-        surface: Color(0xFF1F2937),
+        surface: darkSurface,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onError: Colors.white,
+        onSurface: Colors.white,
       ),
-      scaffoldBackgroundColor: const Color(0xFF111827),
+      scaffoldBackgroundColor: darkBackground,
       appBarTheme: const AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Color(0xFF1F2937),
+        backgroundColor: darkSurface,
         foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: Colors.white,
+          letterSpacing: -0.5,
         ),
       ),
       cardTheme: const CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
-          side: BorderSide(color: Color(0xFF374151)),
+          side: BorderSide(color: darkBorder),
         ),
-        color: Color(0xFF1F2937),
+        color: darkSurface,
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF374151),
+        fillColor: darkSurface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+          borderSide: const BorderSide(color: darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+          borderSide: const BorderSide(color: darkBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -127,13 +261,73 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.3,
+          ),
         ),
+      ),
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          letterSpacing: -1,
+        ),
+        headlineMedium: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: -0.7,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: -0.5,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: Colors.white70,
+          letterSpacing: -0.3,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.white70,
+          letterSpacing: -0.2,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: Colors.white54,
+          letterSpacing: 0,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: darkBorder,
+        thickness: 1,
+        space: 1,
       ),
     );
   }
+
+  // ========== 品牌信息 ==========
+  /// 应用中文名
+  static const String appName = '隐财';
+
+  /// 品牌标语
+  static const String tagline = '你的资产，只有你知道';
+
+  /// 副标语
+  static const String subtitle = '一本加密的家庭资产账本';
 }
