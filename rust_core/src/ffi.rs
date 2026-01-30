@@ -10,6 +10,7 @@ use std::fs::OpenOptions;
 use once_cell::sync::Lazy;
 use serde_json::json;
 use chrono::Local;
+use sha2::{Sha256, Digest};
 
 use crate::crypto::{derive_key, generate_salt};
 use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
@@ -170,6 +171,17 @@ pub unsafe extern "C" fn setup_password(
         return FfiErrorCode::DatabaseError as c_int;
     }
 
+    // 计算并保存密钥哈希（用于后续验证密码）
+    let key_hash = Sha256::digest(&key);
+    let key_hash_hex = hex::encode(&key_hash);
+    if let Err(e) = _conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["password_key_hash", &key_hash_hex],
+    ) {
+        eprintln!("保存密钥哈希失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
     state.master_key = Some(key);
 
     FfiErrorCode::Success as c_int
@@ -189,7 +201,7 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    // 打开数据库获取盐值
+    // 打开数据库获取盐值和密钥哈希
     let conn = match open_db(&state.db_path) {
         Ok(c) => c,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
@@ -204,6 +216,15 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
         Ok(s) => s,
         Err(_) => return FfiErrorCode::InvalidPassword as c_int,
     };
+
+    // 获取存储的密钥哈希
+    // 兼容旧数据库：如果不存在 password_key_hash，则是旧版本数据
+    // 第一次成功验证后会自动写入哈希值
+    let stored_key_hash: Option<String> = conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_key_hash"],
+        |row| row.get(0),
+    ).ok();
 
     let salt = match hex::decode(&salt_hex) {
         Ok(s) if s.len() == 32 => {
@@ -220,7 +241,32 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
         Err(_) => return FfiErrorCode::CryptoError as c_int,
     };
 
-    // 将密钥保存到状态
+    // 计算密钥哈希
+    let key_hash = Sha256::digest(&key);
+    let key_hash_hex = hex::encode(&key_hash);
+
+    match stored_key_hash {
+        Some(stored) => {
+            // 新版本数据：验证密钥哈希是否匹配
+            if key_hash_hex != stored {
+                eprintln!("密码验证失败：密钥哈希不匹配");
+                return FfiErrorCode::InvalidPassword as c_int;
+            }
+        }
+        None => {
+            // 旧版本数据：没有密钥哈希，自动写入（兼容迁移）
+            eprintln!("检测到旧版本数据库，自动写入密钥哈希");
+            if let Err(e) = conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                ["password_key_hash", &key_hash_hex],
+            ) {
+                eprintln!("写入密钥哈希失败: {}", e);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        }
+    }
+
+    // 密码正确，将密钥保存到状态
     state.master_key = Some(key);
 
     FfiErrorCode::Success as c_int
