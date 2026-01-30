@@ -6,6 +6,7 @@ import '../providers/asset_provider.dart';
 import '../providers/custom_type_provider.dart';
 import '../utils/currency_utils.dart';
 import '../widgets/smart_asset_name_input.dart';
+import '../widgets/window_title_bar.dart';
 
 /// 添加/编辑资产表单页面
 class AssetFormScreen extends StatefulWidget {
@@ -159,7 +160,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
         : customTypeProvider.assetCustomTypes;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: WindowTitleBar(
         title: Text(_getPageTitle()),
       ),
       body: Form(

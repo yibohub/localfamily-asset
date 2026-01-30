@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../core/ffi_bridge.dart';
+import '../../widgets/window_title_bar.dart';
 import '../auth/lock_screen.dart';
 import 'assets_tab_screen.dart';
 import 'liabilities_tab_screen.dart';
@@ -112,7 +113,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         }
 
         return Scaffold(
-          appBar: AppBar(
+          appBar: WindowTitleBar(
             title: Text(_tabTitles[_currentIndex]),
             actions: [
               IconButton(

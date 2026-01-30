@@ -6,6 +6,7 @@ import '../models/custom_asset_type.dart';
 import '../providers/asset_provider.dart';
 import '../providers/custom_type_provider.dart';
 import '../utils/currency_utils.dart';
+import '../widgets/window_title_bar.dart';
 import 'asset_form_screen.dart';
 import 'asset_history_screen.dart';
 
@@ -46,7 +47,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     final customTypes = context.watch<CustomTypeProvider>().customTypes;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: WindowTitleBar(
         title: Text(_asset!.name),
         actions: [
           IconButton(
