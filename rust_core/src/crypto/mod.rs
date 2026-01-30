@@ -8,7 +8,7 @@ pub mod bip39;
 
 pub use aes_gcm::{decrypt_data, encrypt_data};
 pub use argon2::{derive_key, generate_salt};
-pub use bip39::{generate_mnemonic, mnemonic_to_seed, validate_mnemonic};
+pub use bip39::{generate_mnemonic, mnemonic_to_seed, mnemonic_to_key, validate_mnemonic};
 
 /// 加密错误类型
 #[derive(Debug, thiserror::Error)]

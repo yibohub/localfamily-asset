@@ -82,6 +82,22 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// 使用助记词恢复访问
+  Future<bool> recoverWithMnemonic(String mnemonic) async {
+    try {
+      final success = await _ffi.verifyWithMnemonic(mnemonic);
+      if (success) {
+        _status = AuthStatus.unlocked;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('助记词恢复失败: $e');
+      return false;
+    }
+  }
+
   /// 锁定应用
   void lock() {
     if (_status == AuthStatus.unlocked) {

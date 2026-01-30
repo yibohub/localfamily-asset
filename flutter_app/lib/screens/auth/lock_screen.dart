@@ -72,12 +72,19 @@ class _LockScreenState extends State<LockScreen> {
               const Text('您没有设置密码提示。'),
             const SizedBox(height: 16),
             const Text(
-              '如果无法记起密码，可以使用助记词恢复，或重置应用（将删除所有数据）。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              '请选择恢复方式：',
+              style: TextStyle(fontWeight: FontWeight.w500),
             ),
           ],
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showMnemonicRecoverDialog();
+            },
+            child: const Text('助记词恢复'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -91,6 +98,75 @@ class _LockScreenState extends State<LockScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示助记词恢复对话框
+  void _showMnemonicRecoverDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('助记词恢复'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '请输入您在设置密码时保存的12位助记词（用空格分隔）',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: '助记词',
+                hintText: 'word1 word2 word3 ...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (controller.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('请输入助记词')),
+                );
+                return;
+              }
+
+              final authProvider = context.read<AuthProvider>();
+              final success = await authProvider.recoverWithMnemonic(controller.text.trim());
+
+              if (mounted) {
+                Navigator.pop(context); // 关闭助记词对话框
+
+                if (success) {
+                  // 恢复成功，导航到主页面
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                  );
+                } else {
+                  // 恢复失败
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('助记词错误，请检查输入'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('恢复'),
           ),
         ],
       ),

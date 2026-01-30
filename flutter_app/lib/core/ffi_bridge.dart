@@ -29,6 +29,7 @@ class FfiBridge {
   late final int Function(ffi.Pointer<ffi.Char>) _initApp;
   late final int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _setupPassword;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPassword;
+  late final int Function(ffi.Pointer<ffi.Char>) _verifyWithMnemonic;
   late final int Function(
     ffi.Pointer<ffi.Char>,
     int,
@@ -145,6 +146,10 @@ class FfiBridge {
 
     _verifyPassword = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_password')
+        .asFunction();
+
+    _verifyWithMnemonic = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_with_mnemonic')
         .asFunction();
 
     _addAsset = _dylib
@@ -308,6 +313,17 @@ class FfiBridge {
       return result == FfiErrorCode.success;
     } finally {
       malloc.free(passwordPtr);
+    }
+  }
+
+  /// 使用助记词验证并恢复访问
+  Future<bool> verifyWithMnemonic(String mnemonic) async {
+    final mnemonicPtr = mnemonic.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _verifyWithMnemonic(mnemonicPtr);
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(mnemonicPtr);
     }
   }
 

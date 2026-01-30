@@ -12,7 +12,7 @@ use serde_json::json;
 use chrono::Local;
 use sha2::{Sha256, Digest};
 
-use crate::crypto::{derive_key, generate_salt};
+use crate::crypto::{derive_key, generate_salt, mnemonic_to_key};
 use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
 use rusqlite::Connection;
 
@@ -270,6 +270,57 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
     state.master_key = Some(key);
 
     FfiErrorCode::Success as c_int
+}
+
+/// 使用助记词验证并恢复访问
+#[no_mangle]
+#[export_name = "verify_with_mnemonic"]
+pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int {
+    let mnemonic_str = match CStr::from_ptr(mnemonic).to_str() {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 使用助记词生成密钥
+    let key = match mnemonic_to_key(mnemonic_str) {
+        Ok(k) => k.to_vec(),
+        Err(_) => return FfiErrorCode::CryptoError as c_int,
+    };
+
+    // 打开数据库获取存储的密钥哈希
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 计算助记词派生的密钥哈希
+    let key_hash = Sha256::digest(&key);
+    let key_hash_hex = hex::encode(&key_hash);
+
+    // 从数据库获取存储的密钥哈希
+    let stored_key_hash: String = match conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_key_hash"],
+        |row| row.get(0),
+    ) {
+        Ok(hash) => hash,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    // 验证密钥哈希是否匹配
+    if key_hash_hex == stored_key_hash {
+        // 助记词正确，将密钥保存到状态
+        state.master_key = Some(key);
+        FfiErrorCode::Success as c_int
+    } else {
+        FfiErrorCode::InvalidPassword as c_int
+    }
 }
 
 /// 获取资产类型枚举值
