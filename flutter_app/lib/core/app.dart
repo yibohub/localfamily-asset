@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -19,7 +20,8 @@ class YincaiApp extends StatelessWidget {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
-          title: AppTheme.appName,
+          title: 'Yincai', // 使用英文标题避免任务栏乱码
+          debugShowCheckedModeBanner: false,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
