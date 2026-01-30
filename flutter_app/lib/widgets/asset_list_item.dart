@@ -69,7 +69,7 @@ class AssetListItem extends StatelessWidget {
                           const SizedBox(width: 8),
                         ],
                         Text(
-                          _getTypeName(asset.type),
+                          _getTypeName(context, asset.type),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.grey[500],
                               ),
@@ -86,7 +86,7 @@ class AssetListItem extends StatelessWidget {
                   Text(
                     _formatAmount(asset.amount, asset.currency),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: _isLiabilityType(asset.type)
+                          color: _isLiabilityType(context, asset.type)
                             ? Colors.red
                             : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -253,22 +253,36 @@ class AssetListItem extends StatelessWidget {
     return CurrencyUtils.formatAmount(amount, currency);
   }
 
-  String _getTypeName(String typeStr) {
+  String _getTypeName(BuildContext context, String typeStr) {
     final builtInType = AssetTypeExtension.fromString(typeStr);
     if (builtInType != null) {
       return builtInType.displayName;
     }
-    // 自定义类型：移除 custom_ 前缀
+    // 自定义类型：从 CustomTypeProvider 获取名称
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    for (final type in customTypeProvider.customTypes) {
+      if (type.id == typeStr) {
+        return type.name;
+      }
+    }
+    // 找不到则返回原始字符串（移除 custom_ 前缀作为后备）
     return typeStr.replaceAll('custom_', '');
   }
 
   /// 判断字符串类型是否为负债
-  bool _isLiabilityType(String typeStr) {
+  bool _isLiabilityType(BuildContext context, String typeStr) {
     final builtInType = AssetTypeExtension.fromString(typeStr);
     if (builtInType != null) {
       return builtInType.isLiability;
     }
-    // 自定义类型暂时当作资产处理
+    // 自定义类型：从 CustomTypeProvider 获取
+    final customTypeProvider = context.watch<CustomTypeProvider>();
+    for (final type in customTypeProvider.customTypes) {
+      if (type.id == typeStr) {
+        return type.isLiability;
+      }
+    }
+    // 找不到则当作资产处理
     return false;
   }
 

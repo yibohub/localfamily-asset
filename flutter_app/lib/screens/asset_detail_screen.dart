@@ -43,6 +43,8 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
       );
     }
 
+    final customTypes = context.watch<CustomTypeProvider>().customTypes;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_asset!.name),
@@ -92,17 +94,17 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _isLiabilityType(_asset!.type) ? '负债金额' : '资产价值',
+                        _isLiabilityType(_asset!.type, customTypes) ? '负债金额' : '资产价值',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      _buildTypeIcon(_asset!.type),
+                      _buildTypeIcon(context, _asset!.type, customTypes),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _formatAmount(_asset!.amount, _asset!.currency),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: _isLiabilityType(_asset!.type)
+                          color: _isLiabilityType(_asset!.type, customTypes)
                               ? Colors.red
                               : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -115,10 +117,13 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           // 盈亏信息（仅在有买入价和现价时显示）
           if (_asset!.buyPrice != null || _asset!.currentPrice != null) ...[
             const SizedBox(height: 16),
-            _buildProfitLossCard(),
+            _buildProfitLossCard(customTypes),
           ],
           const SizedBox(height: 16),
-          _buildInfoTile(_isLiabilityType(_asset!.type) ? '负债类型' : '资产类型', _getTypeName(_asset!.type)),
+          _buildInfoTile(
+            _isLiabilityType(_asset!.type, customTypes) ? '负债类型' : '资产类型',
+            _getTypeName(_asset!.type, customTypes),
+          ),
           _buildInfoTile('货币', _asset!.currency),
           _buildInfoTile('发生日期', _formatDate(_asset!.occurrenceDate)),
           _buildInfoTile('账号', _asset!.account ?? 'N/A'),
@@ -154,7 +159,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  Widget _buildTypeIcon(String typeStr) {
+  Widget _buildTypeIcon(BuildContext context, String typeStr, List<CustomAssetType> customTypes) {
     // 解析类型字符串
     final builtInType = AssetTypeExtension.fromString(typeStr);
 
@@ -210,8 +215,12 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           break;
       }
     } else {
-      // 自定义类型 - 使用默认图标和颜色
-      icon = Icons.category;
+      // 自定义类型 - 从 CustomTypeProvider 获取图标
+      final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+        (t) => t?.id == typeStr,
+        orElse: () => null,
+      );
+      icon = _getCustomIcon(customType?.iconName ?? '');
       color = const Color(0xFF6B7280);
     }
 
@@ -223,6 +232,47 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
       ),
       child: Icon(icon, color: color, size: 28),
     );
+  }
+
+  IconData _getCustomIcon(String iconName) {
+    switch (iconName) {
+      case 'account_balance_wallet':
+        return Icons.account_balance_wallet;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'attach_money':
+        return Icons.attach_money;
+      case 'home':
+        return Icons.home;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'pie_chart':
+        return Icons.pie_chart;
+      case 'verified_user':
+        return Icons.verified_user;
+      case 'diamond':
+        return Icons.diamond;
+      case 'payments':
+        return Icons.payments;
+      case 'handshake':
+        return Icons.handshake;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'home_work':
+        return Icons.home_work;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'person':
+        return Icons.person;
+      case 'request_quote':
+        return Icons.request_quote;
+      case 'gavel':
+        return Icons.gavel;
+      case 'money_off':
+        return Icons.money_off;
+      default:
+        return Icons.category;
+    }
   }
 
   Widget _buildInfoTile(String label, String value) {
@@ -252,23 +302,31 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     return CurrencyUtils.formatAmount(amount, currency);
   }
 
-  String _getTypeName(String typeStr) {
+  String _getTypeName(String typeStr, List<CustomAssetType> customTypes) {
     final builtInType = AssetTypeExtension.fromString(typeStr);
     if (builtInType != null) {
       return builtInType.displayName;
     }
-    // 自定义类型：移除 custom_ 前缀
-    return typeStr.replaceAll('custom_', '');
+    // 自定义类型：从 CustomTypeProvider 获取名称
+    final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+      (t) => t?.id == typeStr,
+      orElse: () => null,
+    );
+    return customType?.name ?? typeStr.replaceAll('custom_', '');
   }
 
   /// 判断字符串类型是否为负债
-  bool _isLiabilityType(String typeStr) {
+  bool _isLiabilityType(String typeStr, List<CustomAssetType> customTypes) {
     final builtInType = AssetTypeExtension.fromString(typeStr);
     if (builtInType != null) {
       return builtInType.isLiability;
     }
-    // 自定义类型暂时当作资产处理
-    return false;
+    // 自定义类型：从 CustomTypeProvider 判断
+    final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+      (t) => t?.id == typeStr,
+      orElse: () => null,
+    );
+    return customType?.isLiability ?? false;
   }
 
   String _formatDate(DateTime date) {
@@ -276,7 +334,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   }
 
   /// 构建盈亏信息卡片
-  Widget _buildProfitLossCard() {
+  Widget _buildProfitLossCard(List<CustomAssetType> customTypes) {
     final buyPrice = _asset!.buyPrice;
     final currentPrice = _asset!.currentPrice;
 
