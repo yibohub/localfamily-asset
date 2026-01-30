@@ -37,6 +37,8 @@ class AuthProvider with ChangeNotifier {
       final dbFile = File(_dbPath!);
       if (await dbFile.exists()) {
         _status = AuthStatus.locked;
+        // 加载密码提示
+        _passwordHint = await _ffi.getPasswordHint();
       } else {
         _status = AuthStatus.setup;
       }

@@ -30,6 +30,9 @@ class FfiBridge {
   late final int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _setupPassword;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPassword;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyWithMnemonic;
+  late final ffi.Pointer<ffi.Char> Function() _getPasswordHint;
+  late final ffi.Pointer<ffi.Char> Function() _generateMnemonic;
+  late final int Function(ffi.Pointer<ffi.Char>) _saveMnemonic;
   late final int Function(
     ffi.Pointer<ffi.Char>,
     int,
@@ -150,6 +153,10 @@ class FfiBridge {
 
     _verifyWithMnemonic = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_with_mnemonic')
+        .asFunction();
+
+    _getPasswordHint = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_password_hint')
         .asFunction();
 
     _addAsset = _dylib
@@ -325,6 +332,17 @@ class FfiBridge {
     } finally {
       malloc.free(mnemonicPtr);
     }
+  }
+
+  /// 获取密码提示
+  Future<String?> getPasswordHint() async {
+    final result = _getPasswordHint();
+    if (result == ffi.nullptr) {
+      return null;
+    }
+    final hintStr = result.cast<Utf8>().toDartString();
+    malloc.free(result);
+    return hintStr;
   }
 
   /// 添加资产

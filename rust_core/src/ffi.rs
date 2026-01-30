@@ -323,6 +323,78 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
     }
 }
 
+/// 获取密码提示
+#[no_mangle]
+#[export_name = "get_password_hint"]
+pub unsafe extern "C" fn get_password_hint() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    // 打开数据库获取密码提示
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    // 从数据库获取密码提示
+    let hint: Option<String> = conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_hint"],
+        |row| row.get(0),
+    ).ok();
+
+    match hint {
+        Some(h) => string_to_c_char(h),
+        None => ptr::null_mut(),
+    }
+}
+
+/// 生成助记词
+#[no_mangle]
+#[export_name = "generate_mnemonic"]
+pub unsafe extern "C" fn generate_mnemonic() -> *mut c_char {
+    match crate::crypto::generate_mnemonic() {
+        Ok(mnemonic) => string_to_c_char(mnemonic),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 保存助记词
+#[no_mangle]
+#[export_name = "save_mnemonic"]
+pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
+    let mnemonic = match CStr::from_ptr(mnemonic).to_str() {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 打开数据库保存助记词
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 保存助记词到 settings 表
+    if let Err(e) = conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["recovery_mnemonic", &mnemonic],
+    ) {
+        write_log(&format!("保存助记词失败: {}", e));
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    FfiErrorCode::Success as c_int
+}
+
 /// 获取资产类型枚举值
 fn asset_type_from_int(value: c_int) -> AssetType {
     match value {
