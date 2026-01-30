@@ -165,16 +165,6 @@ class _SummaryRow extends StatelessWidget {
       ],
     );
   }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)} 万';
-    } else {
-      return amount.toStringAsFixed(2);
-    }
-  }
 }
 
 /// 类型分布部分
@@ -334,16 +324,6 @@ class _TypeBreakdownItem extends StatelessWidget {
         return Icons.handshake;
       default:
         return Icons.help_outline;
-    }
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)} 万';
-    } else {
-      return amount.toStringAsFixed(2);
     }
   }
 

@@ -22,12 +22,19 @@ class CurrencyUtils {
   /// 格式化金额（自动添加货币符号）
   static String formatAmount(double amount, String currencyCode) {
     final symbol = getSymbol(currencyCode);
-    if (amount >= 100000000) {
-      return '$symbol ${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '$symbol ${(amount / 10000).toStringAsFixed(2)} 万';
+    final absAmount = amount.abs();
+
+    // 先确定单位，再处理符号
+    String formattedAmount;
+    if (absAmount >= 100000000) {
+      formattedAmount = '${(amount / 100000000).toStringAsFixed(2)} 亿';
+    } else if (absAmount >= 10000) {
+      formattedAmount = '${(amount / 10000).toStringAsFixed(2)} 万';
+    } else {
+      formattedAmount = amount.toStringAsFixed(2);
     }
-    return '$symbol ${amount.toStringAsFixed(2)}';
+
+    return '$symbol $formattedAmount';
   }
 
   /// 格式化金额（不添加货币符号，用于后续处理）
