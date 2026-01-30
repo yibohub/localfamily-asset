@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
 import '../providers/asset_provider.dart';
+import '../providers/custom_type_provider.dart';
 import '../utils/currency_utils.dart';
 import 'asset_form_screen.dart';
 import 'asset_history_screen.dart';
@@ -59,6 +61,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit),
+            tooltip: '编辑',
             onPressed: () {
               Navigator.push(
                 context,
@@ -67,6 +70,12 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                 ),
               ).then((_) => _loadAsset());
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            tooltip: '删除',
+            color: Colors.red,
+            onPressed: () => _handleDelete(context),
           ),
         ],
       ),
@@ -363,6 +372,54 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  /// 处理删除操作
+  void _handleDelete(BuildContext context) {
+    final customTypes = context.read<CustomTypeProvider>().customTypes;
+    final isLiability = _asset!.isLiabilityType(customTypes);
+    final itemType = isLiability ? '负债' : '资产';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('删除$itemType'),
+        content: Text('确定要删除"${_asset!.name}"吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              final assetProvider = context.read<AssetProvider>();
+              final success = await assetProvider.deleteAsset(_asset!.id);
+              if (mounted) {
+                if (success) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$itemType已删除'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('删除失败，请重试'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
     );
   }
 }

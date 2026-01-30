@@ -151,52 +151,6 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     }
   }
 
-  Future<void> _handleDelete() async {
-    if (widget.asset == null) return;
-
-    final isLiability = _isLiabilityType(widget.asset!.type);
-    final itemType = isLiability ? '负债' : '资产';
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('删除$itemType'),
-        content: Text('确定要删除 "${widget.asset!.name}" 吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isLoading = true);
-
-    final assetProvider = context.read<AssetProvider>();
-    final success = await assetProvider.deleteAsset(widget.asset!.id);
-
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
-    if (success) {
-      Navigator.pop(context);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$itemType 已删除')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final customTypeProvider = context.watch<CustomTypeProvider>();
@@ -207,14 +161,6 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getPageTitle()),
-        actions: widget.asset != null
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: _isLoading ? null : _handleDelete,
-                ),
-              ]
-            : null,
       ),
       body: Form(
         key: _formKey,
