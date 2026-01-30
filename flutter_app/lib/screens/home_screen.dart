@@ -7,6 +7,7 @@ import 'dart:io';
 import '../models/asset.dart';
 import '../providers/auth_provider.dart';
 import '../providers/asset_provider.dart';
+import '../providers/custom_type_provider.dart';
 import '../core/ffi_bridge.dart';
 import '../widgets/asset_summary_card.dart';
 import '../widgets/asset_list_item.dart';
@@ -113,8 +114,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: Consumer<AssetProvider>(
-        builder: (context, provider, _) {
+      body: Consumer2<AssetProvider, CustomTypeProvider>(
+        builder: (context, provider, customTypeProvider, _) {
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -137,7 +138,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             );
           }
 
-          final summary = provider.summary;
+          final customTypes = customTypeProvider.customTypes;
+          final summary = provider.getSummaryWithCustomTypes(customTypes);
 
           return RefreshIndicator(
             onRefresh: () => provider.loadAssets(),
@@ -147,7 +149,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: AssetSummaryCard(summary: summary),
+                    child: AssetSummaryCard(
+                      summary: summary,
+                      customTypes: customTypes,
+                    ),
                   ),
                 ),
 
@@ -233,7 +238,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _deleteAsset(BuildContext context, Asset asset) {
-    final isLiability = asset.type.isLiability;
+    final customTypes = context.read<CustomTypeProvider>().customTypes;
+    final isLiability = asset.isLiabilityType(customTypes);
     final itemType = isLiability ? '负债' : '资产';
     showDialog(
       context: context,

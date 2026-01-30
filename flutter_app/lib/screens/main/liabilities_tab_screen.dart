@@ -32,7 +32,8 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
   Widget build(BuildContext context) {
     return Consumer2<AssetProvider, CustomTypeProvider>(
       builder: (context, assetProvider, customTypeProvider, child) {
-        final liabilities = assetProvider.filteredLiabilitiesOnly;
+        final customTypes = customTypeProvider.customTypes;
+        final liabilities = assetProvider.getFilteredLiabilitiesOnly(customTypes);
 
         if (assetProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
@@ -45,7 +46,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _LiabilitiesSummaryCard(total: assetProvider.summary.totalLiabilities),
+                  child: _LiabilitiesSummaryCard(total: assetProvider.getSummaryWithCustomTypes(customTypes).totalLiabilities),
                 ),
               ),
 

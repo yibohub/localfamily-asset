@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
+import '../providers/custom_type_provider.dart';
 import '../utils/currency_utils.dart';
 import 'asset_list_item.dart';
 
@@ -28,8 +31,9 @@ class GroupedAssetListItem extends StatelessWidget {
   }
 
   /// 判断是否为负债
-  bool get _isLiability {
-    return assets.first.type.isLiability;
+  bool _isLiability(BuildContext context) {
+    final customTypes = context.read<CustomTypeProvider>().customTypes;
+    return assets.first.isLiabilityType(customTypes);
   }
 
   @override
@@ -64,9 +68,9 @@ class GroupedAssetListItem extends StatelessWidget {
         subtitle: Row(
           children: [
             Text(
-              _isLiability ? '负债' : '资产',
+              _isLiability(context) ? '负债' : '资产',
               style: TextStyle(
-                color: _isLiability ? Colors.red : Colors.green,
+                color: _isLiability(context) ? Colors.red : Colors.green,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -74,7 +78,7 @@ class GroupedAssetListItem extends StatelessWidget {
             Text(
               '合计 ${CurrencyUtils.formatAmount(_totalAmount, assets.first.currency)}',
               style: TextStyle(
-                color: _isLiability ? Colors.red : Colors.green,
+                color: _isLiability(context) ? Colors.red : Colors.green,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -86,18 +90,8 @@ class GroupedAssetListItem extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    ListTile(
-                      dense: true,
-                      title: Text(asset.account ?? '无账户信息'),
-                      trailing: Text(
-                        CurrencyUtils.formatAmount(asset.amount, asset.currency),
-                        style: TextStyle(
-                          color: asset.type.isLiability
-                              ? Colors.red
-                              : Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    _AssetListItem(
+                      asset: asset,
                       onTap: () {
                         if (onAssetTap != null) {
                           onAssetTap!(asset);
@@ -112,6 +106,36 @@ class GroupedAssetListItem extends StatelessWidget {
               )),
         ],
       ),
+    );
+  }
+}
+
+/// 内部组件 - 单个资产列表项（支持自定义类型）
+class _AssetListItem extends StatelessWidget {
+  final Asset asset;
+  final VoidCallback onTap;
+
+  const _AssetListItem({
+    required this.asset,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final customTypes = context.read<CustomTypeProvider>().customTypes;
+    final isLiability = asset.isLiabilityType(customTypes);
+
+    return ListTile(
+      dense: true,
+      title: Text(asset.account ?? '无账户信息'),
+      trailing: Text(
+        CurrencyUtils.formatAmount(asset.amount, asset.currency),
+        style: TextStyle(
+          color: isLiability ? Colors.red : Colors.green,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

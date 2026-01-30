@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/asset_change.dart';
+import '../models/custom_asset_type.dart';
 import '../models/portfolio_summary.dart';
 import '../core/ffi_bridge.dart';
 
@@ -44,21 +45,57 @@ class AssetProvider with ChangeNotifier {
   bool get isSearching => _isSearching;
   String? get error => _error;
 
-  /// 获取仅资产（排除负债）
+  /// 获取仅资产（排除负债）- 仅包含内置类型
+  @deprecated
   List<Asset> get assetsOnly => _assets.where((a) {
     final builtInType = AssetTypeExtension.fromString(a.type);
     return builtInType != null && !builtInType.isLiability;
   }).toList();
 
-  /// 获取仅负债
+  /// 获取仅负债 - 仅包含内置类型
+  @deprecated
   List<Asset> get liabilitiesOnly => _assets.where((a) {
     final builtInType = AssetTypeExtension.fromString(a.type);
     if (builtInType != null) {
       return builtInType.isLiability;
     }
-    // 自定义类型暂时排除，需要通过 CustomAssetType 判断
+    // 自定义类型暂时排除，需要通过 getAssetsOnly/getLiabilitiesOnly 方法
     return false;
   }).toList();
+
+  /// 获取仅资产（排除负债）- 支持自定义类型
+  List<Asset> getAssetsOnly(List<CustomAssetType> customTypes) {
+    return _assets.where((a) {
+      // 检查是否为内置资产类型
+      final builtInType = AssetTypeExtension.fromString(a.type);
+      if (builtInType != null) {
+        return !builtInType.isLiability;
+      }
+      // 检查是否为自定义资产类型（非负债）
+      final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+        (t) => t?.id == a.type,
+        orElse: () => null,
+      );
+      return customType != null && !customType.isLiability;
+    }).toList();
+  }
+
+  /// 获取仅负债 - 支持自定义类型
+  List<Asset> getLiabilitiesOnly(List<CustomAssetType> customTypes) {
+    return _assets.where((a) {
+      // 检查是否为内置负债类型
+      final builtInType = AssetTypeExtension.fromString(a.type);
+      if (builtInType != null) {
+        return builtInType.isLiability;
+      }
+      // 检查是否为自定义负债类型
+      final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+        (t) => t?.id == a.type,
+        orElse: () => null,
+      );
+      return customType?.isLiability ?? false;
+    }).toList();
+  }
 
   /// 获取筛选后的资产列表
   List<Asset> get filteredAssetsOnly {
@@ -75,6 +112,30 @@ class AssetProvider with ChangeNotifier {
   /// 获取筛选后的负债列表
   List<Asset> get filteredLiabilitiesOnly {
     var liabilities = liabilitiesOnly;
+    // 同时检查字符串 ID 和枚举筛选器
+    if (_liabilityTypeFilterId != null) {
+      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilterId).toList();
+    } else if (_liabilityTypeFilter != null) {
+      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilter!.snakeCaseName).toList();
+    }
+    return liabilities;
+  }
+
+  /// 获取筛选后的资产列表（支持自定义类型）
+  List<Asset> getFilteredAssetsOnly(List<CustomAssetType> customTypes) {
+    var assets = getAssetsOnly(customTypes);
+    // 同时检查字符串 ID 和枚举筛选器
+    if (_assetTypeFilterId != null) {
+      assets = assets.where((a) => a.type == _assetTypeFilterId).toList();
+    } else if (_assetTypeFilter != null) {
+      assets = assets.where((a) => a.type == _assetTypeFilter!.snakeCaseName).toList();
+    }
+    return assets;
+  }
+
+  /// 获取筛选后的负债列表（支持自定义类型）
+  List<Asset> getFilteredLiabilitiesOnly(List<CustomAssetType> customTypes) {
+    var liabilities = getLiabilitiesOnly(customTypes);
     // 同时检查字符串 ID 和枚举筛选器
     if (_liabilityTypeFilterId != null) {
       liabilities = liabilities.where((a) => a.type == _liabilityTypeFilterId).toList();
@@ -109,12 +170,55 @@ class AssetProvider with ChangeNotifier {
       final builtInType = AssetTypeExtension.fromString(asset.type);
       if (builtInType != null && builtInType.isLiability) {
         totalLiabilities += asset.amount;
-      } else if (asset.type.startsWith('custom_')) {
-        // 自定义负债类型（需要更精确的判断，这里暂时假设都是负债）
-        // TODO: 需要结合 CustomAssetType 判断
-        totalLiabilities += asset.amount;
-      } else {
+      } else if (builtInType != null) {
+        // 内置资产类型
         totalAssets += asset.amount;
+      } else {
+        // 自定义类型 - 暂时假设为资产类型（需要调用方传入 customTypes 更精确判断）
+        // 注意：这里使用简化的判断逻辑，因为 summary 是同步 getter
+        // 如果需要精确判断，应该使用新的 getSummaryWithCustomTypes 方法
+        totalAssets += asset.amount;
+      }
+    }
+
+    return PortfolioSummary(
+      totalAssets: totalAssets,
+      totalLiabilities: totalLiabilities,
+      netAssets: totalAssets - totalLiabilities,
+      breakdown: breakdown,
+      lastUpdated: DateTime.now(),
+    );
+  }
+
+  /// 获取投资组合摘要（支持自定义类型精确判断）
+  PortfolioSummary getSummaryWithCustomTypes(List<CustomAssetType> customTypes) {
+    final breakdown = <String, double>{};
+    double totalAssets = 0;
+    double totalLiabilities = 0;
+
+    for (final asset in _assets) {
+      final value = breakdown[asset.type] ?? 0;
+      breakdown[asset.type] = value + asset.amount;
+
+      final builtInType = AssetTypeExtension.fromString(asset.type);
+      if (builtInType != null) {
+        // 内置类型
+        if (builtInType.isLiability) {
+          totalLiabilities += asset.amount;
+        } else {
+          totalAssets += asset.amount;
+        }
+      } else {
+        // 自定义类型 - 根据 CustomAssetType 判断
+        final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+          (t) => t?.id == asset.type,
+          orElse: () => null,
+        );
+        if (customType?.isLiability ?? false) {
+          totalLiabilities += asset.amount;
+        } else {
+          totalAssets += asset.amount;
+        }
       }
     }
 

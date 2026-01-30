@@ -35,7 +35,9 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
       _currencyController.text = widget.asset!.currency ?? 'CNY';
       _accountController.text = widget.asset!.account ?? '';
       _noteController.text = widget.asset!.note ?? '';
-      _selectedType = widget.asset!.type;
+      // 尝试从字符串类型解析为枚举
+      final parsedType = AssetTypeExtension.fromString(widget.asset!.type);
+      _selectedType = parsedType ?? AssetType.deposit;
     }
   }
 
@@ -58,7 +60,7 @@ class _AddAssetDialogState extends State<AddAssetDialog> {
     final asset = Asset(
       id: widget.asset?.id ?? const Uuid().v4(),
       name: _nameController.text,
-      type: _selectedType,
+      type: _selectedType.snakeCaseName,
       amount: double.parse(_amountController.text),
       currency: _currencyController.text.isEmpty ? 'CNY' : _currencyController.text,
       account: _accountController.text.isEmpty ? null : _accountController.text,

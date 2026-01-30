@@ -32,7 +32,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
   Widget build(BuildContext context) {
     return Consumer2<AssetProvider, CustomTypeProvider>(
       builder: (context, assetProvider, customTypeProvider, child) {
-        final assets = assetProvider.filteredAssetsOnly;
+        final customTypes = customTypeProvider.customTypes;
+        final assets = assetProvider.getFilteredAssetsOnly(customTypes);
 
         if (assetProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
@@ -45,7 +46,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _AssetsSummaryCard(total: assetProvider.summary.totalAssets),
+                  child: _AssetsSummaryCard(total: assetProvider.getSummaryWithCustomTypes(customTypes).totalAssets),
                 ),
               ),
 

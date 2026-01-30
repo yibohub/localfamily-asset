@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import '../models/portfolio_summary.dart';
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
 import '../utils/currency_utils.dart';
 import '../screens/asset_list_screen.dart';
 
 /// 资产总览卡片
 class AssetSummaryCard extends StatelessWidget {
   final PortfolioSummary summary;
+  final List<CustomAssetType> customTypes;
 
-  const AssetSummaryCard({super.key, required this.summary});
+  const AssetSummaryCard({
+    super.key,
+    required this.summary,
+    this.customTypes = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -103,13 +109,24 @@ class AssetSummaryCard extends StatelessWidget {
   }
 
   Widget _buildAssetBreakdown(BuildContext context) {
-    final assetBreakdown = summary.breakdown.entries
-        .map((e) => MapEntry(e.key, e.value))
-        .where((e) {
-          final assetType = AssetTypeExtension.fromString(e.key);
-          return assetType != null && !assetType.isLiability;
-        })
-        .toList();
+    final assetBreakdown = <MapEntry<String, double>>[];
+
+    for (final entry in summary.breakdown.entries) {
+      final assetType = AssetTypeExtension.fromString(entry.key);
+      if (assetType != null && !assetType.isLiability) {
+        // 内置资产类型
+        assetBreakdown.add(MapEntry(entry.key, entry.value));
+      } else if (assetType == null) {
+        // 检查是否为自定义资产类型（非负债）
+        final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+          (t) => t?.id == entry.key,
+          orElse: () => null,
+        );
+        if (customType != null && !customType.isLiability) {
+          assetBreakdown.add(MapEntry(entry.key, entry.value));
+        }
+      }
+    }
 
     if (assetBreakdown.isEmpty) return const SizedBox.shrink();
 
@@ -119,17 +136,15 @@ class AssetSummaryCard extends StatelessWidget {
         Text('资产分布', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         ...assetBreakdown.map((entry) {
-          final assetType = AssetTypeExtension.fromString(entry.key)!;
           final percentage = summary.getPercentage(entry.key);
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: _buildBreakdownItem(
+            child: _buildBreakdownItemForType(
               context,
-              _getTypeName(assetType),
-              _getTypeColor(assetType),
+              entry.key,
               percentage,
               entry.value,
-              assetType,
+              isLiability: false,
             ),
           );
         }),
@@ -138,13 +153,24 @@ class AssetSummaryCard extends StatelessWidget {
   }
 
   Widget _buildLiabilityBreakdown(BuildContext context) {
-    final liabilityBreakdown = summary.breakdown.entries
-        .map((e) => MapEntry(e.key, e.value))
-        .where((e) {
-          final assetType = AssetTypeExtension.fromString(e.key);
-          return assetType != null && assetType.isLiability;
-        })
-        .toList();
+    final liabilityBreakdown = <MapEntry<String, double>>[];
+
+    for (final entry in summary.breakdown.entries) {
+      final assetType = AssetTypeExtension.fromString(entry.key);
+      if (assetType != null && assetType.isLiability) {
+        // 内置负债类型
+        liabilityBreakdown.add(MapEntry(entry.key, entry.value));
+      } else if (assetType == null) {
+        // 检查是否为自定义负债类型
+        final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+          (t) => t?.id == entry.key,
+          orElse: () => null,
+        );
+        if (customType != null && customType.isLiability) {
+          liabilityBreakdown.add(MapEntry(entry.key, entry.value));
+        }
+      }
+    }
 
     if (liabilityBreakdown.isEmpty) return const SizedBox.shrink();
 
@@ -155,17 +181,15 @@ class AssetSummaryCard extends StatelessWidget {
         Text('负债分布', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         ...liabilityBreakdown.map((entry) {
-          final assetType = AssetTypeExtension.fromString(entry.key)!;
           final percentage = summary.getPercentage(entry.key);
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: _buildBreakdownItem(
+            child: _buildBreakdownItemForType(
               context,
-              _getTypeName(assetType),
-              _getTypeColor(assetType),
+              entry.key,
               percentage,
               entry.value,
-              assetType,
+              isLiability: true,
             ),
           );
         }),
@@ -173,6 +197,96 @@ class AssetSummaryCard extends StatelessWidget {
     );
   }
 
+  /// 构建分布项（支持内置类型和自定义类型）
+  Widget _buildBreakdownItemForType(
+    BuildContext context,
+    String typeId,
+    double percentage,
+    double value, {
+    required bool isLiability,
+  }) {
+    // 尝试解析为内置类型
+    final assetType = AssetTypeExtension.fromString(typeId);
+    String label;
+    Color color;
+    IconData icon;
+
+    if (assetType != null) {
+      // 内置类型
+      label = assetType.displayName;
+      color = _getTypeColor(assetType);
+      icon = _getIconData(assetType.iconName);
+    } else {
+      // 自定义类型
+      final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+        (t) => t?.id == typeId,
+        orElse: () => null,
+      );
+      if (customType != null) {
+        label = customType.name;
+        icon = _getIconData(customType.iconName);
+      } else {
+        label = typeId.replaceAll('custom_', '');
+        icon = Icons.category;
+      }
+      // 自定义类型的颜色
+      color = isLiability ? const Color(0xFFEF4444) : const Color(0xFF2563EB);
+    }
+
+    return InkWell(
+      onTap: () {
+        // 只支持内置类型的导航
+        if (assetType != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AssetListScreen(assetType: assetType),
+            ),
+          );
+        }
+        // TODO: 自定义类型的导航可以后续实现
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              Text(
+                '${percentage.toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percentage / 100,
+              backgroundColor: color.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建分布项（旧版本，仅支持内置类型）
   Widget _buildBreakdownItem(
     BuildContext context,
     String label,
@@ -269,6 +383,53 @@ class AssetSummaryCard extends StatelessWidget {
         return const Color(0xFFD97706);
       case AssetType.privateLoan:
         return const Color(0xFFCA8A04);
+    }
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'home':
+        return Icons.home;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'pie_chart':
+        return Icons.pie_chart;
+      case 'security':
+        return Icons.security;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'home_work':
+        return Icons.home_work;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'person':
+        return Icons.person;
+      case 'handshake':
+        return Icons.handshake;
+      case 'star':
+        return Icons.star;
+      case 'favorite':
+        return Icons.favorite;
+      case 'bookmark':
+        return Icons.bookmark;
+      case 'label':
+        return Icons.label;
+      case 'tag':
+        return Icons.tag;
+      case 'diamond':
+        return Icons.diamond;
+      case 'pets':
+        return Icons.pets;
+      case 'flight':
+        return Icons.flight;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'shopping_bag':
+        return Icons.shopping_bag;
+      default:
+        return Icons.category;
     }
   }
 }

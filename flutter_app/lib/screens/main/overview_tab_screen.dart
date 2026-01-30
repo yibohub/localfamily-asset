@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
+import '../../models/custom_asset_type.dart';
 import '../../providers/asset_provider.dart';
+import '../../providers/custom_type_provider.dart';
 import '../../utils/currency_utils.dart';
 
 /// 总览标签页 - 显示资产和负债总览
@@ -11,13 +13,16 @@ class OverviewTabScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AssetProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
+    return Consumer2<AssetProvider, CustomTypeProvider>(
+      builder: (context, assetProvider, customTypeProvider, child) {
+        if (assetProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final summary = provider.summary;
+        final customTypes = customTypeProvider.customTypes;
+        final summary = assetProvider.getSummaryWithCustomTypes(customTypes);
+        final assetsOnly = assetProvider.getAssetsOnly(customTypes);
+        final liabilitiesOnly = assetProvider.getLiabilitiesOnly(customTypes);
 
         return Scaffold(
           body: CustomScrollView(
@@ -31,29 +36,31 @@ class OverviewTabScreen extends StatelessWidget {
               ),
 
               // 资产分布
-              if (provider.assetsOnly.isNotEmpty)
+              if (assetsOnly.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: _TypeBreakdownSection(
                       title: '资产分布',
-                      assets: provider.assetsOnly,
+                      assets: assetsOnly,
                       total: summary.totalAssets,
                       isLiability: false,
+                      customTypes: customTypes,
                     ),
                   ),
                 ),
 
               // 负债分布
-              if (provider.liabilitiesOnly.isNotEmpty)
+              if (liabilitiesOnly.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: _TypeBreakdownSection(
                       title: '负债分布',
-                      assets: provider.liabilitiesOnly,
+                      assets: liabilitiesOnly,
                       total: summary.totalLiabilities,
                       isLiability: true,
+                      customTypes: customTypes,
                     ),
                   ),
                 ),
@@ -176,12 +183,14 @@ class _TypeBreakdownSection extends StatelessWidget {
   final List<Asset> assets;
   final double total;
   final bool isLiability;
+  final List<CustomAssetType> customTypes;
 
   const _TypeBreakdownSection({
     required this.title,
     required this.assets,
     required this.total,
     required this.isLiability,
+    required this.customTypes,
   });
 
   @override
@@ -215,6 +224,7 @@ class _TypeBreakdownSection extends StatelessWidget {
                 amount: amount,
                 percentage: percentage,
                 isLiability: isLiability,
+                customTypes: customTypes,
               );
             }).toList(),
           ],
@@ -226,16 +236,18 @@ class _TypeBreakdownSection extends StatelessWidget {
 
 /// 类型分布项
 class _TypeBreakdownItem extends StatelessWidget {
-  final String type; // 改为 String 类型
+  final String type;
   final double amount;
   final double percentage;
   final bool isLiability;
+  final List<CustomAssetType> customTypes;
 
   const _TypeBreakdownItem({
     required this.type,
     required this.amount,
     required this.percentage,
     required this.isLiability,
+    required this.customTypes,
   });
 
   @override
@@ -243,7 +255,7 @@ class _TypeBreakdownItem extends StatelessWidget {
     final theme = Theme.of(context);
 
     // 从字符串类型获取显示名称和图标
-    final typeInfo = _getTypeInfo(type);
+    final typeInfo = _getTypeInfo(type, customTypes);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -336,7 +348,7 @@ class _TypeBreakdownItem extends StatelessWidget {
   }
 
   /// 从字符串类型获取类型信息
-  _TypeInfo _getTypeInfo(String typeStr) {
+  _TypeInfo _getTypeInfo(String typeStr, List<CustomAssetType> customTypes) {
     // 尝试解析为内置类型
     final builtInType = AssetTypeExtension.fromString(typeStr);
     if (builtInType != null) {
@@ -346,11 +358,22 @@ class _TypeBreakdownItem extends StatelessWidget {
       );
     }
 
-    // 自定义类型 - 从类型字符串本身获取名称
-    // TODO: 未来可以从 CustomTypeProvider 获取更详细的信息
+    // 查找自定义类型
+    final customType = customTypes.cast<CustomAssetType?>().firstWhere(
+      (t) => t?.id == typeStr,
+      orElse: () => null,
+    );
+    if (customType != null) {
+      return _TypeInfo(
+        name: customType.name,
+        icon: _getIconData(customType.iconName),
+      );
+    }
+
+    // 未知类型 - 使用字符串本身
     return _TypeInfo(
-      name: typeStr.replaceAll('custom_', ''), // 移除 custom_ 前缀
-      icon: Icons.category, // 自定义类型默认图标
+      name: typeStr.replaceAll('custom_', ''),
+      icon: Icons.category,
     );
   }
 }
