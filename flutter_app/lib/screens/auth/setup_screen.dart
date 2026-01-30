@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../models/asset.dart';
 import '../../core/theme.dart';
+import '../../widgets/window_title_bar.dart';
 import '../main/main_navigation_screen.dart';
 
 /// 隐财初始设置页
@@ -124,8 +125,8 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('初始设置'),
+      appBar: WindowTitleBar(
+        title: '初始设置',
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -160,7 +161,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 // Demo 模式选择
                 Card(
                   elevation: 0,
-                  color: Colors.blue.withValues(alpha: 0.05),
+                  color: AppTheme.warningColor.withValues(alpha: 0.08),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
