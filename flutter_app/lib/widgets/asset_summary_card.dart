@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/portfolio_summary.dart';
 import '../models/asset.dart';
 import '../utils/currency_utils.dart';
+import '../screens/asset_list_screen.dart';
 
 /// 资产总览卡片
 class AssetSummaryCard extends StatelessWidget {
@@ -103,7 +104,11 @@ class AssetSummaryCard extends StatelessWidget {
 
   Widget _buildAssetBreakdown(BuildContext context) {
     final assetBreakdown = summary.breakdown.entries
-        .where((e) => !e.key.isLiability)
+        .map((e) => MapEntry(e.key, e.value))
+        .where((e) {
+          final assetType = AssetTypeExtension.fromString(e.key);
+          return assetType != null && !assetType.isLiability;
+        })
         .toList();
 
     if (assetBreakdown.isEmpty) return const SizedBox.shrink();
@@ -114,15 +119,17 @@ class AssetSummaryCard extends StatelessWidget {
         Text('资产分布', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         ...assetBreakdown.map((entry) {
+          final assetType = AssetTypeExtension.fromString(entry.key)!;
           final percentage = summary.getPercentage(entry.key);
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _buildBreakdownItem(
               context,
-              _getTypeName(entry.key),
-              _getTypeColor(entry.key),
+              _getTypeName(assetType),
+              _getTypeColor(assetType),
               percentage,
               entry.value,
+              assetType,
             ),
           );
         }),
@@ -132,7 +139,11 @@ class AssetSummaryCard extends StatelessWidget {
 
   Widget _buildLiabilityBreakdown(BuildContext context) {
     final liabilityBreakdown = summary.breakdown.entries
-        .where((e) => e.key.isLiability)
+        .map((e) => MapEntry(e.key, e.value))
+        .where((e) {
+          final assetType = AssetTypeExtension.fromString(e.key);
+          return assetType != null && assetType.isLiability;
+        })
         .toList();
 
     if (liabilityBreakdown.isEmpty) return const SizedBox.shrink();
@@ -144,15 +155,17 @@ class AssetSummaryCard extends StatelessWidget {
         Text('负债分布', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         ...liabilityBreakdown.map((entry) {
-          final percentage = summary.liabilityRatio;
+          final assetType = AssetTypeExtension.fromString(entry.key)!;
+          final percentage = summary.getPercentage(entry.key);
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _buildBreakdownItem(
               context,
-              _getTypeName(entry.key),
-              _getTypeColor(entry.key),
+              _getTypeName(assetType),
+              _getTypeColor(assetType),
               percentage,
               entry.value,
+              assetType,
             ),
           );
         }),
@@ -166,49 +179,61 @@ class AssetSummaryCard extends StatelessWidget {
     Color color,
     double percentage,
     double value,
+    AssetType assetType,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            Text(
-              '${percentage.toStringAsFixed(1)}%',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: percentage / 100,
-            backgroundColor: color.withOpacity(0.1),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 6,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AssetListScreen(assetType: assetType),
           ),
-        ),
-      ],
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              Text(
+                '${percentage.toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percentage / 100,
+              backgroundColor: color.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

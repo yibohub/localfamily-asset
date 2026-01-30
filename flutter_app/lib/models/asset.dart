@@ -180,6 +180,34 @@ extension AssetTypeExtension on AssetType {
   static List<AssetType> get liabilityTypes {
     return AssetType.values.where((t) => t.isLiability).toList();
   }
+
+  /// 获取与 Rust 端一致的 snake_case 类型名称（用于筛选）
+  String get snakeCaseName {
+    switch (this) {
+      case AssetType.property:
+        return 'property';
+      case AssetType.deposit:
+        return 'deposit';
+      case AssetType.stock:
+        return 'stock';
+      case AssetType.fund:
+        return 'fund';
+      case AssetType.insurance:
+        return 'insurance';
+      case AssetType.debt:
+        return 'debt';
+      case AssetType.mortgage:
+        return 'mortgage';
+      case AssetType.carLoan:
+        return 'car_loan';
+      case AssetType.creditCard:
+        return 'credit_card';
+      case AssetType.personalLoan:
+        return 'personal_loan';
+      case AssetType.privateLoan:
+        return 'private_loan';
+    }
+  }
 }
 
 /// 资产模型（支持内置类型和自定义类型）

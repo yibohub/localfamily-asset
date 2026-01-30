@@ -63,8 +63,11 @@ class AssetProvider with ChangeNotifier {
   /// 获取筛选后的资产列表
   List<Asset> get filteredAssetsOnly {
     var assets = assetsOnly;
+    // 同时检查字符串 ID 和枚举筛选器
     if (_assetTypeFilterId != null) {
       assets = assets.where((a) => a.type == _assetTypeFilterId).toList();
+    } else if (_assetTypeFilter != null) {
+      assets = assets.where((a) => a.type == _assetTypeFilter!.snakeCaseName).toList();
     }
     return assets;
   }
@@ -72,8 +75,11 @@ class AssetProvider with ChangeNotifier {
   /// 获取筛选后的负债列表
   List<Asset> get filteredLiabilitiesOnly {
     var liabilities = liabilitiesOnly;
+    // 同时检查字符串 ID 和枚举筛选器
     if (_liabilityTypeFilterId != null) {
       liabilities = liabilities.where((a) => a.type == _liabilityTypeFilterId).toList();
+    } else if (_liabilityTypeFilter != null) {
+      liabilities = liabilities.where((a) => a.type == _liabilityTypeFilter!.snakeCaseName).toList();
     }
     return liabilities;
   }

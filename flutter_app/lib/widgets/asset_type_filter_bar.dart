@@ -45,8 +45,8 @@ class AssetTypeFilterBar extends StatelessWidget {
               ...builtInTypes.map((type) => _buildChip(
                     type.displayName,
                     _getIcon(type.iconName),
-                    selectedTypeId == type.name,
-                    () => onTypeSelected(type.name),
+                    selectedTypeId == type.snakeCaseName,
+                    () => onTypeSelected(type.snakeCaseName),
                     theme,
                   )),
               ...customTypes.map((type) => _buildChip(

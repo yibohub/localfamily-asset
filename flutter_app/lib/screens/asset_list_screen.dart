@@ -15,7 +15,7 @@ class AssetListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final assetProvider = context.watch<AssetProvider>();
     final assets = assetType != null
-        ? assetProvider.getAssetsByType(assetType!)
+        ? assetProvider.getAssetsByType(assetType!.snakeCaseName)
         : assetProvider.assets;
 
     return Scaffold(
