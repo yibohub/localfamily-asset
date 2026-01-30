@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 /// 隐财 (Yincai) 应用主题配置
 ///
 /// 品牌设计规范：Cryptic Sanctuary
-/// - 深海蓝 (#0A2463): 主品牌色，象征安全与可靠
-/// - 翡翠绿 (#059669): 成功状态、安全验证
-/// - 琥珀橙 (#F59E0B): 警告提示
+/// - 翡翠绿 (#059669): 主品牌色，象征增长与安全
+/// - 琥珀橙 (#F59E0B): 警告提示、高亮强调
 class AppTheme {
   // ========== 品牌主色系 ==========
-  /// 深海蓝 - 主品牌色、导航栏、按钮
-  static const Color primaryColor = Color(0xFF0A2463);
+  /// 翡翠绿 - 主品牌色、导航栏、按钮
+  static const Color primaryColor = successColor;
 
   /// 翡翠绿 - 成功状态、安全验证、增长指标
   static const Color successColor = Color(0xFF059669);
@@ -86,6 +85,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'Microsoft YaHei', // Windows 中文字体
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
@@ -206,6 +206,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: 'Microsoft YaHei', // Windows 中文字体
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
