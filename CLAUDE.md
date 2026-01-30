@@ -126,6 +126,21 @@ flutter build windows
 - **Debug 模式**：只需要运行 `cargo build`（自动从 target/debug/ 加载）
 - **Release 模式**：需要运行 `cargo build --release` 并手动复制 DLL
 
+#### Rust 代码修改后必须执行的操作
+
+1. 重新编译：`cd rust_core && cargo build`
+2. 停止应用：关闭正在运行的 Flutter 应用
+3. 复制 DLL：`cp target/debug/localfamily_asset_core.dll ../flutter_app/`
+4. 重启应用：`flutter run -d windows`
+
+**常见错误**：修改 Rust 代码后忘记复制 DLL，导致 Flutter 仍在使用旧版本。
+
+**判断是否需要重新编译**：
+| 操作 | 需重新编译 Rust |
+|------|----------------|
+| 修改 Dart 代码 | ❌ 否 |
+| 修改 Rust 代码 | ✅ 是 |
+
 ---
 
 ## 代码架构
@@ -273,31 +288,6 @@ $env:FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
 - 当前 MVP 版本使用明文 SQLite（开发阶段）
 - 生产版本将实现文件级加密：整个 `.db` 文件用 AES-256-GCM 加密
 - 启动流程：解密文件 → 内存数据库 → 操作 → 加密落盘
-
----
-
-## 常见问题
-
-### Q: Flutter FFI 调用 Rust 函数报错 "DynamicLibrary.open() failed"
-A: 确保 Rust 动态库已构建且路径正确：
-- Windows: `flutter_app/assets/localfamily_asset_core.dll`
-- 检查 `pubspec.yaml` 的 `assets` 配置
-
-### Q: 修改 Rust 代码后 Flutter 没有更新？
-A: 需重新构建 Rust Core：
-```bash
-cd rust_core
-cargo build --release
-# 然后复制动态库到 flutter_app/assets/
-```
-
-### Q: Dart 和 Rust 的 AssetType 枚举值不一致？
-A: 检查两个文件：
-- `rust_core/src/ffi.rs` 的 `asset_type_from_int()`
-- `flutter_app/lib/models/asset.dart` 的 `AssetTypeExtension.value`
-
-### Q: 如何调试 Rust FFI 函数？
-A: 使用 `eprintln!()` 输出到 stderr，或使用 `cargo test` 运行单元测试
 
 ---
 

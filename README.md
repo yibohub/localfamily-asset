@@ -330,24 +330,50 @@ A: 由于使用强加密保护，忘记密码无法找回数据。建议使用�
 
 ### 技术相关
 
+**Q: 修改 Rust 代码后 Flutter 没有更新？**
+
+A: **⚠️ 常见错误**：修改 Rust 代码后忘记复制 DLL，导致 Flutter 仍在使用旧版本。
+
+**Rust 代码修改后的操作流程**：
+1. 重新编译：`cd rust_core && cargo build`
+2. 停止应用：关闭正在运行的 Flutter 应用
+3. 复制 DLL：`cp target/debug/localfamily_asset_core.dll ../flutter_app/`
+4. 重启应用：`flutter run -d windows`
+
+**判断是否需要重新编译**：
+| 操作 | 需重新编译 Rust |
+|------|----------------|
+| 修改 Dart 代码 | ❌ 否 |
+| 修改 Rust 代码 | ✅ 是 |
+
 **Q: Flutter FFI 调用 Rust 函数报错 "DynamicLibrary.open() failed"**
 
 A: 确保 Rust 动态库已构建且路径正确：
 - Windows: `flutter_app/assets/localfamily_asset_core.dll`
-
-**Q: 修改 Rust 代码后 Flutter 没有更新？**
-
-A: 需重新构建 Rust Core：
-```bash
-cd rust_core && cargo build --release
-# 然后复制动态库到 flutter_app/assets/
-```
 
 **Q: Dart 和 Rust 的 AssetType 枚举值不一致？**
 
 A: 检查两个文件：
 - `rust_core/src/ffi.rs` 的 `asset_type_from_int()`
 - `flutter_app/lib/models/asset.dart` 的 `AssetTypeExtension.value`
+
+**Q: 如何调试 FFI 数据传递问题？**
+
+A: **快速诊断**：
+```bash
+# 检查 DLL 文件修改时间
+ls -la rust_core/target/debug/localfamily_asset_core.dll
+ls -la flutter_app/localfamily_asset_core.dll
+
+# 直接查询数据库验证数据
+cd rust_core
+cargo run --example check_all
+```
+
+**调试方法**：
+- `eprintln!()` in Rust → 输出会显示在 Flutter 控制台
+- Dart `debugPrint()` → Dart 端调试
+- 直接 SQL 查询 → 隔离数据库问题
 
 **Q: 为什么要开源？**
 
