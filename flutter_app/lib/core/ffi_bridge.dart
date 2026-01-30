@@ -159,6 +159,14 @@ class FfiBridge {
         .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_password_hint')
         .asFunction();
 
+    _generateMnemonic = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('generate_mnemonic')
+        .asFunction();
+
+    _saveMnemonic = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('save_mnemonic')
+        .asFunction();
+
     _addAsset = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(
           ffi.Pointer<ffi.Char>,
@@ -343,6 +351,35 @@ class FfiBridge {
     final hintStr = result.cast<Utf8>().toDartString();
     malloc.free(result);
     return hintStr;
+  }
+
+  /// 生成助记词
+  Future<String?> generateMnemonic() async {
+    final result = _generateMnemonic();
+    if (result == ffi.nullptr) {
+      debugPrint('generateMnemonic 失败：返回空指针');
+      return null;
+    }
+    final mnemonic = result.cast<Utf8>().toDartString();
+    malloc.free(result);
+    return mnemonic;
+  }
+
+  /// 保存助记词
+  Future<bool> saveMnemonic(String mnemonic) async {
+    final mnemonicPtr = mnemonic.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _saveMnemonic(mnemonicPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('saveMnemonic 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('saveMnemonic 异常: $e');
+      return false;
+    } finally {
+      malloc.free(mnemonicPtr);
+    }
   }
 
   /// 添加资产

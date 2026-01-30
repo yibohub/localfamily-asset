@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../models/asset.dart';
 import '../../core/theme.dart';
+import '../../core/ffi_bridge.dart';
 import '../main/main_navigation_screen.dart';
 
 /// 隐财初始设置页
@@ -22,11 +23,14 @@ class _SetupScreenState extends State<SetupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _hintController = TextEditingController();
+  final _ffi = FfiBridge();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
   String? _selectedDemo; // 'buffett' or 'musk' or null
+  String? _generatedMnemonic; // 生成的助记词
+  bool _mnemonicConfirmed = false; // 用户是否确认已保存助记词
 
   @override
   void dispose() {
@@ -34,6 +38,37 @@ class _SetupScreenState extends State<SetupScreen> {
     _confirmController.dispose();
     _hintController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _generateMnemonic();
+  }
+
+  /// 生成助记词
+  Future<void> _generateMnemonic() async {
+    final mnemonic = await _ffi.generateMnemonic();
+    if (mounted && mnemonic != null) {
+      setState(() {
+        _generatedMnemonic = mnemonic;
+      });
+    }
+  }
+
+  /// 复制助记词到剪贴板
+  void _copyMnemonic() async {
+    if (_generatedMnemonic == null) return;
+
+    await Clipboard.setData(ClipboardData(text: _generatedMnemonic!));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('助记词已复制到剪贴板'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   /// 加载 Demo 数据
@@ -89,6 +124,14 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _setup() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // 确保用户已确认保存助记词
+    if (!_mnemonicConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先确认已保存助记词')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final authProvider = context.read<AuthProvider>();
@@ -105,6 +148,14 @@ class _SetupScreenState extends State<SetupScreen> {
         );
       }
       return;
+    }
+
+    // 保存助记词到数据库
+    if (_generatedMnemonic != null) {
+      final saved = await _ffi.saveMnemonic(_generatedMnemonic!);
+      if (!saved) {
+        debugPrint('保存助记词失败，但密码设置成功');
+      }
     }
 
     // 如果选择了 Demo 模式，加载演示数据
@@ -269,6 +320,83 @@ class _SetupScreenState extends State<SetupScreen> {
                     hintText: '例如：我最喜欢的城市',
                   ),
                 ),
+
+                // 助记词显示和确认
+                if (_generatedMnemonic != null) ...[
+                  const SizedBox(height: 24),
+                  Card(
+                    elevation: 0,
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.security, color: AppTheme.primaryColor),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '助记词备份',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          color: AppTheme.primaryColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _copyMnemonic(),
+                                icon: const Icon(Icons.copy, size: 18),
+                                label: const Text('复制'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '请务必抄写并保存以下12个单词的助记词。'
+                            '如果您忘记密码，可以使用助记词恢复访问。',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey[700],
+                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            ),
+                            child: _generatedMnemonic == null
+                                ? const Center(child: CircularProgressIndicator())
+                                : Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: _buildMnemonicWords(_generatedMnemonic!),
+                                  ),
+                          ),
+                          const SizedBox(height: 12),
+                          CheckboxListTile(
+                            value: _mnemonicConfirmed,
+                            onChanged: (value) => setState(() => _mnemonicConfirmed = value ?? false),
+                            title: const Text('我已安全保存助记词'),
+                            subtitle: const Text('勾选表示您已将助记词记录到安全的地方'),
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 32),
                 FilledButton(
                   onPressed: _isLoading ? null : _setup,
@@ -303,5 +431,42 @@ class _SetupScreenState extends State<SetupScreen> {
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
       ),
     );
+  }
+
+  /// 构建助记词单词卡片
+  List<Widget> _buildMnemonicWords(String mnemonic) {
+    final words = mnemonic.split(' ');
+    return List.generate(words.length, (index) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+        ),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '${index + 1}. ',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              TextSpan(
+                text: words[index],
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }

@@ -290,7 +290,10 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
     // 使用助记词生成密钥
     let key = match mnemonic_to_key(mnemonic_str) {
         Ok(k) => k.to_vec(),
-        Err(_) => return FfiErrorCode::CryptoError as c_int,
+        Err(e) => {
+            write_log(&format!("助记词派生密钥失败: {}", e));
+            return FfiErrorCode::CryptoError as c_int;
+        }
     };
 
     // 打开数据库获取存储的密钥哈希
@@ -303,22 +306,27 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
     let key_hash = Sha256::digest(&key);
     let key_hash_hex = hex::encode(&key_hash);
 
-    // 从数据库获取存储的密钥哈希
-    let stored_key_hash: String = match conn.query_row(
+    // 从数据库获取存储的助记词密钥哈希
+    let stored_mnemonic_hash: String = match conn.query_row(
         "SELECT value FROM settings WHERE key = ?1",
-        ["password_key_hash"],
+        ["mnemonic_key_hash"],
         |row| row.get(0),
     ) {
         Ok(hash) => hash,
-        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+        Err(e) => {
+            write_log(&format!("获取助记词密钥哈希失败: {}", e));
+            return FfiErrorCode::InvalidPassword as c_int;
+        }
     };
 
     // 验证密钥哈希是否匹配
-    if key_hash_hex == stored_key_hash {
+    if key_hash_hex == stored_mnemonic_hash {
         // 助记词正确，将密钥保存到状态
         state.master_key = Some(key);
+        write_log(&format!("助记词验证成功"));
         FfiErrorCode::Success as c_int
     } else {
+        write_log(&format!("助记词验证失败：密钥哈希不匹配\n期望: {}\n实际: {}", &stored_mnemonic_hash[..8], &key_hash_hex[..8]));
         FfiErrorCode::InvalidPassword as c_int
     }
 }
@@ -383,7 +391,7 @@ pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
-    // 保存助记词到 settings 表
+    // 保存助记词到 settings 表（用于用户查看）
     if let Err(e) = conn.execute(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
         ["recovery_mnemonic", &mnemonic],
@@ -392,6 +400,28 @@ pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
         return FfiErrorCode::DatabaseError as c_int;
     }
 
+    // 从助记词派生密钥并计算哈希（用于验证）
+    let mnemonic_key = match mnemonic_to_key(mnemonic) {
+        Ok(k) => k.to_vec(),
+        Err(e) => {
+            write_log(&format!("助记词派生密钥失败: {}", e));
+            return FfiErrorCode::CryptoError as c_int;
+        }
+    };
+
+    let mnemonic_key_hash = Sha256::digest(&mnemonic_key);
+    let mnemonic_key_hash_hex = hex::encode(&mnemonic_key_hash);
+
+    // 保存助记词密钥哈希
+    if let Err(e) = conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["mnemonic_key_hash", &mnemonic_key_hash_hex],
+    ) {
+        write_log(&format!("保存助记词密钥哈希失败: {}", e));
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    write_log(&format!("助记词密钥哈希已保存: {}", &mnemonic_key_hash_hex[..8]));
     FfiErrorCode::Success as c_int
 }
 
