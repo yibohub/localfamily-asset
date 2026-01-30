@@ -21,8 +21,8 @@ class AppTheme {
   static const Color errorColor = Color(0xFFDC2626);
 
   // ========== 数据展示专用色（高对比度，适配米白背景） ==========
-  /// 资产金额色 - 深蓝色，在米白背景 #FAF9F5 上清晰可见
-  static const Color assetAmountColor = Color(0xFF0D47A1);
+  /// 资产金额色 - 深绿色，在米白背景 #FAF9F5 上清晰可见
+  static const Color assetAmountColor = Color(0xFF2E7D32);
 
   /// 负债金额色 - 深红色，在米白背景上清晰可见
   static const Color liabilityAmountColor = Color(0xFFC62828);
@@ -40,8 +40,8 @@ class AppTheme {
   static const Color netAssetNegativeColor = Color(0xFFB71C1C);
 
   // ========== 深色主题数据展示专用色（浅色，适配深色背景） ==========
-  /// 资产金额色（深色主题）- 浅蓝色
-  static const Color assetAmountColorDark = Color(0xFF64B5F6);
+  /// 资产金额色（深色主题）- 浅绿色，清晰醒目
+  static const Color assetAmountColorDark = Color(0xFF66BB6A);
 
   /// 负债金额色（深色主题）- 浅红色
   static const Color liabilityAmountColorDark = Color(0xFFEF5350);
@@ -50,7 +50,7 @@ class AppTheme {
   static const Color profitColorDark = Color(0xFFFF5252);
 
   /// 亏损色（深色主题）- 浅绿色
-  static const Color lossColorDark = Color(0xFF66BB6A);
+  static const Color lossColorDark = Color(0xFF81C784);
 
   /// 净资产正值色（深色主题）- 浅绿色
   static const Color netAssetPositiveColorDark = Color(0xFF81C784);
