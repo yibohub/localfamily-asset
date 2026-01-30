@@ -99,7 +99,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
                 MaterialPageRoute(
                   builder: (_) => AssetFormScreen(
                     assetTypesFilter: true, // 仅显示负债类型
-                    defaultType: assetProvider.liabilityTypeFilter, // 传递当前筛选的类型
+                    defaultTypeId: assetProvider.liabilityTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
                   ),
                 ),
               );

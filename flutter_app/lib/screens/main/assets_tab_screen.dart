@@ -98,7 +98,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
                 MaterialPageRoute(
                   builder: (_) => AssetFormScreen(
                     assetTypesFilter: false, // 仅显示资产类型
-                    defaultType: assetProvider.assetTypeFilter, // 传递当前筛选的类型
+                    defaultTypeId: assetProvider.assetTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
                   ),
                 ),
               );

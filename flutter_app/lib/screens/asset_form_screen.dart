@@ -11,6 +11,8 @@ import '../widgets/smart_asset_name_input.dart';
 class AssetFormScreen extends StatefulWidget {
   final Asset? asset;
   final AssetType? defaultType;
+  /// 默认类型 ID（支持内置类型名称和自定义类型 ID）
+  final String? defaultTypeId;
   /// 资产类型筛选：true=仅负债类型，false=仅资产类型，null=显示所有类型
   final bool? assetTypesFilter;
 
@@ -18,6 +20,7 @@ class AssetFormScreen extends StatefulWidget {
     super.key,
     this.asset,
     this.defaultType,
+    this.defaultTypeId,
     this.assetTypesFilter,
   });
 
@@ -59,8 +62,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     String defaultTypeId = 'deposit';
     if (widget.asset?.type != null) {
       defaultTypeId = widget.asset!.type;
+    } else if (widget.defaultTypeId != null) {
+      // 优先使用 defaultTypeId（支持自定义类型）
+      defaultTypeId = widget.defaultTypeId!;
     } else if (widget.defaultType != null) {
-      defaultTypeId = widget.defaultType!.name;
+      defaultTypeId = widget.defaultType!.snakeCaseName;
     } else if (widget.assetTypesFilter == true) {
       // 负债类型筛选，默认选房贷
       defaultTypeId = 'mortgage';
