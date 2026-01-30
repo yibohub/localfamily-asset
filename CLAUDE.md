@@ -50,6 +50,12 @@ flutter build windows
 
 # 代码检查
 flutter analyze
+
+# 运行测试
+flutter test                    # 单元测试 + 组件测试
+flutter drive \                # 集成测试
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/app_test.dart
 ```
 
 ### Rust Core 开发
@@ -73,20 +79,52 @@ cargo clippy
 
 ### 完整构建流程
 
+**⚠️ 重要：Flutter Debug/Release 模式使用不同的 Rust 动态库**
+
+| Flutter 模式 | Rust 构建命令 | DLL 位置 | 大小参考 | 用途 |
+|------------|--------------|---------|---------|------|
+| Debug | `cargo build` | `rust_core/target/debug/` | ~6MB | 开发调试 |
+| Release | `cargo build --release` | `rust_core/target/release/` | ~3MB | 发布部署 |
+
+**`pubspec.yaml` 配置**：
+```yaml
+assets:
+  - ../rust_core/target/debug/  # Debug 模式读取此目录
+```
+
+#### 开发调试流程（Debug）
+
 ```bash
-# 1. 构建 Rust Core
+# 1. 构建 Debug 版本的 Rust Core
+cd rust_core
+cargo build
+
+# 2. Flutter 自动从 target/debug/ 加载动态库
+cd ../flutter_app
+flutter run -d windows
+```
+
+#### 发布构建流程（Release）
+
+```bash
+# 1. 构建 Release 版本的 Rust Core
 cd rust_core
 cargo build --release
 
 # 2. 将生成的动态库复制到 Flutter 资源目录
-# Windows: target/release/localfamily_asset_core.dll -> flutter_app/assets/
-# Linux: target/release/liblocalfamily_asset_core.so -> flutter_app/assets/
-# macOS: target/release/liblocalfamily_asset_core.dylib -> flutter_app/assets/
+# Windows:
+copy target\release\localfamily_asset_core.dll ..\flutter_app\assets\
+# Linux/macOS:
+cp target/release/liblocalfamily_asset_core.* ../flutter_app/assets/
 
 # 3. 构建 Flutter 应用
 cd ../flutter_app
 flutter build windows
 ```
+
+**⚠️ 常见错误**：修改 Rust 代码后 `flutter run` 没有更新？
+- **Debug 模式**：只需要运行 `cargo build`（自动从 target/debug/ 加载）
+- **Release 模式**：需要运行 `cargo build --release` 并手动复制 DLL
 
 ---
 
@@ -116,6 +154,9 @@ localfamily-asset/
 │   └── Cargo.toml
 │
 ├── flutter_app/                  # Flutter 应用
+│   ├── integration_test/         # 集成测试
+│   ├── test/                     # 单元测试 + 组件测试
+│   ├── test_driver/              # 测试驱动脚本
 │   ├── lib/
 │   │   ├── core/                 # 核心层
 │   │   │   ├── ffi_bridge.dart   # FFI 桥接层，封装所有 Rust 调用
