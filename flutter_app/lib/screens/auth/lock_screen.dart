@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme.dart';
 import '../main/main_navigation_screen.dart';
+import 'setup_screen.dart';
 
 /// 隐财锁定屏幕
 class LockScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _LockScreenState extends State<LockScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _error;
+  bool _showHelp = false;
 
   @override
   void dispose() {
@@ -43,8 +45,100 @@ class _LockScreenState extends State<LockScreen> {
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     } else {
-      setState(() => _error = '密码错误');
+      setState(() {
+        _error = '密码错误';
+        _showHelp = true;
+      });
     }
+  }
+
+  /// 显示帮助对话框
+  void _showHelpDialog() {
+    final authProvider = context.read<AuthProvider>();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('忘记密码？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (authProvider.passwordHint != null)
+              Text(
+                '密码提示：${authProvider.passwordHint}',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              )
+            else
+              const Text('您没有设置密码提示。'),
+            const SizedBox(height: 16),
+            const Text(
+              '如果无法记起密码，可以使用助记词恢复，或重置应用（将删除所有数据）。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showResetConfirmDialog();
+            },
+            child: const Text(
+              '重置应用',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示重置确认对话框
+  void _showResetConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('⚠️ 危险操作'),
+        content: const Text(
+          '重置应用将删除所有资产数据和设置，此操作不可撤销！\n\n确定要继续吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _resetApp();
+            },
+            child: const Text('确定重置'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 重置应用
+  Future<void> _resetApp() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.reset();
+
+    if (!mounted) return;
+
+    // 重置后状态变为 setup，需要手动导航到设置页面
+    // 由于 LockScreen 可能不在 AuthWrapper 中，需要主动导航
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const SetupScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -108,12 +202,23 @@ class _LockScreenState extends State<LockScreen> {
                 decoration: InputDecoration(
                   labelText: '密码',
                   errorText: _error,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () {
-                      setState(() => _obscurePassword = !_obscurePassword);
-                    },
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_showHelp)
+                        IconButton(
+                          icon: const Icon(Icons.help_outline),
+                          onPressed: _showHelpDialog,
+                          tooltip: '忘记密码？',
+                        ),
+                      IconButton(
+                        icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 onSubmitted: (_) => _unlock(),
@@ -130,6 +235,12 @@ class _LockScreenState extends State<LockScreen> {
                       )
                     : const Text('解锁'),
               ),
+              // 帮助链接
+              if (!_showHelp)
+                TextButton(
+                  onPressed: _showHelpDialog,
+                  child: const Text('忘记密码？'),
+                ),
             ],
           ),
         ),

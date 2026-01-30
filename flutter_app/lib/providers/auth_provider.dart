@@ -107,4 +107,26 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
+  /// 重置应用（删除所有数据）
+  Future<void> reset() async {
+    try {
+      // 删除数据库文件
+      if (_dbPath != null) {
+        final dbFile = File(_dbPath!);
+        if (await dbFile.exists()) {
+          await dbFile.delete();
+        }
+      }
+
+      // 重置状态
+      _status = AuthStatus.setup;
+      _passwordHint = null;
+      notifyListeners();
+
+      debugPrint('应用已重置');
+    } catch (e) {
+      debugPrint('重置应用失败: $e');
+    }
+  }
 }
