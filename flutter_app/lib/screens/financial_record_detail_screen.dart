@@ -44,6 +44,34 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
     });
   }
 
+  /// 获取类型的显示名称（处理 dynamic 类型的扩展方法问题）
+  String _getTypeDisplayName() {
+    if (widget.recordType == RecordType.asset) {
+      final asset = _record as Asset;
+      return asset.type.displayName;
+    } else {
+      final liability = _record as Liability;
+      return liability.type.displayName;
+    }
+  }
+
+  /// 检查是否为投资类资产
+  bool _isInvestment() {
+    if (widget.recordType == RecordType.asset) {
+      final asset = _record as Asset;
+      return asset.type.isInvestment;
+    }
+    return false;
+  }
+
+  /// 获取资产类型（用于条件判断）
+  AssetType? _getAssetType() {
+    if (widget.recordType == RecordType.asset) {
+      return (_record as Asset).type;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_record == null) {
@@ -79,22 +107,22 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           const SizedBox(height: 16),
           _buildBasicInfo(context, isAsset),
           // 投资类信息
-          if (isAsset && _record.type.isInvestment) ...[
+          if (isAsset && _isInvestment()) ...[
             const SizedBox(height: 16),
             _buildInvestmentInfo(context),
           ],
           // 房产信息
-          if (isAsset && _record.type == AssetType.property) ...[
+          if (isAsset && _getAssetType() == AssetType.property) ...[
             const SizedBox(height: 16),
             _buildPropertyInfo(context),
           ],
           // 存款信息
-          if (isAsset && _record.type == AssetType.deposit) ...[
+          if (isAsset && _getAssetType() == AssetType.deposit) ...[
             const SizedBox(height: 16),
             _buildDepositInfo(context),
           ],
           // 保单信息
-          if (isAsset && _record.type == AssetType.insurance) ...[
+          if (isAsset && _getAssetType() == AssetType.insurance) ...[
             const SizedBox(height: 16),
             _buildInsuranceInfo(context),
           ],
@@ -199,7 +227,7 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
-          _buildInfoTile(context, isAsset ? '资产类型' : '负债类型', _record.type.displayName),
+          _buildInfoTile(context, isAsset ? '资产类型' : '负债类型', _getTypeDisplayName()),
           _buildInfoTile(context, '货币', _record.currency),
           _buildInfoTile(context, '发生日期', _formatDate(_record.occurrenceDate)),
           if (!isAsset && _record.lender != null)
