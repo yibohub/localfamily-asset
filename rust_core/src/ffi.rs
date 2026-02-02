@@ -1417,6 +1417,512 @@ pub unsafe extern "C" fn update_asset_with_type(
     }
 }
 
+/// 添加资产（支持扩展字段）
+#[no_mangle]
+pub unsafe extern "C" fn add_asset_with_extra_fields(
+    name: *const c_char,
+    asset_type: *const c_char,
+    amount: c_double,
+    currency: *const c_char,
+    occurrence_date: *const c_char,
+    extra_fields_json: *const c_char,
+    note: *const c_char,
+) -> c_int {
+    let name = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let asset_type = match CStr::from_ptr(asset_type).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let currency = match CStr::from_ptr(currency).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let occurrence_date = if occurrence_date.is_null() {
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    // 解析 extra_fields_json
+    let extra_fields = if extra_fields_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(extra_fields_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            },
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let note = if note.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(note).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 创建基础资产对象
+    let mut asset = Asset::new(asset_type.clone(), name, amount);
+    asset.currency = currency;
+    asset.occurrence_date = occurrence_date;
+    asset.note = note;
+
+    // 解析扩展字段
+    if let Some(json_str) = extra_fields {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = value.as_object() {
+                // 通用字段
+                if let Some(v) = obj.get("account").and_then(|v| v.as_str()) {
+                    asset.account = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("tags").and_then(|v| as_vec_string(v)) {
+                    asset.tags = Some(v);
+                }
+
+                // 投资类专属字段
+                if let Some(v) = obj.get("buy_price").and_then(|v| v.as_f64()) {
+                    asset.buy_price = Some(v);
+                }
+                if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
+                    asset.current_price = Some(v);
+                }
+
+                // 房产专属字段
+                if let Some(v) = obj.get("address").and_then(|v| v.as_str()) {
+                    asset.address = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("building_area").and_then(|v| v.as_f64()) {
+                    asset.building_area = Some(v);
+                }
+                if let Some(v) = obj.get("living_area").and_then(|v| v.as_f64()) {
+                    asset.living_area = Some(v);
+                }
+                if let Some(v) = obj.get("property_type").and_then(|v| v.as_str()) {
+                    asset.property_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("rooms").and_then(|v| v.as_i64()) {
+                    asset.rooms = Some(v as i32);
+                }
+                if let Some(v) = obj.get("floor").and_then(|v| v.as_str()) {
+                    asset.floor = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("build_year").and_then(|v| v.as_i64()) {
+                    asset.build_year = Some(v as i32);
+                }
+                if let Some(v) = obj.get("ownership_type").and_then(|v| v.as_str()) {
+                    asset.ownership_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deed_number").and_then(|v| v.as_str()) {
+                    asset.deed_number = Some(v.to_string());
+                }
+
+                // 存款专属字段
+                if let Some(v) = obj.get("deposit_account_type").and_then(|v| v.as_str()) {
+                    asset.deposit_account_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deposit_period").and_then(|v| v.as_i64()) {
+                    asset.deposit_period = Some(v as i32);
+                }
+                if let Some(v) = obj.get("maturity_date").and_then(|v| v.as_str()) {
+                    asset.maturity_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deposit_interest_rate").and_then(|v| v.as_f64()) {
+                    asset.deposit_interest_rate = Some(v);
+                }
+
+                // 保单专属字段
+                if let Some(v) = obj.get("policy_number").and_then(|v| v.as_str()) {
+                    asset.policy_number = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insurance_type").and_then(|v| v.as_str()) {
+                    asset.insurance_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insured").and_then(|v| v.as_str()) {
+                    asset.insured = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("beneficiary").and_then(|v| v.as_str()) {
+                    asset.beneficiary = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("coverage_amount").and_then(|v| v.as_f64()) {
+                    asset.coverage_amount = Some(v);
+                }
+                if let Some(v) = obj.get("premium").and_then(|v| v.as_f64()) {
+                    asset.premium = Some(v);
+                }
+                if let Some(v) = obj.get("premium_period").and_then(|v| v.as_str()) {
+                    asset.premium_period = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("coverage_period").and_then(|v| v.as_str()) {
+                    asset.coverage_period = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insurer").and_then(|v| v.as_str()) {
+                    asset.insurer = Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    let asset_id = match AssetRepository::create(&conn, &asset) {
+        Ok(id) => id,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 记录审计日志
+    let change = AssetChange::new(asset_id, ChangeType::Created)
+        .with_created_snapshot(&asset);
+    let _ = AssetChangeRepository::create(&conn, &change);
+
+    FfiErrorCode::Success as c_int
+}
+
+/// 辅助函数：将 JSON Value 转换为 Vec<String>
+fn as_vec_string(value: &serde_json::Value) -> Option<Vec<String>> {
+    value.as_array().and_then(|arr| {
+        let mut result = Vec::new();
+        for item in arr {
+            if let Some(s) = item.as_str() {
+                result.push(s.to_string());
+            }
+        }
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    })
+}
+
+/// 获取仅资产（不包括负债）
+#[no_mangle]
+pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let assets = match AssetRepository::list(&conn) {
+        Ok(a) => a,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&assets) {
+        Ok(json) => string_to_c_char(json),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 获取仅负债（不包括资产）
+#[no_mangle]
+pub unsafe extern "C" fn get_liabilities_only() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let liabilities = match LiabilityRepository::list(&conn) {
+        Ok(l) => l,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&liabilities) {
+        Ok(json) => string_to_c_char(json),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 根据 ID 获取单个资产
+#[no_mangle]
+pub unsafe extern "C" fn get_asset_by_id(id: *const c_char) -> *mut c_char {
+    let id = match CStr::from_ptr(id).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match AssetRepository::get(&conn, &id) {
+        Ok(asset) => match serde_json::to_string(&asset) {
+            Ok(json) => string_to_c_char(json),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(DbError::NotFound(_)) => ptr::null_mut(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 更新资产（支持扩展字段）
+#[no_mangle]
+pub unsafe extern "C" fn update_asset_with_extra_fields(
+    id: *const c_char,
+    name: *const c_char,
+    asset_type: *const c_char,
+    amount: c_double,
+    currency: *const c_char,
+    occurrence_date: *const c_char,
+    extra_fields_json: *const c_char,
+    note: *const c_char,
+) -> c_int {
+    let id = match CStr::from_ptr(id).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let name = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let asset_type = match CStr::from_ptr(asset_type).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let currency = match CStr::from_ptr(currency).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let occurrence_date = if occurrence_date.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    // 解析 extra_fields_json
+    let extra_fields = if extra_fields_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(extra_fields_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            },
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let note = if note.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(note).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 先获取现有资产
+    let existing = match AssetRepository::get(&conn, &id) {
+        Ok(a) => a,
+        Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 创建基础更新对象
+    let mut asset = Asset {
+        id,
+        name,
+        asset_type,
+        amount,
+        currency,
+        occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
+        note,
+        // 默认保留现有值
+        account: existing.account.clone(),
+        tags: existing.tags.clone(),
+        buy_price: existing.buy_price,
+        current_price: existing.current_price,
+        address: existing.address.clone(),
+        building_area: existing.building_area,
+        living_area: existing.living_area,
+        property_type: existing.property_type.clone(),
+        rooms: existing.rooms,
+        floor: existing.floor.clone(),
+        build_year: existing.build_year,
+        ownership_type: existing.ownership_type.clone(),
+        deed_number: existing.deed_number.clone(),
+        deposit_account_type: existing.deposit_account_type.clone(),
+        deposit_period: existing.deposit_period,
+        maturity_date: existing.maturity_date.clone(),
+        deposit_interest_rate: existing.deposit_interest_rate,
+        policy_number: existing.policy_number.clone(),
+        insurance_type: existing.insurance_type.clone(),
+        insured: existing.insured.clone(),
+        beneficiary: existing.beneficiary.clone(),
+        coverage_amount: existing.coverage_amount,
+        premium: existing.premium,
+        premium_period: existing.premium_period.clone(),
+        coverage_period: existing.coverage_period.clone(),
+        insurer: existing.insurer.clone(),
+        created_at: existing.created_at,
+        updated_at: existing.updated_at,
+    };
+
+    // 解析扩展字段并更新
+    if let Some(json_str) = extra_fields {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = value.as_object() {
+                // 通用字段
+                if let Some(v) = obj.get("account").and_then(|v| v.as_str()) {
+                    asset.account = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("tags").and_then(|v| as_vec_string(v)) {
+                    asset.tags = Some(v);
+                }
+
+                // 投资类专属字段
+                if let Some(v) = obj.get("buy_price").and_then(|v| v.as_f64()) {
+                    asset.buy_price = Some(v);
+                }
+                if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
+                    asset.current_price = Some(v);
+                }
+
+                // 房产专属字段
+                if let Some(v) = obj.get("address").and_then(|v| v.as_str()) {
+                    asset.address = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("building_area").and_then(|v| v.as_f64()) {
+                    asset.building_area = Some(v);
+                }
+                if let Some(v) = obj.get("living_area").and_then(|v| v.as_f64()) {
+                    asset.living_area = Some(v);
+                }
+                if let Some(v) = obj.get("property_type").and_then(|v| v.as_str()) {
+                    asset.property_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("rooms").and_then(|v| v.as_i64()) {
+                    asset.rooms = Some(v as i32);
+                }
+                if let Some(v) = obj.get("floor").and_then(|v| v.as_str()) {
+                    asset.floor = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("build_year").and_then(|v| v.as_i64()) {
+                    asset.build_year = Some(v as i32);
+                }
+                if let Some(v) = obj.get("ownership_type").and_then(|v| v.as_str()) {
+                    asset.ownership_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deed_number").and_then(|v| v.as_str()) {
+                    asset.deed_number = Some(v.to_string());
+                }
+
+                // 存款专属字段
+                if let Some(v) = obj.get("deposit_account_type").and_then(|v| v.as_str()) {
+                    asset.deposit_account_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deposit_period").and_then(|v| v.as_i64()) {
+                    asset.deposit_period = Some(v as i32);
+                }
+                if let Some(v) = obj.get("maturity_date").and_then(|v| v.as_str()) {
+                    asset.maturity_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("deposit_interest_rate").and_then(|v| v.as_f64()) {
+                    asset.deposit_interest_rate = Some(v);
+                }
+
+                // 保单专属字段
+                if let Some(v) = obj.get("policy_number").and_then(|v| v.as_str()) {
+                    asset.policy_number = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insurance_type").and_then(|v| v.as_str()) {
+                    asset.insurance_type = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insured").and_then(|v| v.as_str()) {
+                    asset.insured = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("beneficiary").and_then(|v| v.as_str()) {
+                    asset.beneficiary = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("coverage_amount").and_then(|v| v.as_f64()) {
+                    asset.coverage_amount = Some(v);
+                }
+                if let Some(v) = obj.get("premium").and_then(|v| v.as_f64()) {
+                    asset.premium = Some(v);
+                }
+                if let Some(v) = obj.get("premium_period").and_then(|v| v.as_str()) {
+                    asset.premium_period = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("coverage_period").and_then(|v| v.as_str()) {
+                    asset.coverage_period = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("insurer").and_then(|v| v.as_str()) {
+                    asset.insurer = Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    match AssetRepository::update(&conn, &asset) {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
+    }
+}
+
 // ============================================================
 // 负债相关 FFI 函数
 // ============================================================
