@@ -8,6 +8,7 @@ import '../../utils/currency_utils.dart';
 import '../../widgets/asset_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
 import '../../widgets/financial_record_form.dart';
+import '../financial_record_form_screen.dart';
 import '../financial_record_detail_screen.dart';
 
 /// 资产标签页 - 显示所有资产（不含负债）
@@ -155,14 +156,14 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     );
   }
 
-  /// 显示添加对话框
+  /// 显示添加页面
   void _showAddDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FinancialRecordFormDialog(
-        initialType: RecordType.asset,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FinancialRecordFormScreen(
+          initialType: RecordType.asset,
+        ),
       ),
     ).then((result) {
       if (result == true && mounted) {

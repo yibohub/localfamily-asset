@@ -9,6 +9,7 @@ import '../../widgets/liability_grouped_list.dart';
 import '../../widgets/liability_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
 import '../../widgets/financial_record_form.dart';
+import '../financial_record_form_screen.dart';
 
 /// 负债标签页 - 显示所有负债
 class LiabilitiesTabScreen extends StatefulWidget {
@@ -103,14 +104,14 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
     );
   }
 
-  /// 显示添加对话框
+  /// 显示添加页面
   void _showAddDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FinancialRecordFormDialog(
-        initialType: RecordType.liability,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FinancialRecordFormScreen(
+          initialType: RecordType.liability,
+        ),
       ),
     ).then((result) {
       if (result == true && mounted) {
