@@ -7,7 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
-import '../widgets/financial_record_form.dart';
+import '../widgets/financial_record_form.dart' show RecordType;
+import 'financial_record_form_screen.dart';
 
 /// 金融记录详情页
 class FinancialRecordDetailScreen extends StatefulWidget {
@@ -531,13 +532,13 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
   }
 
   void _handleEdit(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FinancialRecordFormDialog(
-        record: _record,
-        initialType: widget.recordType,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FinancialRecordFormScreen(
+          record: _record,
+          initialType: widget.recordType,
+        ),
       ),
     ).then((_) => _loadRecord());
   }
