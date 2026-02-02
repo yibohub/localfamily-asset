@@ -2,6 +2,7 @@
 /// 金融记录数据模型（重构版：资产、负债分离）
 /// ============================================================
 
+import 'package:flutter/material.dart';
 import 'asset.dart' as legacy; // 导入旧的 Asset 模型以支持 UI 兼容性
 
 /// ============================================================
@@ -73,6 +74,74 @@ extension AssetTypeExtension on AssetType {
   /// 是否为投资类资产（有买入价/现价概念）
   bool get isInvestment {
     return this == AssetType.stock || this == AssetType.fund;
+  }
+
+  /// 获取类型 ID（用于筛选）
+  String get id {
+    switch (this) {
+      case AssetType.property:
+        return 'property';
+      case AssetType.deposit:
+        return 'deposit';
+      case AssetType.stock:
+        return 'stock';
+      case AssetType.fund:
+        return 'fund';
+      case AssetType.insurance:
+        return 'insurance';
+    }
+  }
+
+  /// 获取图标数据
+  IconData get icon {
+    switch (this) {
+      case AssetType.property:
+        return Icons.home_work;
+      case AssetType.deposit:
+        return Icons.account_balance;
+      case AssetType.stock:
+        return Icons.trending_up;
+      case AssetType.fund:
+        return Icons.pie_chart;
+      case AssetType.insurance:
+        return Icons.security;
+    }
+  }
+
+  /// 获取图标颜色
+  Color get color {
+    switch (this) {
+      case AssetType.property:
+        return Colors.brown;
+      case AssetType.deposit:
+        return Colors.blue;
+      case AssetType.stock:
+        return Colors.red;
+      case AssetType.fund:
+        return Colors.green;
+      case AssetType.insurance:
+        return Colors.orange;
+    }
+  }
+
+  /// 获取所有资产类型（用于筛选）
+  /// 获取所有资产类型（用于筛选）
+  static List<AssetType> get assetTypes => AssetType.values.toList();
+
+  /// 获取与 Rust 端一致的 snake_case 类型名称（用于筛选）
+  String get snakeCaseName {
+    switch (this) {
+      case AssetType.property:
+        return 'property';
+      case AssetType.deposit:
+        return 'deposit';
+      case AssetType.stock:
+        return 'stock';
+      case AssetType.fund:
+        return 'fund';
+      case AssetType.insurance:
+        return 'insurance';
+    }
   }
 
   int get value {
@@ -166,6 +235,65 @@ extension LiabilityTypeExtension on LiabilityType {
   /// 是否为信用卡类型
   bool get isCreditCard {
     return this == LiabilityType.creditCard;
+  }
+
+  /// 获取图标数据
+  IconData get icon {
+    switch (this) {
+      case LiabilityType.debt:
+        return Icons.credit_card;
+      case LiabilityType.mortgage:
+        return Icons.home_work;
+      case LiabilityType.carLoan:
+        return Icons.directions_car;
+      case LiabilityType.creditCard:
+        return Icons.credit_card;
+      case LiabilityType.personalLoan:
+        return Icons.person;
+      case LiabilityType.privateLoan:
+        return Icons.handshake;
+    }
+  }
+
+  /// 获取图标颜色
+  Color get color {
+    switch (this) {
+      case LiabilityType.debt:
+        return Colors.grey;
+      case LiabilityType.mortgage:
+        return Colors.brown;
+      case LiabilityType.carLoan:
+        return Colors.blue;
+      case LiabilityType.creditCard:
+        return Colors.red;
+      case LiabilityType.personalLoan:
+        return Colors.orange;
+      case LiabilityType.privateLoan:
+        return Colors.green;
+    }
+  }
+
+  /// 获取与 Rust 端一致的 snake_case 类型名称
+  String get snakeCaseName {
+    switch (this) {
+      case LiabilityType.debt:
+        return 'debt';
+      case LiabilityType.mortgage:
+        return 'mortgage';
+      case LiabilityType.carLoan:
+        return 'car_loan';
+      case LiabilityType.creditCard:
+        return 'credit_card';
+      case LiabilityType.personalLoan:
+        return 'personal_loan';
+      case LiabilityType.privateLoan:
+        return 'private_loan';
+    }
+  }
+
+  /// 获取类型 ID（用于筛选）
+  String get id {
+    return snakeCaseName;
   }
 
   int get value {

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/asset.dart';
-import '../../providers/asset_provider.dart';
+import '../../models/financial_models.dart';
+import '../../providers/financial_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../utils/currency_utils.dart';
-import '../../widgets/two_level_grouped_asset_list.dart';
 import '../../widgets/asset_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
-import '../asset_form_screen.dart';
+import '../../widgets/financial_record_form.dart';
+import '../financial_record_detail_screen.dart';
 
 /// 资产标签页 - 显示所有资产（不含负债）
 class AssetsTabScreen extends StatefulWidget {
@@ -19,25 +19,57 @@ class AssetsTabScreen extends StatefulWidget {
 }
 
 class _AssetsTabScreenState extends State<AssetsTabScreen> {
+  String? _selectedTypeId;
+
   @override
   void initState() {
     super.initState();
-    // 加载自定义类型
+    // 加载自定义类型和数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FinancialProvider>().loadFinancialRecords();
       context.read<CustomTypeProvider>().loadCustomTypes();
+    });
+  }
+
+  /// 获取筛选后的资产列表
+  List<Asset> _getFilteredAssets(FinancialProvider provider, CustomTypeProvider customTypeProvider) {
+    final assets = provider.assets;
+    if (_selectedTypeId == null) {
+      return assets;
+    }
+
+    return assets.where((asset) {
+      // 检查内置类型
+      if (asset.type.id == _selectedTypeId) {
+        return true;
+      }
+      // TODO: 检查自定义类型
+      return false;
+    }).toList();
+  }
+
+  /// 设置类型筛选
+  void _setTypeFilter(String? typeId) {
+    setState(() {
+      _selectedTypeId = typeId;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AssetProvider, CustomTypeProvider>(
-      builder: (context, assetProvider, customTypeProvider, child) {
-        final customTypes = customTypeProvider.customTypes;
-        final assets = assetProvider.getFilteredAssetsOnly(customTypes);
+    return Consumer2<FinancialProvider, CustomTypeProvider>(
+      builder: (context, financialProvider, customTypeProvider, child) {
+        final filteredAssets = _getFilteredAssets(financialProvider, customTypeProvider);
 
-        if (assetProvider.isLoading) {
+        if (financialProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        // 计算总资产
+        final totalAssets = filteredAssets.fold<double>(
+          0,
+          (sum, asset) => sum + asset.amount,
+        );
 
         return Scaffold(
           body: CustomScrollView(
@@ -46,7 +78,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _AssetsSummaryCard(total: assetProvider.getSummaryWithCustomTypes(customTypes).totalAssets),
+                  child: _AssetsSummaryCard(total: totalAssets),
                 ),
               ),
 
@@ -55,8 +87,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
                 child: AssetTypeFilterBar(
                   builtInTypes: AssetTypeExtension.assetTypes,
                   customTypes: customTypeProvider.assetCustomTypes,
-                  selectedTypeId: assetProvider.assetTypeFilterId,
-                  onTypeSelected: (id) => assetProvider.setAssetTypeFilterById(id),
+                  selectedTypeId: _selectedTypeId,
+                  onTypeSelected: _setTypeFilter,
                   onManageCustomTypes: () => _showManageDialog(context),
                   allLabel: '全部资产',
                 ),
@@ -69,7 +101,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
                   child: Row(
                     children: [
                       Text(
-                        '资产列表 (${assets.length})',
+                        '资产列表 (${filteredAssets.length})',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -80,37 +112,63 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
               ),
 
               // 资产列表
-              assets.isEmpty
+              filteredAssets.isEmpty
                   ? SliverFillRemaining(
-                      child: assetProvider.assetTypeFilterId != null
-                          ? _EmptyFilterState(onClear: () => assetProvider.clearAssetTypeFilter())
+                      child: _selectedTypeId != null
+                          ? _EmptyFilterState(onClear: () => _setTypeFilter(null))
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
-                      child: TwoLevelGroupedAssetList(assets: assets),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: filteredAssets.length,
+                        itemBuilder: (context, index) {
+                          final asset = filteredAssets[index];
+                          return _AssetListItem(
+                            asset: asset,
+                            onTap: () => _openDetail(context, asset),
+                          );
+                        },
+                      ),
                     ),
             ],
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () async {
-              final result = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AssetFormScreen(
-                    assetTypesFilter: false, // 仅显示资产类型
-                    defaultTypeId: assetProvider.assetTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
-                  ),
-                ),
-              );
-              if (result == true && mounted) {
-                context.read<AssetProvider>().loadAssets();
-              }
-            },
+            onPressed: () => _showAddDialog(context),
             child: const Icon(Icons.add),
           ),
         );
       },
     );
+  }
+
+  /// 打开详情页
+  void _openDetail(BuildContext context, Asset asset) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FinancialRecordDetailScreen(
+          recordId: asset.id,
+          recordType: RecordType.asset,
+        ),
+      ),
+    );
+  }
+
+  /// 显示添加对话框
+  void _showAddDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FinancialRecordFormDialog(
+        initialType: RecordType.asset,
+      ),
+    ).then((result) {
+      if (result == true && mounted) {
+        context.read<FinancialProvider>().loadFinancialRecords();
+      }
+    });
   }
 
   /// 显示管理对话框
@@ -120,12 +178,100 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
       builder: (_) => const CustomTypeManageDialog(isLiability: false),
     ).then((result) {
       if (result == true && mounted) {
-        if (mounted) {
-          context.read<CustomTypeProvider>().loadCustomTypes();
-        }
-        // TODO: 重新加载资产列表
+        context.read<CustomTypeProvider>().loadCustomTypes();
       }
     });
+  }
+}
+
+/// 资产列表项
+class _AssetListItem extends StatelessWidget {
+  final Asset asset;
+  final VoidCallback onTap;
+
+  const _AssetListItem({
+    required this.asset,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final assetType = asset.type;
+    final iconData = assetType.icon;
+    final iconColor = assetType.color;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: iconColor.withOpacity(0.1),
+          child: Icon(iconData, color: iconColor, size: 20),
+        ),
+        title: Text(
+          asset.name,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: _buildSubtitle(context, asset),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              CurrencyUtils.formatAmount(asset.amount, asset.currency),
+              style: TextStyle(
+                color: Colors.blue[400],
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget? _buildSubtitle(BuildContext context, Asset asset) {
+    final parts = <String>[];
+
+    // 添加类型名称
+    parts.add(asset.type.displayName);
+
+    // 添加账户
+    if (asset.account != null) {
+      parts.add(asset.account!);
+    }
+
+    // 添加投资类信息
+    if (asset.isInvestment) {
+      if (asset.buyPrice != null) {
+        parts.add('买入价: ${asset.buyPrice!.toStringAsFixed(2)}');
+      }
+      if (asset.currentPrice != null) {
+        parts.add('现价: ${asset.currentPrice!.toStringAsFixed(2)}');
+      }
+    }
+
+    // 添加房产信息
+    if (asset.type == AssetType.property) {
+      if (asset.address != null) {
+        parts.add(asset.address!);
+      }
+      if (asset.buildingArea != null) {
+        parts.add('${asset.buildingArea!.toStringAsFixed(0)}㎡');
+      }
+    }
+
+    if (parts.isEmpty) {
+      return null;
+    }
+
+    return Text(
+      parts.join(' · '),
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey[600],
+          ),
+    );
   }
 }
 
@@ -175,16 +321,6 @@ class _AssetsSummaryCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)} 万';
-    } else {
-      return amount.toStringAsFixed(2);
-    }
   }
 }
 

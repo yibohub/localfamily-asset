@@ -535,7 +535,10 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FinancialRecordFormDialog(record: _record),
+      builder: (context) => FinancialRecordFormDialog(
+        record: _record,
+        initialType: widget.recordType,
+      ),
     ).then((_) => _loadRecord());
   }
 

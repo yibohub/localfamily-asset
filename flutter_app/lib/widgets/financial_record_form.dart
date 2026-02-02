@@ -21,12 +21,12 @@ enum RecordType { asset, liability }
 /// 金融记录表单对话框
 class FinancialRecordFormDialog extends StatefulWidget {
   final dynamic record; // Asset? or Liability?
-  final RecordType? initialType;
+  final RecordType initialType;
 
   const FinancialRecordFormDialog({
     super.key,
     this.record,
-    this.initialType,
+    required this.initialType,
   });
 
   @override
@@ -100,7 +100,7 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedRecordType = widget.initialType ?? RecordType.asset;
+    _selectedRecordType = widget.initialType;
     _selectedAssetType = AssetType.deposit;
     _selectedLiabilityType = LiabilityType.debt;
 
@@ -357,8 +357,7 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       children: [
-                        _buildRecordTypeSelector(context),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         _buildCommonFields(context),
                         const SizedBox(height: 16),
                         if (_selectedRecordType == RecordType.asset)
@@ -402,34 +401,6 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
     final type = _selectedRecordType == RecordType.asset ? '资产' : '负债';
     final action = _mode == FormMode.add ? '添加' : '编辑';
     return '$action$type';
-  }
-
-  Widget _buildRecordTypeSelector(BuildContext context) {
-    if (_mode == FormMode.edit) {
-      // 编辑模式不允许更改记录类型
-      return const SizedBox.shrink();
-    }
-
-    return SegmentedButton<RecordType>(
-      segments: const [
-        ButtonSegment(
-          value: RecordType.asset,
-          label: Text('资产'),
-          icon: Icon(Icons.account_balance_wallet),
-        ),
-        ButtonSegment(
-          value: RecordType.liability,
-          label: Text('负债'),
-          icon: Icon(Icons.credit_card),
-        ),
-      ],
-      selected: {_selectedRecordType},
-      onSelectionChanged: (Set<RecordType> selected) {
-        setState(() {
-          _selectedRecordType = selected.first;
-        });
-      },
-    );
   }
 
   Widget _buildCommonFields(BuildContext context) {

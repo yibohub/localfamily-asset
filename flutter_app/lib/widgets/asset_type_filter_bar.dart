@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../models/asset.dart';
+import '../models/financial_models.dart';
 import '../models/custom_asset_type.dart';
 
 /// 资产类型筛选栏组件（支持内置类型 + 自定义类型）
+///
+/// 使用新的 financial_models.dart 中的 AssetType 枚举
 class AssetTypeFilterBar extends StatelessWidget {
   final List<AssetType> builtInTypes;
   final List<CustomAssetType> customTypes;
@@ -44,7 +46,7 @@ class AssetTypeFilterBar extends StatelessWidget {
               ),
               ...builtInTypes.map((type) => _buildChip(
                     type.displayName,
-                    _getIcon(type.iconName),
+                    type.icon,
                     selectedTypeId == type.snakeCaseName,
                     () => onTypeSelected(type.snakeCaseName),
                     theme,
@@ -92,6 +94,8 @@ class AssetTypeFilterBar extends StatelessWidget {
     switch (name) {
       case 'home':
         return Icons.home;
+      case 'home_work':
+        return Icons.home_work;
       case 'account_balance':
         return Icons.account_balance;
       case 'trending_up':
@@ -102,8 +106,6 @@ class AssetTypeFilterBar extends StatelessWidget {
         return Icons.security;
       case 'credit_card':
         return Icons.credit_card;
-      case 'home_work':
-        return Icons.home_work;
       case 'directions_car':
         return Icons.directions_car;
       case 'person':

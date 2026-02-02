@@ -6,9 +6,9 @@ import '../../providers/financial_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../utils/currency_utils.dart';
 import '../../widgets/liability_grouped_list.dart';
-import '../../widgets/asset_type_filter_bar.dart';
+import '../../widgets/liability_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
-import '../asset_form_screen.dart';
+import '../../widgets/financial_record_form.dart';
 
 /// 负债标签页 - 显示所有负债
 class LiabilitiesTabScreen extends StatefulWidget {
@@ -22,8 +22,9 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
   @override
   void initState() {
     super.initState();
-    // 加载自定义类型
+    // 加载自定义类型和数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FinancialProvider>().loadFinancialRecords();
       context.read<CustomTypeProvider>().loadCustomTypes();
     });
   }
@@ -51,10 +52,9 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
 
               // 类型筛选栏（排除通用负债类型，只显示具体负债小类）
               SliverToBoxAdapter(
-                child: AssetTypeFilterBar(
+                child: LiabilityTypeFilterBar(
                   builtInTypes: LiabilityType.values
                       .where((t) => t != LiabilityType.debt)
-                      .map((t) => t.toAssetType())
                       .toList(),
                   customTypes: context.read<CustomTypeProvider>().liabilityCustomTypes,
                   selectedTypeId: provider.liabilityTypeFilterId,
@@ -95,25 +95,28 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: Colors.red[400],
-            onPressed: () async {
-              final result = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AssetFormScreen(
-                    assetTypesFilter: true, // 仅显示负债类型
-                    defaultTypeId: provider.liabilityTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
-                  ),
-                ),
-              );
-              if (result == true && mounted) {
-                context.read<FinancialProvider>().loadFinancialRecords();
-              }
-            },
+            onPressed: () => _showAddDialog(context),
             child: const Icon(Icons.add),
           ),
         );
       },
     );
+  }
+
+  /// 显示添加对话框
+  void _showAddDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FinancialRecordFormDialog(
+        initialType: RecordType.liability,
+      ),
+    ).then((result) {
+      if (result == true && mounted) {
+        context.read<FinancialProvider>().loadFinancialRecords();
+      }
+    });
   }
 
   /// 显示管理对话框
@@ -123,10 +126,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
       builder: (_) => const CustomTypeManageDialog(isLiability: true),
     ).then((result) {
       if (result == true && mounted) {
-        if (mounted) {
-          context.read<CustomTypeProvider>().loadCustomTypes();
-        }
-        // TODO: 重新加载负债列表
+        context.read<CustomTypeProvider>().loadCustomTypes();
       }
     });
   }
@@ -177,16 +177,6 @@ class _LiabilitiesSummaryCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)} 亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)} 万';
-    } else {
-      return amount.toStringAsFixed(2);
-    }
   }
 }
 
