@@ -13,7 +13,7 @@ import 'package:provider/provider.dart';
 void main() {
   testWidgets('App starts and builds MaterialApp', (WidgetTester tester) async {
     // 构建完整的应用
-    await tester.pumpWidget(const LocalFamilyAssetApp());
+    await tester.pumpWidget(const YincaiApp());
 
     // 验证 MaterialApp 存在
     expect(find.byType(MaterialApp), findsOneWidget);
@@ -21,7 +21,7 @@ void main() {
 
   testWidgets('Providers are available', (WidgetTester tester) async {
     // 构建应用
-    await tester.pumpWidget(const LocalFamilyAssetApp());
+    await tester.pumpWidget(const YincaiApp());
 
     // 验证 Provider 可用
     expect(find.byType(ChangeNotifierProvider<AuthProvider>), findsWidgets);

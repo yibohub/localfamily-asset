@@ -198,9 +198,9 @@ class AssetChange {
       final noteNew = dataSnapshotNew?['note'] as String?;
       if (noteOld != null || noteNew != null) {
         if (noteOld != noteNew) {
-          if (noteOld != null && noteOld!.isNotEmpty) {
+          if (noteOld != null && noteOld.isNotEmpty) {
             buffer.writeln('备注从 "$noteOld" 改为 "$noteNew"');
-          } else if (noteNew != null && noteNew!.isNotEmpty) {
+          } else if (noteNew != null && noteNew.isNotEmpty) {
             buffer.writeln('备注添加为 "$noteNew"');
           } else if (noteNew != null) {
             buffer.writeln('备注已清除');

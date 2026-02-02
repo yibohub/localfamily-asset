@@ -13,7 +13,7 @@ use chrono::Local;
 use sha2::{Sha256, Digest};
 
 use crate::crypto::{derive_key, generate_salt, mnemonic_to_key};
-use crate::db::{Asset, AssetRepository, AssetType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
+use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, LiabilityType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
 use rusqlite::Connection;
 
 /// 文件日志
@@ -81,7 +81,6 @@ pub unsafe extern "C" fn free_string(s: *mut c_char) {
 }
 
 /// 初始化应用
-#[no_mangle]
 #[export_name = "init_app"]
 pub unsafe extern "C" fn init_app(db_path: *const c_char) -> c_int {
     let db_path = match CStr::from_ptr(db_path).to_str() {
@@ -113,7 +112,6 @@ pub unsafe extern "C" fn init_app(db_path: *const c_char) -> c_int {
 }
 
 /// 设置主密码
-#[no_mangle]
 #[export_name = "setup_password"]
 pub unsafe extern "C" fn setup_password(
     password: *const c_char,
@@ -273,7 +271,6 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
 }
 
 /// 使用助记词验证并恢复访问
-#[no_mangle]
 #[export_name = "verify_with_mnemonic"]
 pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int {
     let mnemonic_str = match CStr::from_ptr(mnemonic).to_str() {
@@ -332,7 +329,6 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
 }
 
 /// 获取密码提示
-#[no_mangle]
 #[export_name = "get_password_hint"]
 pub unsafe extern "C" fn get_password_hint() -> *mut c_char {
     let state = APP_STATE.lock().unwrap();
@@ -361,7 +357,6 @@ pub unsafe extern "C" fn get_password_hint() -> *mut c_char {
 }
 
 /// 生成助记词
-#[no_mangle]
 #[export_name = "generate_mnemonic"]
 pub unsafe extern "C" fn generate_mnemonic() -> *mut c_char {
     match crate::crypto::generate_mnemonic() {
@@ -371,7 +366,6 @@ pub unsafe extern "C" fn generate_mnemonic() -> *mut c_char {
 }
 
 /// 保存助记词
-#[no_mangle]
 #[export_name = "save_mnemonic"]
 pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
     let mnemonic = match CStr::from_ptr(mnemonic).to_str() {
@@ -379,7 +373,7 @@ pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
         Err(_) => return FfiErrorCode::InvalidPassword as c_int,
     };
 
-    let mut state = APP_STATE.lock().unwrap();
+    let state = APP_STATE.lock().unwrap();
     let state = match state.as_ref() {
         Some(s) => s,
         None => return FfiErrorCode::GenericError as c_int,
@@ -425,7 +419,7 @@ pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
     FfiErrorCode::Success as c_int
 }
 
-/// 获取资产类型枚举值
+/// 获取资产类型枚举值（仅处理资产类型，0-4）
 fn asset_type_from_int(value: c_int) -> AssetType {
     match value {
         0 => AssetType::Property,
@@ -433,13 +427,20 @@ fn asset_type_from_int(value: c_int) -> AssetType {
         2 => AssetType::Stock,
         3 => AssetType::Fund,
         4 => AssetType::Insurance,
-        5 => AssetType::Debt,
-        6 => AssetType::Mortgage,
-        7 => AssetType::CarLoan,
-        8 => AssetType::CreditCard,
-        9 => AssetType::PersonalLoan,
-        10 => AssetType::PrivateLoan,
         _ => AssetType::Stock,
+    }
+}
+
+/// 获取负债类型枚举值（处理负债类型，0-5）
+fn liability_type_from_int(value: c_int) -> LiabilityType {
+    match value {
+        0 => LiabilityType::Debt,
+        1 => LiabilityType::Mortgage,
+        2 => LiabilityType::CarLoan,
+        3 => LiabilityType::CreditCard,
+        4 => LiabilityType::PersonalLoan,
+        5 => LiabilityType::PrivateLoan,
+        _ => LiabilityType::Debt,
     }
 }
 
@@ -655,9 +656,37 @@ pub unsafe extern "C" fn update_asset(
         account: _symbol,
         note,
         occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
+        // 通用字段
+        tags: existing.tags.clone(),
+        // 投资类字段
         buy_price: existing.buy_price,
         current_price: existing.current_price,
-        tags: existing.tags.clone(),
+        // 房产字段
+        address: existing.address.clone(),
+        building_area: existing.building_area,
+        living_area: existing.living_area,
+        property_type: existing.property_type.clone(),
+        rooms: existing.rooms,
+        floor: existing.floor.clone(),
+        build_year: existing.build_year,
+        ownership_type: existing.ownership_type.clone(),
+        deed_number: existing.deed_number.clone(),
+        // 存款字段
+        deposit_account_type: existing.deposit_account_type.clone(),
+        deposit_period: existing.deposit_period,
+        maturity_date: existing.maturity_date.clone(),
+        deposit_interest_rate: existing.deposit_interest_rate,
+        // 保单字段
+        policy_number: existing.policy_number.clone(),
+        insurance_type: existing.insurance_type.clone(),
+        insured: existing.insured.clone(),
+        beneficiary: existing.beneficiary.clone(),
+        coverage_amount: existing.coverage_amount,
+        premium: existing.premium,
+        premium_period: existing.premium_period.clone(),
+        coverage_period: existing.coverage_period.clone(),
+        insurer: existing.insurer.clone(),
+        // 时间戳
         created_at: existing.created_at,
         updated_at: existing.updated_at,
     };
@@ -931,7 +960,6 @@ pub unsafe extern "C" fn search_assets_by_name(
 }
 
 /// 创建自定义资产类型
-#[no_mangle]
 #[export_name = "create_custom_asset_type"]
 pub unsafe extern "C" fn create_custom_asset_type(
     name: *const c_char,
@@ -971,7 +999,6 @@ pub unsafe extern "C" fn create_custom_asset_type(
 }
 
 /// 获取所有自定义类型
-#[no_mangle]
 #[export_name = "get_custom_asset_types"]
 pub unsafe extern "C" fn get_custom_asset_types() -> *mut c_char {
     let state = APP_STATE.lock().unwrap();
@@ -992,7 +1019,6 @@ pub unsafe extern "C" fn get_custom_asset_types() -> *mut c_char {
 }
 
 /// 删除自定义类型
-#[no_mangle]
 #[export_name = "delete_custom_asset_type"]
 pub unsafe extern "C" fn delete_custom_asset_type(id: *const c_char) -> c_int {
     let id = match CStr::from_ptr(id).to_str() {
@@ -1019,7 +1045,6 @@ pub unsafe extern "C" fn delete_custom_asset_type(id: *const c_char) -> c_int {
 }
 
 /// 检查自定义类型是否被使用
-#[no_mangle]
 #[export_name = "is_custom_type_in_use"]
 pub unsafe extern "C" fn is_custom_type_in_use(id: *const c_char) -> c_int {
     let id = match CStr::from_ptr(id).to_str() {
@@ -1336,9 +1361,37 @@ pub unsafe extern "C" fn update_asset_with_type(
         account: _symbol,
         note,
         occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
+        // 通用字段
+        tags,
+        // 投资类字段
         buy_price,
         current_price,
-        tags,
+        // 房产字段
+        address: existing.address.clone(),
+        building_area: existing.building_area,
+        living_area: existing.living_area,
+        property_type: existing.property_type.clone(),
+        rooms: existing.rooms,
+        floor: existing.floor.clone(),
+        build_year: existing.build_year,
+        ownership_type: existing.ownership_type.clone(),
+        deed_number: existing.deed_number.clone(),
+        // 存款字段
+        deposit_account_type: existing.deposit_account_type.clone(),
+        deposit_period: existing.deposit_period,
+        maturity_date: existing.maturity_date.clone(),
+        deposit_interest_rate: existing.deposit_interest_rate,
+        // 保单字段
+        policy_number: existing.policy_number.clone(),
+        insurance_type: existing.insurance_type.clone(),
+        insured: existing.insured.clone(),
+        beneficiary: existing.beneficiary.clone(),
+        coverage_amount: existing.coverage_amount,
+        premium: existing.premium,
+        premium_period: existing.premium_period.clone(),
+        coverage_period: existing.coverage_period.clone(),
+        insurer: existing.insurer.clone(),
+        // 时间戳
         created_at: existing.created_at,
         updated_at: existing.updated_at,
     };
@@ -1364,3 +1417,434 @@ pub unsafe extern "C" fn update_asset_with_type(
     }
 }
 
+// ============================================================
+// 负债相关 FFI 函数
+// ============================================================
+
+/// 获取所有负债（JSON 格式）
+#[no_mangle]
+pub unsafe extern "C" fn get_all_liabilities() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let liabilities = match LiabilityRepository::list(&conn) {
+        Ok(l) => l,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&liabilities) {
+        Ok(json) => string_to_c_char(json),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 添加负债（支持扩展字段）
+#[no_mangle]
+pub unsafe extern "C" fn add_liability_with_extra_fields(
+    name: *const c_char,
+    liability_type: c_int,
+    amount: c_double,
+    currency: *const c_char,
+    occurrence_date: *const c_char,
+    extra_fields_json: *const c_char,
+    note: *const c_char,
+) -> c_int {
+    let name = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 将整数类型转换为字符串
+    let liability_type_enum = liability_type_from_int(liability_type);
+    let liability_type_str = liability_type_enum.as_str().to_string();
+
+    let currency = match CStr::from_ptr(currency).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let occurrence_date = if occurrence_date.is_null() {
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    // 解析 extra_fields_json
+    let extra_fields = if extra_fields_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(extra_fields_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            },
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let note = if note.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(note).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 解析扩展字段
+    let mut liability = Liability::new(liability_type_str, name, amount);
+    liability.currency = currency;
+    liability.occurrence_date = occurrence_date;
+    liability.note = note;
+
+    if let Some(json_str) = extra_fields {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = value.as_object() {
+                // 贷款类通用字段
+                if let Some(v) = obj.get("lender").and_then(|v| v.as_str()) {
+                    liability.lender = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("due_date").and_then(|v| v.as_str()) {
+                    liability.due_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("interest_rate").and_then(|v| v.as_f64()) {
+                    liability.interest_rate = Some(v);
+                }
+                if let Some(v) = obj.get("repayment_method").and_then(|v| v.as_str()) {
+                    liability.repayment_method = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("loan_term").and_then(|v| v.as_i64()) {
+                    liability.loan_term = Some(v as i32);
+                }
+
+                // 信用卡专属字段
+                if let Some(v) = obj.get("last_four_digits").and_then(|v| v.as_str()) {
+                    liability.last_four_digits = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("billing_date").and_then(|v| v.as_str()) {
+                    liability.billing_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("payment_due_date").and_then(|v| v.as_str()) {
+                    liability.payment_due_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("credit_limit").and_then(|v| v.as_f64()) {
+                    liability.credit_limit = Some(v);
+                }
+                if let Some(v) = obj.get("cash_limit").and_then(|v| v.as_f64()) {
+                    liability.cash_limit = Some(v);
+                }
+                if let Some(v) = obj.get("annual_fee").and_then(|v| v.as_f64()) {
+                    liability.annual_fee = Some(v);
+                }
+                if let Some(v) = obj.get("issuer").and_then(|v| v.as_str()) {
+                    liability.issuer = Some(v.to_string());
+                }
+
+                // 房贷专属字段
+                if let Some(v) = obj.get("property_address").and_then(|v| v.as_str()) {
+                    liability.property_address = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("original_loan_amount").and_then(|v| v.as_f64()) {
+                    liability.original_loan_amount = Some(v);
+                }
+                if let Some(v) = obj.get("remaining_principal").and_then(|v| v.as_f64()) {
+                    liability.remaining_principal = Some(v);
+                }
+                if let Some(v) = obj.get("loan_type").and_then(|v| v.as_str()) {
+                    liability.loan_type = Some(v.to_string());
+                }
+
+                // 车贷专属字段
+                if let Some(v) = obj.get("vehicle_brand").and_then(|v| v.as_str()) {
+                    liability.vehicle_brand = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("vehicle_model").and_then(|v| v.as_str()) {
+                    liability.vehicle_model = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("license_plate").and_then(|v| v.as_str()) {
+                    liability.license_plate = Some(v.to_string());
+                }
+
+                // 个人/私人借款专属字段
+                if let Some(v) = obj.get("purpose").and_then(|v| v.as_str()) {
+                    liability.purpose = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("has_interest").and_then(|v| v.as_bool()) {
+                    liability.has_interest = Some(v);
+                }
+                if let Some(v) = obj.get("repayment_plan").and_then(|v| v.as_str()) {
+                    liability.repayment_plan = Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    match LiabilityRepository::create(&conn, &liability) {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
+    }
+}
+
+/// 更新负债（支持扩展字段）
+#[no_mangle]
+pub unsafe extern "C" fn update_liability_with_extra_fields(
+    id: *const c_char,
+    name: *const c_char,
+    liability_type: c_int,
+    amount: c_double,
+    currency: *const c_char,
+    occurrence_date: *const c_char,
+    extra_fields_json: *const c_char,
+    note: *const c_char,
+) -> c_int {
+    let id = match CStr::from_ptr(id).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let name = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 将整数类型转换为字符串
+    let liability_type_enum = liability_type_from_int(liability_type);
+    let liability_type_str = liability_type_enum.as_str().to_string();
+
+    let currency = match CStr::from_ptr(currency).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let occurrence_date = if occurrence_date.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(occurrence_date).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    // 解析 extra_fields_json
+    let extra_fields = if extra_fields_json.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(extra_fields_json).to_str() {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            },
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let note = if note.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(note).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 先获取现有负债
+    let existing = match LiabilityRepository::get(&conn, &id) {
+        Ok(l) => l,
+        Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    // 更新字段
+    let mut liability = Liability {
+        id,
+        name,
+        liability_type: liability_type_str,
+        amount,
+        currency,
+        occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
+        note,
+        // 贷款类通用字段
+        lender: existing.lender.clone(),
+        due_date: existing.due_date.clone(),
+        interest_rate: existing.interest_rate,
+        repayment_method: existing.repayment_method.clone(),
+        loan_term: existing.loan_term,
+        // 信用卡专属字段
+        last_four_digits: existing.last_four_digits.clone(),
+        billing_date: existing.billing_date.clone(),
+        payment_due_date: existing.payment_due_date.clone(),
+        credit_limit: existing.credit_limit,
+        cash_limit: existing.cash_limit,
+        annual_fee: existing.annual_fee,
+        issuer: existing.issuer.clone(),
+        // 房贷专属字段
+        property_address: existing.property_address.clone(),
+        original_loan_amount: existing.original_loan_amount,
+        remaining_principal: existing.remaining_principal,
+        loan_type: existing.loan_type.clone(),
+        // 车贷专属字段
+        vehicle_brand: existing.vehicle_brand.clone(),
+        vehicle_model: existing.vehicle_model.clone(),
+        license_plate: existing.license_plate.clone(),
+        // 个人/私人借款专属字段
+        purpose: existing.purpose.clone(),
+        has_interest: existing.has_interest,
+        repayment_plan: existing.repayment_plan.clone(),
+        // 时间戳
+        created_at: existing.created_at,
+        updated_at: existing.updated_at,
+    };
+
+    // 解析扩展字段并更新
+    if let Some(json_str) = extra_fields {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = value.as_object() {
+                // 贷款类通用字段
+                if let Some(v) = obj.get("lender").and_then(|v| v.as_str()) {
+                    liability.lender = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("due_date").and_then(|v| v.as_str()) {
+                    liability.due_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("interest_rate").and_then(|v| v.as_f64()) {
+                    liability.interest_rate = Some(v);
+                }
+                if let Some(v) = obj.get("repayment_method").and_then(|v| v.as_str()) {
+                    liability.repayment_method = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("loan_term").and_then(|v| v.as_i64()) {
+                    liability.loan_term = Some(v as i32);
+                }
+
+                // 信用卡专属字段
+                if let Some(v) = obj.get("last_four_digits").and_then(|v| v.as_str()) {
+                    liability.last_four_digits = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("billing_date").and_then(|v| v.as_str()) {
+                    liability.billing_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("payment_due_date").and_then(|v| v.as_str()) {
+                    liability.payment_due_date = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("credit_limit").and_then(|v| v.as_f64()) {
+                    liability.credit_limit = Some(v);
+                }
+                if let Some(v) = obj.get("cash_limit").and_then(|v| v.as_f64()) {
+                    liability.cash_limit = Some(v);
+                }
+                if let Some(v) = obj.get("annual_fee").and_then(|v| v.as_f64()) {
+                    liability.annual_fee = Some(v);
+                }
+                if let Some(v) = obj.get("issuer").and_then(|v| v.as_str()) {
+                    liability.issuer = Some(v.to_string());
+                }
+
+                // 房贷专属字段
+                if let Some(v) = obj.get("property_address").and_then(|v| v.as_str()) {
+                    liability.property_address = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("original_loan_amount").and_then(|v| v.as_f64()) {
+                    liability.original_loan_amount = Some(v);
+                }
+                if let Some(v) = obj.get("remaining_principal").and_then(|v| v.as_f64()) {
+                    liability.remaining_principal = Some(v);
+                }
+                if let Some(v) = obj.get("loan_type").and_then(|v| v.as_str()) {
+                    liability.loan_type = Some(v.to_string());
+                }
+
+                // 车贷专属字段
+                if let Some(v) = obj.get("vehicle_brand").and_then(|v| v.as_str()) {
+                    liability.vehicle_brand = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("vehicle_model").and_then(|v| v.as_str()) {
+                    liability.vehicle_model = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("license_plate").and_then(|v| v.as_str()) {
+                    liability.license_plate = Some(v.to_string());
+                }
+
+                // 个人/私人借款专属字段
+                if let Some(v) = obj.get("purpose").and_then(|v| v.as_str()) {
+                    liability.purpose = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("has_interest").and_then(|v| v.as_bool()) {
+                    liability.has_interest = Some(v);
+                }
+                if let Some(v) = obj.get("repayment_plan").and_then(|v| v.as_str()) {
+                    liability.repayment_plan = Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    match LiabilityRepository::update(&conn, &liability) {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
+    }
+}
+
+/// 删除负债
+#[no_mangle]
+pub unsafe extern "C" fn delete_liability(id: *const c_char) -> c_int {
+    let id = match CStr::from_ptr(id).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let conn = match open_db(&state.db_path) {
+        Ok(c) => c,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
+    match LiabilityRepository::delete(&conn, &id) {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
+    }
+}

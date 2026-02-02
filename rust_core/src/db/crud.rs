@@ -3,7 +3,63 @@
 use rusqlite::{Connection, params};
 
 use super::{DbError, DbResult};
-use super::models::{Asset, AssetHistory, Attachment, AssetType, AssetChange, ChangeType};
+use super::models::{Asset, Liability, AssetHistory, Attachment, AssetChange, ChangeType};
+
+/// 从行数据构建 Asset 对象（用于扩展字段的默认值）
+fn make_asset_from_row(
+    id: String,
+    asset_type: String,
+    name: String,
+    amount: f64,
+    currency: String,
+    account: Option<String>,
+    occurrence_date: String,
+    buy_price: Option<f64>,
+    current_price: Option<f64>,
+    note: Option<String>,
+    tags: Option<Vec<String>>,
+    created_at: i64,
+    updated_at: i64,
+) -> Asset {
+    Asset {
+        id,
+        asset_type,
+        name,
+        amount,
+        currency,
+        occurrence_date,
+        note,
+        account,
+        tags,
+        buy_price,
+        current_price,
+        // 扩展字段默认为 None（当前数据库表未包含这些字段）
+        address: None,
+        building_area: None,
+        living_area: None,
+        property_type: None,
+        rooms: None,
+        floor: None,
+        build_year: None,
+        ownership_type: None,
+        deed_number: None,
+        deposit_account_type: None,
+        deposit_period: None,
+        maturity_date: None,
+        deposit_interest_rate: None,
+        policy_number: None,
+        insurance_type: None,
+        insured: None,
+        beneficiary: None,
+        coverage_amount: None,
+        premium: None,
+        premium_period: None,
+        coverage_period: None,
+        insurer: None,
+        created_at,
+        updated_at,
+    }
+}
 
 /// 资产仓库
 pub struct AssetRepository;
@@ -62,21 +118,21 @@ impl AssetRepository {
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
 
-            Ok(Asset {
-                id: row.get(0)?,
+            Ok(make_asset_from_row(
+                row.get(0)?,
                 asset_type,
-                name: row.get(2)?,
-                amount: row.get(3)?,
-                currency: row.get(4)?,
-                account: row.get(5)?,
-                occurrence_date: row.get(6)?,
-                buy_price: row.get(7)?,
-                current_price: row.get(8)?,
-                note: row.get(9)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
                 tags,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
+                row.get(11)?,
+                row.get(12)?,
+            ))
         }).map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => DbError::NotFound(id.to_string()),
             _ => DbError::DatabaseError(e.to_string()),
@@ -85,34 +141,44 @@ impl AssetRepository {
         Ok(asset)
     }
 
-    /// 获取所有资产
+    /// 获取所有资产（过滤掉负债类型）
     pub fn list(conn: &Connection) -> DbResult<Vec<Asset>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at
-             FROM assets ORDER BY created_at DESC"
-        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+        // 资产类型列表
+        let asset_types = ["property", "deposit", "stock", "fund", "insurance"];
+        let placeholders = asset_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
-        let assets = stmt.query_map([], |row| {
+        let sql = format!(
+            "SELECT id, type, name, amount, currency, account, occurrence_date, buy_price, current_price, note, tags, created_at, updated_at
+             FROM assets WHERE type IN ({}) ORDER BY created_at DESC",
+            placeholders
+        );
+
+        let mut stmt = conn.prepare(&sql).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        // 构建参数列表
+        let params_list: Vec<&dyn rusqlite::ToSql> = asset_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+        let assets = stmt.query_map(params_list.as_slice(), |row| {
             let asset_type: String = row.get(1)?;
 
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
 
-            Ok(Asset {
-                id: row.get(0)?,
+            Ok(make_asset_from_row(
+                row.get(0)?,
                 asset_type,
-                name: row.get(2)?,
-                amount: row.get(3)?,
-                currency: row.get(4)?,
-                account: row.get(5)?,
-                occurrence_date: row.get(6)?,
-                buy_price: row.get(7)?,
-                current_price: row.get(8)?,
-                note: row.get(9)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
                 tags,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
+                row.get(11)?,
+                row.get(12)?,
+            ))
         }).map_err(|e| DbError::DatabaseError(e.to_string()))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
@@ -177,21 +243,21 @@ impl AssetRepository {
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
 
-            Ok(Asset {
-                id: row.get(0)?,
+            Ok(make_asset_from_row(
+                row.get(0)?,
                 asset_type,
-                name: row.get(2)?,
-                amount: row.get(3)?,
-                currency: row.get(4)?,
-                account: row.get(5)?,
-                occurrence_date: row.get(6)?,
-                buy_price: row.get(7)?,
-                current_price: row.get(8)?,
-                note: row.get(9)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
                 tags,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
+                row.get(11)?,
+                row.get(12)?,
+            ))
         }).map_err(|e| DbError::DatabaseError(e.to_string()))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
@@ -236,21 +302,21 @@ impl AssetRepository {
             let tags_json: Option<String> = row.get(10)?;
             let tags = tags_json.and_then(|j| serde_json::from_str(&j).ok());
 
-            Ok(Asset {
-                id: row.get(0)?,
+            Ok(make_asset_from_row(
+                row.get(0)?,
                 asset_type,
-                name: row.get(2)?,
-                amount: row.get(3)?,
-                currency: row.get(4)?,
-                account: row.get(5)?,
-                occurrence_date: row.get(6)?,
-                buy_price: row.get(7)?,
-                current_price: row.get(8)?,
-                note: row.get(9)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
                 tags,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
+                row.get(11)?,
+                row.get(12)?,
+            ))
         }).map_err(|e| DbError::DatabaseError(e.to_string()))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
@@ -455,6 +521,194 @@ impl AttachmentRepository {
             "DELETE FROM attachments WHERE id = ?1",
             params![id],
         ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+}
+
+/// 从行数据构建 Liability 对象
+fn make_liability_from_row(
+    id: String,
+    liability_type: String,
+    name: String,
+    amount: f64,
+    currency: String,
+    occurrence_date: String,
+    note: Option<String>,
+    created_at: i64,
+    updated_at: i64,
+) -> Liability {
+    Liability {
+        id,
+        liability_type,
+        name,
+        amount,
+        currency,
+        occurrence_date,
+        note,
+        // 信用卡字段
+        last_four_digits: None,
+        billing_date: None,
+        payment_due_date: None,
+        credit_limit: None,
+        cash_limit: None,
+        annual_fee: None,
+        issuer: None,
+        // 贷款类通用字段
+        lender: None,
+        due_date: None,
+        interest_rate: None,
+        repayment_method: None,
+        loan_term: None,
+        // 房贷专属字段
+        property_address: None,
+        original_loan_amount: None,
+        remaining_principal: None,
+        loan_type: None,
+        // 车贷专属字段
+        vehicle_brand: None,
+        vehicle_model: None,
+        license_plate: None,
+        // 个人/私人借款专属字段
+        purpose: None,
+        has_interest: None,
+        repayment_plan: None,
+        created_at,
+        updated_at,
+    }
+}
+
+/// 负债仓库
+pub struct LiabilityRepository;
+
+impl LiabilityRepository {
+    /// 创建负债
+    pub fn create(conn: &Connection, liability: &Liability) -> DbResult<String> {
+        eprintln!("===== LiabilityRepository::create 开始 =====");
+        eprintln!("负债 ID: {}", liability.id);
+        eprintln!("负债名称: {}", liability.name);
+        eprintln!("负债类型: {}", liability.liability_type);
+
+        // 使用命名参数，显式指定类型
+        conn.execute(
+            "INSERT INTO assets (id, type, name, amount, currency, occurrence_date, note, created_at, updated_at)
+             VALUES (:id, :type, :name, :amount, :currency, :occurrence_date, :note, :created_at, :updated_at)",
+            &[
+                (":id", &liability.id as &dyn rusqlite::ToSql),
+                (":type", &liability.liability_type as &dyn rusqlite::ToSql),
+                (":name", &liability.name as &dyn rusqlite::ToSql),
+                (":amount", &liability.amount as &dyn rusqlite::ToSql),
+                (":currency", &liability.currency as &dyn rusqlite::ToSql),
+                (":occurrence_date", &liability.occurrence_date as &dyn rusqlite::ToSql),
+                (":note", &liability.note as &dyn rusqlite::ToSql),
+                (":created_at", &liability.created_at as &dyn rusqlite::ToSql),
+                (":updated_at", &liability.updated_at as &dyn rusqlite::ToSql),
+            ],
+        ).map_err(|e| {
+            eprintln!("插入负债失败: {}", e);
+            DbError::DatabaseError(e.to_string())
+        })?;
+
+        eprintln!("插入负债成功");
+        Ok(liability.id.clone())
+    }
+
+    /// 获取单个负债
+    pub fn get(conn: &Connection, id: &str) -> DbResult<Liability> {
+        let mut stmt = conn.prepare(
+            "SELECT id, type, name, amount, currency, occurrence_date, note, created_at, updated_at
+             FROM assets WHERE id = ?1"
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        let liability = stmt.query_row(params![id], |row| {
+            Ok(make_liability_from_row(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+            ))
+        }).map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => DbError::NotFound(id.to_string()),
+            _ => DbError::DatabaseError(e.to_string()),
+        })?;
+
+        Ok(liability)
+    }
+
+    /// 获取所有负债（过滤掉资产类型）
+    pub fn list(conn: &Connection) -> DbResult<Vec<Liability>> {
+        // 负债类型列表
+        let liability_types = ["debt", "mortgage", "car_loan", "credit_card", "personal_loan", "private_loan"];
+        let placeholders = liability_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+
+        let sql = format!(
+            "SELECT id, type, name, amount, currency, occurrence_date, note, created_at, updated_at
+             FROM assets WHERE type IN ({}) ORDER BY created_at DESC",
+            placeholders
+        );
+
+        let mut stmt = conn.prepare(&sql).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        // 构建参数列表
+        let params_list: Vec<&dyn rusqlite::ToSql> = liability_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+        let liabilities = stmt.query_map(params_list.as_slice(), |row| {
+            Ok(make_liability_from_row(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+            ))
+        }).map_err(|e| DbError::DatabaseError(e.to_string()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        Ok(liabilities)
+    }
+
+    /// 更新负债
+    pub fn update(conn: &Connection, liability: &Liability) -> DbResult<()> {
+        let updated_at = chrono::Utc::now().timestamp();
+
+        conn.execute(
+            "UPDATE assets SET type = ?1, name = ?2, amount = ?3, currency = ?4,
+             occurrence_date = ?5, note = ?6, updated_at = ?7
+             WHERE id = ?8",
+            params![
+                &liability.liability_type,
+                liability.name,
+                liability.amount,
+                liability.currency,
+                liability.occurrence_date,
+                liability.note,
+                updated_at,
+                liability.id,
+            ],
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// 删除负债
+    pub fn delete(conn: &Connection, id: &str) -> DbResult<()> {
+        let rows_affected = conn.execute(
+            "DELETE FROM assets WHERE id = ?1",
+            params![id],
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        if rows_affected == 0 {
+            return Err(DbError::NotFound(id.to_string()));
+        }
 
         Ok(())
     }

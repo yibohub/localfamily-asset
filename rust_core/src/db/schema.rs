@@ -353,6 +353,99 @@ fn migrate_v5_add_price_columns(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// 迁移 v6：添加扩展字段支持（投资类、房产、存款、保单、负债）
+fn migrate_v6_add_extended_fields(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("========== 开始数据库迁移 v6：添加扩展字段 ==========");
+
+    let mut stmt = conn.prepare("PRAGMA table_info(assets)")
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let rows = stmt.query_map([], |row| {
+        let col_name: String = row.get(1).unwrap_or_default();
+        Ok(col_name)
+    }).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let existing_columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+    eprintln!("当前列: {:?}", existing_columns);
+
+    // 需要添加的扩展字段
+    let columns_to_add = vec![
+        // 投资类字段
+        ("quantity", "REAL"),
+        ("code", "TEXT"),
+        ("exchange", "TEXT"),
+        // 房产字段
+        ("address", "TEXT"),
+        ("building_area", "REAL"),
+        ("living_area", "REAL"),
+        ("property_type", "TEXT"),
+        ("rooms", "INTEGER"),
+        ("floor", "TEXT"),
+        ("build_year", "INTEGER"),
+        ("ownership_type", "TEXT"),
+        ("deed_number", "TEXT"),
+        // 存款字段
+        ("deposit_account_type", "TEXT"),
+        ("deposit_period", "INTEGER"),
+        ("maturity_date", "TEXT"),
+        ("deposit_interest_rate", "REAL"),
+        // 保单字段
+        ("policy_number", "TEXT"),
+        ("insurance_type", "TEXT"),
+        ("insured", "TEXT"),
+        ("beneficiary", "TEXT"),
+        ("coverage_amount", "REAL"),
+        ("premium", "REAL"),
+        ("premium_period", "TEXT"),
+        ("coverage_period", "TEXT"),
+        ("insurer", "TEXT"),
+        // 负债字段
+        ("lender", "TEXT"),
+        ("due_date", "TEXT"),
+        ("interest_rate", "REAL"),
+        ("repayment_method", "TEXT"),
+        // 信用卡字段
+        ("billing_date", "TEXT"),
+        ("payment_due_date", "TEXT"),
+        ("credit_limit", "REAL"),
+        ("cash_limit", "REAL"),
+        ("annual_fee", "REAL"),
+        ("issuer", "TEXT"),
+        ("last_four_digits", "TEXT"),
+        // 贷款专属字段
+        ("property_address", "TEXT"),
+        ("original_loan_amount", "REAL"),
+        ("remaining_principal", "REAL"),
+        ("loan_type", "TEXT"),
+        ("loan_term", "INTEGER"),
+        ("vehicle_brand", "TEXT"),
+        ("vehicle_model", "TEXT"),
+        ("license_plate", "TEXT"),
+        ("purpose", "TEXT"),
+        ("has_interest", "INTEGER"),
+        ("repayment_plan", "TEXT"),
+    ];
+
+    for (col_name, col_type) in columns_to_add {
+        if !existing_columns.contains(&col_name.to_string()) {
+            eprintln!("正在添加列 {} ({})...", col_name, col_type);
+            match conn.execute(
+                &format!("ALTER TABLE assets ADD COLUMN {} {}", col_name, col_type),
+                [],
+            ) {
+                Ok(_) => eprintln!("已添加 {} 列", col_name),
+                Err(err) => {
+                    eprintln!("添加 {} 列失败: {}", col_name, err);
+                    // 继续尝试添加其他列，不中断
+                }
+            }
+        }
+    }
+
+    eprintln!("========== 完成数据库迁移 v6 ==========");
+    Ok(())
+}
+
 /// 强制检查并添加 buy_price 和 current_price 列
 /// 无论数据库版本如何，都确保这两个列存在
 fn ensure_price_columns_exist(conn: &Connection) -> Result<(), DbError> {
@@ -440,6 +533,11 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     if version < 5 {
         migrate_v5_add_price_columns(conn)?;
         set_schema_version(conn, 5)?;
+    }
+
+    if version < 6 {
+        migrate_v6_add_extended_fields(conn)?;
+        set_schema_version(conn, 6)?;
     }
 
     // 插入默认设置

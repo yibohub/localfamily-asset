@@ -17,6 +17,7 @@ class FfiErrorCode {
   static const int databaseError = -3;
   static const int cryptoError = -4;
   static const int notFound = -5;
+  static const int invalidParam = -6;
 }
 
 /// FFI 桥接类
@@ -88,6 +89,51 @@ class FfiBridge {
     double,
     ffi.Pointer<ffi.Char>,
   ) _updateAssetWithType;
+
+  // 新增：支持扩展字段的 FFI 函数
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _addAssetWithExtraFields;
+  late final ffi.Pointer<ffi.Char> Function() _getAssetsOnly;
+  late final ffi.Pointer<ffi.Char> Function() _getLiabilitiesOnly;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>) _getAssetById;
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _updateAssetWithExtraFields;
+
+  // 负债专用 FFI 函数
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _addLiabilityWithExtraFields;
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    double,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _updateLiabilityWithExtraFields;
 
   FfiBridge._internal() {
     _loadLibrary();
@@ -278,6 +324,70 @@ class FfiBridge {
           ffi.Double,
           ffi.Pointer<ffi.Char>,
         )>>('update_asset_with_type')
+        .asFunction();
+
+    // 新增：加载支持扩展字段的函数
+    _addAssetWithExtraFields = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('add_asset_with_extra_fields')
+        .asFunction();
+
+    _getAssetsOnly = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_assets_only')
+        .asFunction();
+
+    _getLiabilitiesOnly = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_liabilities_only')
+        .asFunction();
+
+    _getAssetById = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>)>>('get_asset_by_id')
+        .asFunction();
+
+    _updateAssetWithExtraFields = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('update_asset_with_extra_fields')
+        .asFunction();
+
+    // 负债专用函数
+    _addLiabilityWithExtraFields = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('add_liability_with_extra_fields')
+        .asFunction();
+
+    _updateLiabilityWithExtraFields = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Double,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+        )>>('update_liability_with_extra_fields')
         .asFunction();
   }
 
@@ -817,6 +927,210 @@ class FfiBridge {
       if (notesPtr != ffi.nullptr) malloc.free(notesPtr);
       if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
       if (tagsJsonPtr != ffi.nullptr) malloc.free(tagsJsonPtr);
+    }
+  }
+
+  // ============================================================
+  // 新增方法：支持资产/负债分离和扩展字段
+  // ============================================================
+
+  /// 添加资产（支持扩展字段）
+  Future<bool> addAssetWithExtraFields({
+    required String name,
+    required String assetType,
+    required double amount,
+    String currency = 'CNY',
+    required String occurrenceDate,
+    String? extraFieldsJson,
+    String? note,
+  }) async {
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = assetType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final occurrenceDatePtr = occurrenceDate.toNativeUtf8().cast<ffi.Char>();
+    final extraFieldsPtr = extraFieldsJson != null ? extraFieldsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notePtr = note != null ? note.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    try {
+      final result = _addAssetWithExtraFields(
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        occurrenceDatePtr,
+        extraFieldsPtr,
+        notePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      malloc.free(occurrenceDatePtr);
+      if (extraFieldsPtr != ffi.nullptr) malloc.free(extraFieldsPtr);
+      if (notePtr != ffi.nullptr) malloc.free(notePtr);
+    }
+  }
+
+  /// 获取仅资产类型（不包括负债）
+  Future<String> getAssetsOnly() async {
+    final resultPtr = _getAssetsOnly();
+    if (resultPtr == ffi.nullptr) {
+      return '[]';
+    }
+    final result = resultPtr.cast<Utf8>().toDartString();
+    // 注意：不需要手动释放，因为 Rust 使用的是静态返回
+    return result;
+  }
+
+  /// 获取仅负债类型
+  Future<String> getLiabilitiesOnly() async {
+    final resultPtr = _getLiabilitiesOnly();
+    if (resultPtr == ffi.nullptr) {
+      return '[]';
+    }
+    final result = resultPtr.cast<Utf8>().toDartString();
+    return result;
+  }
+
+  /// 根据 ID 获取单个资产/负债
+  Future<String?> getAssetById(String id) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final resultPtr = _getAssetById(idPtr);
+      if (resultPtr == ffi.nullptr) {
+        return null;
+      }
+      final result = resultPtr.cast<Utf8>().toDartString();
+      return result;
+    } finally {
+      malloc.free(idPtr);
+    }
+  }
+
+  /// 更新资产（支持扩展字段）
+  Future<bool> updateAssetWithExtraFields({
+    required String id,
+    required String name,
+    required String assetType,
+    required double amount,
+    String currency = 'CNY',
+    String? occurrenceDate,
+    String? extraFieldsJson,
+    String? note,
+  }) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = assetType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final occurrenceDatePtr = occurrenceDate != null ? occurrenceDate.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final extraFieldsPtr = extraFieldsJson != null ? extraFieldsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notePtr = note != null ? note.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    try {
+      final result = _updateAssetWithExtraFields(
+        idPtr,
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        occurrenceDatePtr,
+        extraFieldsPtr,
+        notePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(idPtr);
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
+      if (extraFieldsPtr != ffi.nullptr) malloc.free(extraFieldsPtr);
+      if (notePtr != ffi.nullptr) malloc.free(notePtr);
+    }
+  }
+
+  // ============================================================
+  // 负债专用方法
+  // ============================================================
+
+  /// 添加负债（支持扩展字段）
+  Future<bool> addLiabilityWithExtraFields({
+    required String name,
+    required String liabilityType,
+    required double amount,
+    String currency = 'CNY',
+    required String occurrenceDate,
+    String? extraFieldsJson,
+    String? note,
+  }) async {
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = liabilityType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final occurrenceDatePtr = occurrenceDate.toNativeUtf8().cast<ffi.Char>();
+    final extraFieldsPtr = extraFieldsJson != null ? extraFieldsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notePtr = note != null ? note.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    try {
+      final result = _addLiabilityWithExtraFields(
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        occurrenceDatePtr,
+        extraFieldsPtr,
+        notePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      malloc.free(occurrenceDatePtr);
+      if (extraFieldsPtr != ffi.nullptr) malloc.free(extraFieldsPtr);
+      if (notePtr != ffi.nullptr) malloc.free(notePtr);
+    }
+  }
+
+  /// 更新负债（支持扩展字段）
+  Future<bool> updateLiabilityWithExtraFields({
+    required String id,
+    required String name,
+    required String liabilityType,
+    required double amount,
+    String currency = 'CNY',
+    String? occurrenceDate,
+    String? extraFieldsJson,
+    String? note,
+  }) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    final typePtr = liabilityType.toNativeUtf8().cast<ffi.Char>();
+    final currencyPtr = currency.toNativeUtf8().cast<ffi.Char>();
+    final occurrenceDatePtr = occurrenceDate != null ? occurrenceDate.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final extraFieldsPtr = extraFieldsJson != null ? extraFieldsJson.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+    final notePtr = note != null ? note.toNativeUtf8().cast<ffi.Char>() : ffi.nullptr;
+
+    try {
+      final result = _updateLiabilityWithExtraFields(
+        idPtr,
+        namePtr,
+        typePtr,
+        amount,
+        currencyPtr,
+        occurrenceDatePtr,
+        extraFieldsPtr,
+        notePtr,
+      );
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(idPtr);
+      malloc.free(namePtr);
+      malloc.free(typePtr);
+      malloc.free(currencyPtr);
+      if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
+      if (extraFieldsPtr != ffi.nullptr) malloc.free(extraFieldsPtr);
+      if (notePtr != ffi.nullptr) malloc.free(notePtr);
     }
   }
 }

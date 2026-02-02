@@ -8,9 +8,9 @@ pub mod crud;
 pub mod custom_types;
 pub mod custom_crud;
 
-pub use models::{Asset, AssetHistory, Attachment, AssetType, AssetChange, ChangeType};
+pub use models::{Asset, Liability, AssetHistory, Attachment, AssetType, LiabilityType, AssetChange, ChangeType};
 pub use schema::{create_schema, init_db};
-pub use crud::{AssetRepository, HistoryRepository, AttachmentRepository, AssetChangeRepository};
+pub use crud::{AssetRepository, LiabilityRepository, HistoryRepository, AttachmentRepository, AssetChangeRepository};
 pub use custom_types::CustomAssetType;
 pub use custom_crud::CustomTypeRepository;
 

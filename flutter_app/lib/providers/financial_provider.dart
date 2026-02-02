@@ -1,0 +1,540 @@
+/// 金融记录状态管理（资产/负债分离模型）
+///
+/// 使用 financial_models.dart 中定义的 Asset 和 Liability 类
+
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import '../core/ffi_bridge.dart';
+import '../models/financial_models.dart';
+
+/// 金融记录状态管理
+class FinancialProvider with ChangeNotifier {
+  final FfiBridge _ffi = FfiBridge();
+
+  // 资产列表（仅资产类型）
+  List<Asset> _assets = [];
+
+  // 负债列表
+  List<Liability> _liabilities = [];
+
+  // 加载状态
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // Getters
+  List<Asset> get assets => _assets;
+  List<Liability> get liabilities => _liabilities;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+
+  /// 计算总资产
+  double get totalAssets => _assets.fold(0.0, (sum, asset) => sum + asset.amount);
+
+  /// 计算总负债
+  double get totalLiabilities => _liabilities.fold(0.0, (sum, liability) => sum + liability.amount);
+
+  /// 计算净资产
+  double get netAssets => totalAssets - totalLiabilities;
+
+  /// 计算投资类资产总成本
+  double? get totalInvestmentCost {
+    double totalCost = 0.0;
+    int count = 0;
+    for (var asset in _assets) {
+      if (asset.isInvestment && asset.buyPrice != null && asset.quantity != null) {
+        totalCost += asset.buyPrice! * asset.quantity!;
+        count++;
+      }
+    }
+    return count > 0 ? totalCost : null;
+  }
+
+  /// 计算投资类资产总盈亏
+  double? get totalInvestmentProfitLoss {
+    double totalProfitLoss = 0.0;
+    int count = 0;
+    for (var asset in _assets) {
+      if (asset.isInvestment && asset.profitLossAmount != null) {
+        totalProfitLoss += asset.profitLossAmount!;
+        count++;
+      }
+    }
+    return count > 0 ? totalProfitLoss : null;
+  }
+
+  /// 按类型分组资产
+  Map<String, List<Asset>> get assetsByType {
+    final grouped = <String, List<Asset>>{};
+    for (var asset in _assets) {
+      final typeName = asset.type.name;
+      grouped.putIfAbsent(typeName, () => []).add(asset);
+    }
+    return grouped;
+  }
+
+  /// 按类型分组负债
+  Map<String, List<Liability>> get liabilitiesByType {
+    final grouped = <String, List<Liability>>{};
+    for (var liability in _liabilities) {
+      final typeName = liability.type.name;
+      grouped.putIfAbsent(typeName, () => []).add(liability);
+    }
+    return grouped;
+  }
+
+  /// 加载所有金融记录
+  Future<bool> loadFinancialRecords() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      // 并行加载资产和负债
+      final results = await Future.wait([
+        _loadAssets(),
+        _loadLiabilities(),
+      ]);
+
+      final success = results.every((r) => r);
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 加载资产
+  Future<bool> _loadAssets() async {
+    try {
+      final jsonStr = await _ffi.getAssetsOnly();
+      if (jsonStr.isEmpty) {
+        _assets = [];
+        return true;
+      }
+
+      final List<dynamic> jsonList = json.decode(jsonStr);
+      _assets = jsonList.map((json) {
+        final map = json as Map<String, dynamic>;
+        return Asset.fromJson(map);
+      }).toList();
+
+      return true;
+    } catch (e) {
+      debugPrint('加载资产失败: $e');
+      _assets = [];
+      return false;
+    }
+  }
+
+  /// 加载负债
+  Future<bool> _loadLiabilities() async {
+    try {
+      final jsonStr = await _ffi.getLiabilitiesOnly();
+      if (jsonStr.isEmpty) {
+        _liabilities = [];
+        return true;
+      }
+
+      final List<dynamic> jsonList = json.decode(jsonStr);
+      _liabilities = jsonList.map((json) {
+        final map = json as Map<String, dynamic>;
+        return Liability.fromJson(map);
+      }).toList();
+
+      return true;
+    } catch (e) {
+      debugPrint('加载负债失败: $e');
+      _liabilities = [];
+      return false;
+    }
+  }
+
+  /// 添加资产
+  Future<bool> addAsset(Asset asset) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 构建扩展字段 JSON
+      final extraFields = <String, dynamic>{};
+
+      // 通用字段
+      if (asset.account != null) extraFields['account'] = asset.account;
+      if (asset.tags != null) extraFields['tags'] = asset.tags;
+
+      // 投资类字段
+      if (asset.buyPrice != null) extraFields['buy_price'] = asset.buyPrice;
+      if (asset.currentPrice != null) extraFields['current_price'] = asset.currentPrice;
+      if (asset.code != null) extraFields['code'] = asset.code;
+      if (asset.exchange != null) extraFields['exchange'] = asset.exchange;
+
+      // 房产字段
+      if (asset.address != null) extraFields['address'] = asset.address;
+      if (asset.buildingArea != null) extraFields['building_area'] = asset.buildingArea;
+      if (asset.livingArea != null) extraFields['living_area'] = asset.livingArea;
+      if (asset.propertyType != null) extraFields['property_type'] = asset.propertyType;
+      if (asset.rooms != null) extraFields['rooms'] = asset.rooms;
+      if (asset.floor != null) extraFields['floor'] = asset.floor;
+      if (asset.buildYear != null) extraFields['build_year'] = asset.buildYear;
+      if (asset.ownershipType != null) extraFields['ownership_type'] = asset.ownershipType;
+      if (asset.deedNumber != null) extraFields['deed_number'] = asset.deedNumber;
+
+      // 存款字段
+      if (asset.depositAccountType != null) extraFields['account_type'] = asset.depositAccountType;
+      if (asset.depositPeriod != null) extraFields['deposit_period'] = asset.depositPeriod;
+      if (asset.maturityDate != null) extraFields['maturity_date'] = asset.maturityDate!.toIso8601String().split('T')[0];
+      if (asset.depositInterestRate != null) extraFields['deposit_interest_rate'] = asset.depositInterestRate;
+
+      // 保单字段
+      if (asset.policyNumber != null) extraFields['policy_number'] = asset.policyNumber;
+      if (asset.insuranceType != null) extraFields['insurance_type'] = asset.insuranceType;
+      if (asset.insured != null) extraFields['insured'] = asset.insured;
+      if (asset.beneficiary != null) extraFields['beneficiary'] = asset.beneficiary;
+      if (asset.coverageAmount != null) extraFields['coverage_amount'] = asset.coverageAmount;
+      if (asset.premium != null) extraFields['premium'] = asset.premium;
+      if (asset.premiumPeriod != null) extraFields['premium_period'] = asset.premiumPeriod;
+      if (asset.coveragePeriod != null) extraFields['coverage_period'] = asset.coveragePeriod;
+      if (asset.insurer != null) extraFields['insurer'] = asset.insurer;
+
+      final extraFieldsJson = extraFields.isNotEmpty ? json.encode(extraFields) : null;
+
+      final success = await _ffi.addAssetWithExtraFields(
+        name: asset.name,
+        assetType: asset.type.name,
+        amount: asset.amount,
+        currency: asset.currency,
+        occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
+        extraFieldsJson: extraFieldsJson,
+        note: asset.note,
+      );
+
+      if (success) {
+        await _loadAssets();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('添加资产失败: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 添加负债
+  Future<bool> addLiability(Liability liability) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 构建扩展字段 JSON
+      final extraFields = <String, dynamic>{};
+
+      // 贷款类通用字段
+      if (liability.lender != null) extraFields['lender'] = liability.lender;
+      if (liability.dueDate != null) extraFields['due_date'] = liability.dueDate!.toIso8601String();
+      if (liability.interestRate != null) extraFields['interest_rate'] = liability.interestRate;
+      if (liability.repaymentMethod != null) extraFields['repayment_method'] = liability.repaymentMethod!.value;
+      if (liability.loanTerm != null) extraFields['loan_term'] = liability.loanTerm;
+
+      // 信用卡字段
+      if (liability.lastFourDigits != null) extraFields['last_four_digits'] = liability.lastFourDigits;
+      if (liability.billingDate != null) extraFields['billing_date'] = liability.billingDate!.toIso8601String();
+      if (liability.paymentDueDate != null) extraFields['payment_due_date'] = liability.paymentDueDate!.toIso8601String();
+      if (liability.creditLimit != null) extraFields['credit_limit'] = liability.creditLimit;
+      if (liability.cashLimit != null) extraFields['cash_limit'] = liability.cashLimit;
+      if (liability.annualFee != null) extraFields['annual_fee'] = liability.annualFee;
+      if (liability.issuer != null) extraFields['issuer'] = liability.issuer;
+
+      // 房贷专属字段
+      if (liability.propertyAddress != null) extraFields['property_address'] = liability.propertyAddress;
+      if (liability.originalLoanAmount != null) extraFields['original_loan_amount'] = liability.originalLoanAmount;
+      if (liability.remainingPrincipal != null) extraFields['remaining_principal'] = liability.remainingPrincipal;
+      if (liability.loanType != null) extraFields['loan_type'] = liability.loanType;
+
+      // 车贷专属字段
+      if (liability.vehicleBrand != null) extraFields['vehicle_brand'] = liability.vehicleBrand;
+      if (liability.vehicleModel != null) extraFields['vehicle_model'] = liability.vehicleModel;
+      if (liability.licensePlate != null) extraFields['license_plate'] = liability.licensePlate;
+
+      // 个人/私人借款专属字段
+      if (liability.purpose != null) extraFields['purpose'] = liability.purpose;
+      if (liability.hasInterest != null) extraFields['has_interest'] = liability.hasInterest;
+      if (liability.repaymentPlan != null) extraFields['repayment_plan'] = liability.repaymentPlan;
+
+      final extraFieldsJson = extraFields.isNotEmpty ? json.encode(extraFields) : null;
+
+      final success = await _ffi.addLiabilityWithExtraFields(
+        name: liability.name,
+        liabilityType: liability.type.name,
+        amount: liability.amount,
+        currency: liability.currency,
+        occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],
+        extraFieldsJson: extraFieldsJson,
+        note: liability.note,
+      );
+
+      if (success) {
+        await _loadLiabilities();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('添加负债失败: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 更新资产
+  Future<bool> updateAsset(Asset asset) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 构建扩展字段 JSON
+      final extraFields = <String, dynamic>{};
+
+      // 通用字段
+      if (asset.account != null) extraFields['account'] = asset.account;
+      if (asset.tags != null) extraFields['tags'] = asset.tags;
+
+      // 投资类字段
+      if (asset.buyPrice != null) extraFields['buy_price'] = asset.buyPrice;
+      if (asset.currentPrice != null) extraFields['current_price'] = asset.currentPrice;
+      if (asset.code != null) extraFields['code'] = asset.code;
+      if (asset.exchange != null) extraFields['exchange'] = asset.exchange;
+
+      // 房产字段
+      if (asset.address != null) extraFields['address'] = asset.address;
+      if (asset.buildingArea != null) extraFields['building_area'] = asset.buildingArea;
+      if (asset.livingArea != null) extraFields['living_area'] = asset.livingArea;
+      if (asset.propertyType != null) extraFields['property_type'] = asset.propertyType;
+      if (asset.rooms != null) extraFields['rooms'] = asset.rooms;
+      if (asset.floor != null) extraFields['floor'] = asset.floor;
+      if (asset.buildYear != null) extraFields['build_year'] = asset.buildYear;
+      if (asset.ownershipType != null) extraFields['ownership_type'] = asset.ownershipType;
+      if (asset.deedNumber != null) extraFields['deed_number'] = asset.deedNumber;
+
+      // 存款字段
+      if (asset.depositAccountType != null) extraFields['account_type'] = asset.depositAccountType;
+      if (asset.depositPeriod != null) extraFields['deposit_period'] = asset.depositPeriod;
+      if (asset.maturityDate != null) extraFields['maturity_date'] = asset.maturityDate!.toIso8601String().split('T')[0];
+      if (asset.depositInterestRate != null) extraFields['deposit_interest_rate'] = asset.depositInterestRate;
+
+      // 保单字段
+      if (asset.policyNumber != null) extraFields['policy_number'] = asset.policyNumber;
+      if (asset.insuranceType != null) extraFields['insurance_type'] = asset.insuranceType;
+      if (asset.insured != null) extraFields['insured'] = asset.insured;
+      if (asset.beneficiary != null) extraFields['beneficiary'] = asset.beneficiary;
+      if (asset.coverageAmount != null) extraFields['coverage_amount'] = asset.coverageAmount;
+      if (asset.premium != null) extraFields['premium'] = asset.premium;
+      if (asset.premiumPeriod != null) extraFields['premium_period'] = asset.premiumPeriod;
+      if (asset.coveragePeriod != null) extraFields['coverage_period'] = asset.coveragePeriod;
+      if (asset.insurer != null) extraFields['insurer'] = asset.insurer;
+
+      final extraFieldsJson = extraFields.isNotEmpty ? json.encode(extraFields) : null;
+
+      final success = await _ffi.updateAssetWithExtraFields(
+        id: asset.id,
+        name: asset.name,
+        assetType: asset.type.name,
+        amount: asset.amount,
+        currency: asset.currency,
+        occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
+        extraFieldsJson: extraFieldsJson,
+        note: asset.note,
+      );
+
+      if (success) {
+        await _loadAssets();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('更新资产失败: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 更新负债
+  Future<bool> updateLiability(Liability liability) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 构建扩展字段 JSON
+      final extraFields = <String, dynamic>{};
+
+      // 贷款类通用字段
+      if (liability.lender != null) extraFields['lender'] = liability.lender;
+      if (liability.dueDate != null) extraFields['due_date'] = liability.dueDate!.toIso8601String();
+      if (liability.interestRate != null) extraFields['interest_rate'] = liability.interestRate;
+      if (liability.repaymentMethod != null) extraFields['repayment_method'] = liability.repaymentMethod!.value;
+      if (liability.loanTerm != null) extraFields['loan_term'] = liability.loanTerm;
+
+      // 信用卡字段
+      if (liability.lastFourDigits != null) extraFields['last_four_digits'] = liability.lastFourDigits;
+      if (liability.billingDate != null) extraFields['billing_date'] = liability.billingDate!.toIso8601String();
+      if (liability.paymentDueDate != null) extraFields['payment_due_date'] = liability.paymentDueDate!.toIso8601String();
+      if (liability.creditLimit != null) extraFields['credit_limit'] = liability.creditLimit;
+      if (liability.cashLimit != null) extraFields['cash_limit'] = liability.cashLimit;
+      if (liability.annualFee != null) extraFields['annual_fee'] = liability.annualFee;
+      if (liability.issuer != null) extraFields['issuer'] = liability.issuer;
+
+      // 房贷专属字段
+      if (liability.propertyAddress != null) extraFields['property_address'] = liability.propertyAddress;
+      if (liability.originalLoanAmount != null) extraFields['original_loan_amount'] = liability.originalLoanAmount;
+      if (liability.remainingPrincipal != null) extraFields['remaining_principal'] = liability.remainingPrincipal;
+      if (liability.loanType != null) extraFields['loan_type'] = liability.loanType;
+
+      // 车贷专属字段
+      if (liability.vehicleBrand != null) extraFields['vehicle_brand'] = liability.vehicleBrand;
+      if (liability.vehicleModel != null) extraFields['vehicle_model'] = liability.vehicleModel;
+      if (liability.licensePlate != null) extraFields['license_plate'] = liability.licensePlate;
+
+      // 个人/私人借款专属字段
+      if (liability.purpose != null) extraFields['purpose'] = liability.purpose;
+      if (liability.hasInterest != null) extraFields['has_interest'] = liability.hasInterest;
+      if (liability.repaymentPlan != null) extraFields['repayment_plan'] = liability.repaymentPlan;
+
+      final extraFieldsJson = extraFields.isNotEmpty ? json.encode(extraFields) : null;
+
+      final success = await _ffi.updateLiabilityWithExtraFields(
+        id: liability.id,
+        name: liability.name,
+        liabilityType: liability.type.name,
+        amount: liability.amount,
+        currency: liability.currency,
+        occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],
+        extraFieldsJson: extraFieldsJson,
+        note: liability.note,
+      );
+
+      if (success) {
+        await _loadLiabilities();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('更新负债失败: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 删除资产
+  Future<bool> deleteAsset(String id) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final success = await _ffi.deleteAsset(id) == FfiErrorCode.success;
+
+      if (success) {
+        await _loadAssets();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('删除资产失败: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 删除负债
+  Future<bool> deleteLiability(String id) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final success = await _ffi.deleteAsset(id) == FfiErrorCode.success;
+
+      if (success) {
+        await _loadLiabilities();
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      debugPrint('删除负债失败: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 根据类型筛选资产
+  List<Asset> getAssetsByType(AssetType? type) {
+    if (type == null) return _assets;
+    return _assets.where((a) => a.type == type).toList();
+  }
+
+  /// 根据类型筛选负债
+  List<Liability> getLiabilitiesByType(LiabilityType? type) {
+    if (type == null) return _liabilities;
+    return _liabilities.where((l) => l.type == type).toList();
+  }
+
+  /// 获取投资组合摘要
+  PortfolioSummary getPortfolioSummary() {
+    final assetBreakdown = <String, double>{};
+    for (var asset in _assets) {
+      final typeName = asset.type.name;
+      assetBreakdown[typeName] = (assetBreakdown[typeName] ?? 0) + asset.amount;
+    }
+
+    final liabilityBreakdown = <String, double>{};
+    for (var liability in _liabilities) {
+      final typeName = liability.type.name;
+      liabilityBreakdown[typeName] = (liabilityBreakdown[typeName] ?? 0) + liability.amount;
+    }
+
+    // 计算投资类资产统计
+    final investmentAssets = _assets.where((a) => a.isInvestment).toList();
+    final totalInvestments = investmentAssets.fold(0.0, (sum, a) => sum + a.amount);
+
+    return PortfolioSummary(
+      totalAssets: totalAssets,
+      totalLiabilities: totalLiabilities,
+      netAssets: netAssets,
+      assetBreakdown: assetBreakdown,
+      liabilityBreakdown: liabilityBreakdown,
+      lastUpdated: DateTime.now(),
+      totalInvestments: totalInvestments,
+      totalInvestmentCost: totalInvestmentCost,
+      totalInvestmentProfitLoss: totalInvestmentProfitLoss,
+    );
+  }
+
+  /// 清除错误信息
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+}
