@@ -8,10 +8,11 @@ import '../../providers/custom_type_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../core/ffi_bridge.dart';
 import '../auth/lock_screen.dart';
-import '../financial_list_screen.dart';
+import 'assets_tab_screen.dart';
 import 'overview_tab_screen.dart';
+import 'liabilities_tab_screen.dart';
 
-/// 主导航屏幕 - 底部导航栏
+/// 主导航屏幕 - 底部导航栏（三页签模式）
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -26,15 +27,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   DateTime? _pausedAt;
   static const Duration _autoLockDuration = Duration(minutes: 3);
 
-  // Tab 顺序：资产负债 → 总览
+  // Tab 顺序：资产 → 总览 → 负债
   static const List<Widget> _tabScreens = [
-    FinancialListScreen(),
+    AssetsTabScreen(),
     OverviewTabScreen(),
+    LiabilitiesTabScreen(),
   ];
 
   static const List<String> _tabTitles = [
-    '资产负债',
+    '资产',
     '总览',
+    '负债',
   ];
 
   void _onTabTapped(int index) {
@@ -126,12 +129,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               NavigationDestination(
                 icon: Icon(Icons.account_balance_wallet),
                 selectedIcon: Icon(Icons.account_balance_wallet),
-                label: '资产负债',
+                label: '资产',
               ),
               NavigationDestination(
                 icon: Icon(Icons.pie_chart),
                 selectedIcon: Icon(Icons.pie_chart),
                 label: '总览',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.credit_card),
+                selectedIcon: Icon(Icons.credit_card),
+                label: '负债',
               ),
             ],
           ),
