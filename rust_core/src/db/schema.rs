@@ -8,11 +8,11 @@ use super::DbError;
 
 /// 创建数据库表结构
 pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
-    // 资产表（使用 occurrence_date 替代 buy_date）
+    // 资产表（完整版，包含所有类型专属字段）
     conn.execute(
         "CREATE TABLE IF NOT EXISTS assets (
             id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
+            asset_type TEXT NOT NULL,
             name TEXT NOT NULL,
             amount REAL NOT NULL,
             currency TEXT DEFAULT 'CNY',
@@ -20,8 +20,36 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
             occurrence_date TEXT NOT NULL,
             buy_price REAL,
             current_price REAL,
+            code TEXT,
+            exchange TEXT,
+            quantity INTEGER,
             note TEXT,
             tags TEXT,
+            -- 房产专属字段
+            address TEXT,
+            building_area REAL,
+            living_area REAL,
+            property_type TEXT,
+            rooms INTEGER,
+            floor TEXT,
+            build_year INTEGER,
+            ownership_type TEXT,
+            deed_number TEXT,
+            -- 存款专属字段
+            deposit_account_type TEXT,
+            deposit_period INTEGER,
+            maturity_date TEXT,
+            deposit_interest_rate REAL,
+            -- 保单专属字段
+            policy_number TEXT,
+            insurance_type TEXT,
+            insured TEXT,
+            beneficiary TEXT,
+            coverage_amount REAL,
+            premium REAL,
+            premium_period TEXT,
+            coverage_period TEXT,
+            insurer TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         )",

@@ -294,6 +294,9 @@ pub struct Asset {
     // 投资类专属字段（Stock, Fund）
     pub buy_price: Option<f64>,        // 买入单价
     pub current_price: Option<f64>,    // 当前单价
+    pub code: Option<String>,          // 证券代码/基金代码
+    pub exchange: Option<String>,      // 交易所/平台
+    pub quantity: Option<i32>,         // 持有数量
 
     // 房产专属字段（Property）
     pub address: Option<String>,           // 地址
@@ -347,6 +350,9 @@ impl Asset {
             tags: None,
             buy_price: None,
             current_price: None,
+            code: None,
+            exchange: None,
+            quantity: None,
             // 房产字段
             address: None,
             building_area: None,
@@ -396,17 +402,6 @@ impl Asset {
     pub fn profit_loss_amount(&self) -> Option<f64> {
         match (self.buy_price, self.current_price) {
             (Some(buy), Some(current)) => Some(current - buy),
-            _ => None,
-        }
-    }
-
-    /// 计算持有数量（仅投资类有效）
-    pub fn quantity(&self) -> Option<f64> {
-        if !self.is_investment() {
-            return None;
-        }
-        match self.current_price {
-            Some(price) if price > 0.0 => Some(self.amount / price),
             _ => None,
         }
     }

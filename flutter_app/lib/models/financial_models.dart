@@ -588,7 +588,7 @@ class Asset extends FinancialRecord {
     return {
       'id': id,
       'record_type': recordType,
-      'type': type.name,
+      'asset_type': type.name,
       'name': name,
       'amount': amount,
       'currency': currency,
@@ -636,7 +636,7 @@ class Asset extends FinancialRecord {
       id: json['id'] as String,
       name: json['name'] as String,
       type: AssetType.values.firstWhere(
-        (e) => e.name == json['type'],
+        (e) => e.name == json['asset_type'],
         orElse: () => AssetType.deposit,
       ),
       amount: (json['amount'] as num).toDouble(),
@@ -912,7 +912,7 @@ class Liability extends FinancialRecord {
     return {
       'id': id,
       'record_type': recordType,
-      'type': type.name,
+      'liability_type': type.name,
       'name': name,
       'amount': amount,
       'currency': currency,
@@ -950,7 +950,7 @@ class Liability extends FinancialRecord {
       id: json['id'] as String,
       name: json['name'] as String,
       type: LiabilityType.values.firstWhere(
-        (e) => e.name == json['type'],
+        (e) => e.name == json['liability_type'],
         orElse: () => LiabilityType.debt,
       ),
       amount: (json['amount'] as num).toDouble(),

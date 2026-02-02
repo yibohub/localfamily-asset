@@ -661,6 +661,9 @@ pub unsafe extern "C" fn update_asset(
         // 投资类字段
         buy_price: existing.buy_price,
         current_price: existing.current_price,
+        code: existing.code.clone(),
+        exchange: existing.exchange.clone(),
+        quantity: existing.quantity,
         // 房产字段
         address: existing.address.clone(),
         building_area: existing.building_area,
@@ -1366,6 +1369,9 @@ pub unsafe extern "C" fn update_asset_with_type(
         // 投资类字段
         buy_price,
         current_price,
+        code: existing.code.clone(),
+        exchange: existing.exchange.clone(),
+        quantity: existing.quantity,
         // 房产字段
         address: existing.address.clone(),
         building_area: existing.building_area,
@@ -1796,6 +1802,9 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
         tags: existing.tags.clone(),
         buy_price: existing.buy_price,
         current_price: existing.current_price,
+        code: existing.code.clone(),
+        exchange: existing.exchange.clone(),
+        quantity: existing.quantity,
         address: existing.address.clone(),
         building_area: existing.building_area,
         living_area: existing.living_area,
