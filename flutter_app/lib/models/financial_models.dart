@@ -2,6 +2,8 @@
 /// 金融记录数据模型（重构版：资产、负债分离）
 /// ============================================================
 
+import 'asset.dart' as legacy; // 导入旧的 Asset 模型以支持 UI 兼容性
+
 /// ============================================================
 /// 枚举定义
 /// ============================================================
@@ -218,6 +220,24 @@ extension LiabilityTypeExtension on LiabilityType {
         return LiabilityType.privateLoan;
       default:
         return null;
+    }
+  }
+
+  /// 转换为旧的 AssetType（用于 UI 组件兼容）
+  legacy.AssetType toAssetType() {
+    switch (this) {
+      case LiabilityType.debt:
+        return legacy.AssetType.debt;
+      case LiabilityType.mortgage:
+        return legacy.AssetType.mortgage;
+      case LiabilityType.carLoan:
+        return legacy.AssetType.carLoan;
+      case LiabilityType.creditCard:
+        return legacy.AssetType.creditCard;
+      case LiabilityType.personalLoan:
+        return legacy.AssetType.personalLoan;
+      case LiabilityType.privateLoan:
+        return legacy.AssetType.privateLoan;
     }
   }
 }
@@ -928,6 +948,21 @@ class Liability extends FinancialRecord {
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  /// 转换为旧的 Asset 模型（用于 UI 组件兼容）
+  legacy.Asset toAsset() {
+    return legacy.Asset(
+      id: id,
+      name: name,
+      type: type.name, // 使用 enum name (snake_case)
+      amount: amount,
+      currency: currency,
+      occurrenceDate: occurrenceDate,
+      note: note,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

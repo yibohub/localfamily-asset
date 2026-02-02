@@ -17,6 +17,9 @@ class FinancialProvider with ChangeNotifier {
   // 负债列表
   List<Liability> _liabilities = [];
 
+  // 负债类型筛选器（支持自定义类型 ID，格式: "custom_xxx"）
+  String? _liabilityTypeFilterId;
+
   // 加载状态
   bool _isLoading = false;
   String? _errorMessage;
@@ -26,6 +29,13 @@ class FinancialProvider with ChangeNotifier {
   List<Liability> get liabilities => _liabilities;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get liabilityTypeFilterId => _liabilityTypeFilterId;
+
+  /// 获取筛选后的负债列表
+  List<Liability> get filteredLiabilities {
+    if (_liabilityTypeFilterId == null) return _liabilities;
+    return _liabilities.where((l) => l.type.name == _liabilityTypeFilterId).toList();
+  }
 
   /// 计算总资产
   double get totalAssets => _assets.fold(0.0, (sum, asset) => sum + asset.amount);
@@ -535,6 +545,18 @@ class FinancialProvider with ChangeNotifier {
   /// 清除错误信息
   void clearError() {
     _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// 设置负债类型筛选器（支持自定义类型 ID）
+  void setLiabilityTypeFilterById(String? typeId) {
+    _liabilityTypeFilterId = typeId;
+    notifyListeners();
+  }
+
+  /// 清除负债类型筛选器
+  void clearLiabilityTypeFilter() {
+    _liabilityTypeFilterId = null;
     notifyListeners();
   }
 }

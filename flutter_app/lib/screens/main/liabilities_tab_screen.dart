@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/asset.dart';
-import '../../providers/asset_provider.dart';
+import '../../models/financial_models.dart';
+import '../../providers/financial_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../utils/currency_utils.dart';
-import '../../widgets/two_level_grouped_asset_list.dart';
+import '../../widgets/liability_grouped_list.dart';
 import '../../widgets/asset_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
 import '../asset_form_screen.dart';
@@ -30,12 +30,11 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AssetProvider, CustomTypeProvider>(
-      builder: (context, assetProvider, customTypeProvider, child) {
-        final customTypes = customTypeProvider.customTypes;
-        final liabilities = assetProvider.getFilteredLiabilitiesOnly(customTypes);
+    return Consumer<FinancialProvider>(
+      builder: (context, provider, child) {
+        final liabilities = provider.filteredLiabilities;
 
-        if (assetProvider.isLoading) {
+        if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -46,17 +45,20 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _LiabilitiesSummaryCard(total: assetProvider.getSummaryWithCustomTypes(customTypes).totalLiabilities),
+                  child: _LiabilitiesSummaryCard(total: provider.totalLiabilities),
                 ),
               ),
 
               // 类型筛选栏（排除通用负债类型，只显示具体负债小类）
               SliverToBoxAdapter(
                 child: AssetTypeFilterBar(
-                  builtInTypes: AssetTypeExtension.liabilityTypes.where((t) => t != AssetType.debt).toList(),
-                  customTypes: customTypeProvider.liabilityCustomTypes,
-                  selectedTypeId: assetProvider.liabilityTypeFilterId,
-                  onTypeSelected: (id) => assetProvider.setLiabilityTypeFilterById(id),
+                  builtInTypes: LiabilityType.values
+                      .where((t) => t != LiabilityType.debt)
+                      .map((t) => t.toAssetType())
+                      .toList(),
+                  customTypes: context.read<CustomTypeProvider>().liabilityCustomTypes,
+                  selectedTypeId: provider.liabilityTypeFilterId,
+                  onTypeSelected: (id) => provider.setLiabilityTypeFilterById(id),
                   onManageCustomTypes: () => _showManageDialog(context),
                   allLabel: '全部负债',
                 ),
@@ -82,12 +84,12 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               // 负债列表
               liabilities.isEmpty
                   ? SliverFillRemaining(
-                      child: assetProvider.liabilityTypeFilterId != null
-                          ? _EmptyFilterState(onClear: () => assetProvider.clearLiabilityTypeFilter())
+                      child: provider.liabilityTypeFilterId != null
+                          ? _EmptyFilterState(onClear: () => provider.clearLiabilityTypeFilter())
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
-                      child: TwoLevelGroupedAssetList(assets: liabilities),
+                      child: LiabilityGroupedList(liabilities: liabilities),
                     ),
             ],
           ),
@@ -99,12 +101,12 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
                 MaterialPageRoute(
                   builder: (_) => AssetFormScreen(
                     assetTypesFilter: true, // 仅显示负债类型
-                    defaultTypeId: assetProvider.liabilityTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
+                    defaultTypeId: provider.liabilityTypeFilterId, // 传递当前筛选的类型 ID（支持自定义类型）
                   ),
                 ),
               );
               if (result == true && mounted) {
-                context.read<AssetProvider>().loadAssets();
+                context.read<FinancialProvider>().loadFinancialRecords();
               }
             },
             child: const Icon(Icons.add),
@@ -124,7 +126,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
         if (mounted) {
           context.read<CustomTypeProvider>().loadCustomTypes();
         }
-        // TODO: 重新加载资产列表
+        // TODO: 重新加载负债列表
       }
     });
   }

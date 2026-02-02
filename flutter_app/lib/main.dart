@@ -9,6 +9,7 @@ import 'core/app.dart';
 import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/custom_type_provider.dart';
+import 'providers/financial_provider.dart';
 import 'providers/theme_provider.dart';
 
 /// 隐财 (Yincai) - 本地加密的家庭资产登记管理工具
@@ -51,6 +52,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AssetProvider()),
+        ChangeNotifierProvider(create: (_) => FinancialProvider()),
         ChangeNotifierProvider(create: (_) => CustomTypeProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
