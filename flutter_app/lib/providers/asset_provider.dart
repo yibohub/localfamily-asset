@@ -259,18 +259,6 @@ class AssetProvider with ChangeNotifier {
     try {
       // 调用 Rust Core 加载数据
       final assetsJson = await _ffi.getAllAssets();
-      final logMsg = '===== loadAssets: 从 Rust 返回 ${assetsJson.length} 条资产 =====';
-      debugPrint(logMsg);
-      await _logToFile(logMsg);
-
-      if (assetsJson.isNotEmpty) {
-        final firstLog = '第一条资产 JSON: ${assetsJson.first}';
-        final lastLog = '最后一条资产 JSON: ${assetsJson.last}';
-        debugPrint(firstLog);
-        debugPrint(lastLog);
-        await _logToFile(firstLog);
-        await _logToFile(lastLog);
-      }
 
       _assets.clear();
       for (final json in assetsJson) {
@@ -280,19 +268,6 @@ class AssetProvider with ChangeNotifier {
           debugPrint('解析资产失败: $e, JSON: $json');
           await _logToFile('解析资产失败: $e, JSON: $json');
         }
-      }
-
-      final parsedLog = 'loadAssets: 解析后资产数量 = ${_assets.length}';
-      debugPrint(parsedLog);
-      await _logToFile(parsedLog);
-
-      if (_assets.isNotEmpty) {
-        final firstAssetLog = '第一条资产: name=${_assets.first.name}, buyPrice=${_assets.first.buyPrice}, currentPrice=${_assets.first.currentPrice}';
-        final lastAssetLog = '最后一条资产: name=${_assets.last.name}, buyPrice=${_assets.last.buyPrice}, currentPrice=${_assets.last.currentPrice}';
-        debugPrint(firstAssetLog);
-        debugPrint(lastAssetLog);
-        await _logToFile(firstAssetLog);
-        await _logToFile(lastAssetLog);
       }
 
       _isLoading = false;
