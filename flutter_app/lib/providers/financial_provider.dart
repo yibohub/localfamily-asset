@@ -449,7 +449,7 @@ class FinancialProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _ffi.deleteAsset(id) == FfiErrorCode.success;
+      final success = await _ffi.deleteAsset(id);
 
       if (success) {
         await _loadAssets();
@@ -472,7 +472,7 @@ class FinancialProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _ffi.deleteAsset(id) == FfiErrorCode.success;
+      final success = await _ffi.deleteLiability(id);
 
       if (success) {
         await _loadLiabilities();

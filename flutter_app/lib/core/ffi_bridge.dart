@@ -115,6 +115,8 @@ class FfiBridge {
   ) _updateAssetWithExtraFields;
 
   // 负债专用 FFI 函数
+  late final ffi.Pointer<ffi.Char> Function() _getAllLiabilities;
+  late final int Function(ffi.Pointer<ffi.Char>) _deleteLiability;
   late final int Function(
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.Char>,
@@ -365,6 +367,14 @@ class FfiBridge {
         .asFunction();
 
     // 负债专用函数
+    _getAllLiabilities = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_all_liabilities')
+        .asFunction();
+
+    _deleteLiability = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('delete_liability')
+        .asFunction();
+
     _addLiabilityWithExtraFields = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(
           ffi.Pointer<ffi.Char>,
@@ -1053,6 +1063,36 @@ class FfiBridge {
   // ============================================================
   // 负债专用方法
   // ============================================================
+
+  /// 获取所有负债
+  Future<List<Map<String, dynamic>>> getAllLiabilities() async {
+    final resultPtr = _getAllLiabilities();
+    if (resultPtr == ffi.nullptr) {
+      return [];
+    }
+
+    try {
+      final charPtr = resultPtr.cast<ffi.Int8>();
+      final length = _strlen(charPtr);
+      final bytes = charPtr.cast<ffi.Uint8>().asTypedList(length);
+      final jsonStr = const Utf8Decoder().convert(bytes);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList.cast<Map<String, dynamic>>();
+    } finally {
+      malloc.free(resultPtr);
+    }
+  }
+
+  /// 删除负债
+  Future<bool> deleteLiability(String id) async {
+    final idPtr = id.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _deleteLiability(idPtr);
+      return result == FfiErrorCode.success;
+    } finally {
+      malloc.free(idPtr);
+    }
+  }
 
   /// 添加负债（支持扩展字段）
   Future<bool> addLiabilityWithExtraFields({
