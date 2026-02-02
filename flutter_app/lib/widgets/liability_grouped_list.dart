@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/financial_models.dart';
 import '../utils/currency_utils.dart';
 import 'liability_list_tile.dart';
+import '../screens/financial_record_detail_screen.dart';
+import '../widgets/financial_record_form.dart';
 
 /// 2级分组负债列表组件
 ///
@@ -179,15 +181,14 @@ class _LenderGroupTile extends StatelessWidget {
 
   /// 导航到详情页
   void _navigateToDetail(BuildContext context, Liability liability) {
-    // TODO: 实现导航到财务记录详情页
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (_) => FinancialRecordDetailScreen(
-    //       recordId: liability.id,
-    //       recordType: RecordType.liability,
-    //     ),
-    //   ),
-    // );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FinancialRecordDetailScreen(
+          recordId: liability.id,
+          recordType: RecordType.liability,
+        ),
+      ),
+    );
   }
 }
