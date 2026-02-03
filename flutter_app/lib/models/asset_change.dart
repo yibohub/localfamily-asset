@@ -74,6 +74,12 @@ class AssetChange {
   bool get _isLiability {
     // 优先从新数据快照获取类型
     if (dataSnapshotNew != null) {
+      // 先检查 liability_type（负债专用字段）
+      final liabilityTypeStr = dataSnapshotNew!['liability_type'] as String?;
+      if (liabilityTypeStr != null) {
+        return true; // 有 liability_type 字段就是负债
+      }
+      // 再检查 asset_type（资产字段，但也包含负债类型）
       final typeStr = dataSnapshotNew!['asset_type'] as String?;
       if (typeStr != null) {
         final type = AssetTypeExtension.fromString(typeStr);
@@ -84,6 +90,10 @@ class AssetChange {
     }
     // 其次从旧数据快照获取类型
     if (dataSnapshotOld != null) {
+      final liabilityTypeStr = dataSnapshotOld!['liability_type'] as String?;
+      if (liabilityTypeStr != null) {
+        return true;
+      }
       final typeStr = dataSnapshotOld!['asset_type'] as String?;
       if (typeStr != null) {
         final type = AssetTypeExtension.fromString(typeStr);
@@ -101,16 +111,20 @@ class AssetChange {
 
   /// 获取变更描述
   String get changeDescription {
+    // 获取名称（优先使用新名称，其次使用旧名称）
+    final String? displayName = nameNew ?? nameOld;
+
     switch (changeType) {
       case ChangeType.created:
         return '新增了$_typeName ${nameNew ?? ""}';
       case ChangeType.deleted:
         return '删除了$_typeName ${nameOld ?? ""}';
       case ChangeType.updated:
+        final recordName = displayName != null && displayName.isNotEmpty ? '「$displayName」' : '';
         if (changedField != null) {
-          return '修改了${_typeName}的${_translateField(changedField!)}';
+          return '修改了${_typeName}$recordName的${_translateField(changedField!)}';
         }
-        return '修改了$_typeName';
+        return '修改了${_typeName}$recordName';
     }
   }
 
@@ -147,6 +161,7 @@ class AssetChange {
     final buffer = StringBuffer();
 
     if (changeType == ChangeType.updated) {
+      // 手动处理的常见字段（保持原有逻辑）
       if (nameOld != null && nameNew != null && nameOld != nameNew) {
         buffer.writeln('名称从 "$nameOld" 改为 "$nameNew"');
       }
@@ -157,53 +172,89 @@ class AssetChange {
       if (occurrenceDateOld != null && occurrenceDateNew != null && occurrenceDateOld != occurrenceDateNew) {
         buffer.writeln('发生日期从 ${_formatDate(occurrenceDateOld!)} 改为 ${_formatDate(occurrenceDateNew!)}');
       }
-      // 显示买入价变化
-      final buyPriceOld = dataSnapshotOld?['buy_price'] as double?;
-      final buyPriceNew = dataSnapshotNew?['buy_price'] as double?;
-      if (buyPriceOld != null || buyPriceNew != null) {
-        if (buyPriceOld != buyPriceNew) {
-          final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
-          if (buyPriceOld != null) {
-            buffer.write('买入价从 ${_formatAmount(buyPriceOld, currency)}');
-          } else {
-            buffer.write('买入价');
-          }
-          if (buyPriceNew != null) {
-            buffer.writeln('改为 ${_formatAmount(buyPriceNew, currency)}');
-          } else {
-            buffer.writeln('已清除');
-          }
-        }
-      }
-      // 显示现价变化
-      final currentPriceOld = dataSnapshotOld?['current_price'] as double?;
-      final currentPriceNew = dataSnapshotNew?['current_price'] as double?;
-      if (currentPriceOld != null || currentPriceNew != null) {
-        if (currentPriceOld != currentPriceNew) {
-          final currency = dataSnapshotNew?['currency'] as String? ?? 'CNY';
-          if (currentPriceOld != null) {
-            buffer.write('现价从 ${_formatAmount(currentPriceOld, currency)}');
-          } else {
-            buffer.write('现价');
-          }
-          if (currentPriceNew != null) {
-            buffer.writeln('改为 ${_formatAmount(currentPriceNew, currency)}');
-          } else {
-            buffer.writeln('已清除');
-          }
-        }
-      }
-      // 显示备注变化
-      final noteOld = dataSnapshotOld?['note'] as String?;
-      final noteNew = dataSnapshotNew?['note'] as String?;
-      if (noteOld != null || noteNew != null) {
-        if (noteOld != noteNew) {
-          if (noteOld != null && noteOld.isNotEmpty) {
-            buffer.writeln('备注从 "$noteOld" 改为 "$noteNew"');
-          } else if (noteNew != null && noteNew.isNotEmpty) {
-            buffer.writeln('备注添加为 "$noteNew"');
-          } else if (noteNew != null) {
-            buffer.writeln('备注已清除');
+
+      // 自动检测其他字段的变化
+      if (dataSnapshotOld != null && dataSnapshotNew != null) {
+        final oldData = dataSnapshotOld!;
+        final newData = dataSnapshotNew!;
+
+        // 获取所有可能的字段键（合并新旧数据的键）
+        final allKeys = {...oldData.keys, ...newData.keys};
+
+        // 排除已经手动处理的字段和系统字段
+        final handledFields = {
+          'id', 'name', 'amount', 'currency', 'occurrence_date',
+          'created_at', 'updated_at',
+        };
+
+        // 字段名中文映射
+        final fieldNames = {
+          'asset_type': '资产类型',
+          'liability_type': '负债类型',
+          'account': '账户',
+          'tags': '标签',
+          'buy_price': '买入价',
+          'current_price': '现价',
+          'code': '代码',
+          'exchange': '交易所',
+          'quantity': '数量',
+          'address': '地址',
+          'building_area': '建筑面积',
+          'living_area': '使用面积',
+          'property_type': '房屋类型',
+          'rooms': '房间数',
+          'floor': '楼层',
+          'build_year': '建成年份',
+          'ownership_type': '产权性质',
+          'deed_number': '不动产证号',
+          'deposit_account_type': '账户类型',
+          'deposit_period': '存期',
+          'maturity_date': '到期日期',
+          'deposit_interest_rate': '利率',
+          'policy_number': '保单号',
+          'insurance_type': '保险类型',
+          'insured': '被保人',
+          'beneficiary': '受益人',
+          'coverage_amount': '保额',
+          'premium': '保费',
+          'premium_period': '缴费期限',
+          'coverage_period': '保险期限',
+          'insurer': '保险公司',
+          'lender': '债权人',
+          'due_date': '到期日',
+          'interest_rate': '年利率',
+          'repayment_method': '还款方式',
+          'loan_term': '贷款期限',
+          'last_four_digits': '卡号后四位',
+          'billing_date': '账单日',
+          'payment_due_date': '还款日',
+          'credit_limit': '信用额度',
+          'cash_limit': '取现额度',
+          'annual_fee': '年费',
+          'issuer': '发卡行',
+          'property_address': '房产地址',
+          'original_loan_amount': '原始贷款金额',
+          'remaining_principal': '剩余本金',
+          'loan_type': '贷款类型',
+          'vehicle_brand': '车辆品牌',
+          'vehicle_model': '车型',
+          'license_plate': '车牌号',
+          'purpose': '借款用途',
+          'has_interest': '是否有利息',
+          'repayment_plan': '还款计划',
+          'note': '备注',
+        };
+
+        for (final key in allKeys) {
+          if (handledFields.contains(key)) continue;
+
+          final oldValue = oldData[key];
+          final newValue = newData[key];
+
+          // 只有值不同时才记录
+          if (!_valuesEqual(oldValue, newValue)) {
+            final fieldName = fieldNames[key] ?? key;
+            buffer.writeln('${_formatFieldValueChange(fieldName, oldValue, newValue)}');
           }
         }
       }
@@ -236,6 +287,83 @@ class AssetChange {
     }
 
     return buffer.toString().trim();
+  }
+
+  /// 比较两个值是否相等
+  bool _valuesEqual(dynamic a, dynamic b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.toString() == b.toString();
+  }
+
+  /// 格式化字段值变化
+  String _formatFieldValueChange(String fieldName, dynamic oldValue, dynamic newValue) {
+    final oldStr = _formatFieldValue(oldValue);
+    final newStr = _formatFieldValue(newValue);
+
+    if (oldStr.isEmpty) {
+      return '$fieldName：设置为 $newStr';
+    } else if (newStr.isEmpty) {
+      return '$fieldName：已清除（原值：$oldStr）';
+    } else {
+      return '$fieldName：$oldStr → $newStr';
+    }
+  }
+
+  /// 格式化单个字段值
+  String _formatFieldValue(dynamic value) {
+    if (value == null) return '';
+    if (value is bool) return value ? '是' : '否';
+    if (value is double || value is int) return value.toString();
+    if (value is List) return (value as List).join(', ');
+    // 翻译枚举值
+    if (value is String) {
+      return _translateEnumValue(value);
+    }
+    return value.toString();
+  }
+
+  /// 翻译枚举值为中文
+  String _translateEnumValue(String value) {
+    // 还款方式
+    const repaymentMethodMap = {
+      'equal_principal_and_interest': '等额本息',
+      'equal_principal': '等额本金',
+      'bullet_payment': '到期还本付息',
+      'monthly_interest': '按月付息到期还本',
+      'custom': '自定义',
+    };
+
+    // 资产类型
+    const assetTypeMap = {
+      'property': '房产',
+      'deposit': '存款',
+      'stock': '股票',
+      'fund': '基金',
+      'insurance': '保单',
+    };
+
+    // 负债类型
+    const liabilityTypeMap = {
+      'debt': '其他负债',
+      'mortgage': '房贷',
+      'car_loan': '车贷',
+      'credit_card': '信用卡',
+      'personal_loan': '个人贷款',
+      'private_loan': '私人借款',
+    };
+
+    // 存款账户类型
+    const depositAccountTypeMap = {
+      'checking': '活期',
+      'savings': '定期',
+    };
+
+    return repaymentMethodMap[value] ??
+           assetTypeMap[value] ??
+           liabilityTypeMap[value] ??
+           depositAccountTypeMap[value] ??
+           value;
   }
 
   String _formatAmount(double amount, String currency) {
