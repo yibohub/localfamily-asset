@@ -174,25 +174,39 @@ localfamily-asset/
 │   ├── test_driver/              # 测试驱动脚本
 │   ├── lib/
 │   │   ├── core/                 # 核心层
-│   │   │   ├── ffi_bridge.dart   # FFI 桥接层，封装所有 Rust 调用
+│   │   │   ├── ffi_bridge.dart   # FFI 桥接层
 │   │   │   ├── theme.dart        # 主题配置
 │   │   │   └── app.dart          # 应用入口
-│   │   ├── models/               # 数据模型（与 Rust 保持一致）
-│   │   │   ├── asset.dart        # Asset 模型 + AssetType 枚举
+│   │   ├── models/               # 数据模型
+│   │   │   ├── financial_models.dart  # 新模型：Asset, Liability 分离
+│   │   │   ├── asset.dart        # 旧模型（将遗弃）
+│   │   │   ├── custom_asset_type.dart
 │   │   │   └── portfolio_summary.dart
 │   │   ├── providers/            # Provider 状态管理
+│   │   │   ├── financial_provider.dart  # 新 Provider
+│   │   │   ├── asset_provider.dart     # 旧 Provider（将遗弃）
 │   │   │   ├── auth_provider.dart
-│   │   │   └── asset_provider.dart
+│   │   │   └── custom_type_provider.dart
 │   │   ├── screens/              # 页面
 │   │   │   ├── splash_screen.dart
 │   │   │   ├── home_screen.dart
 │   │   │   ├── auth/
 │   │   │   │   ├── setup_screen.dart
 │   │   │   │   └── lock_screen.dart
-│   │   │   ├── asset_list_screen.dart
-│   │   │   ├── asset_form_screen.dart
-│   │   │   └── asset_detail_screen.dart
+│   │   │   ├── main/             # 新主界面（分离模型）
+│   │   │   │   ├── main_navigation_screen.dart
+│   │   │   │   ├── assets_tab_screen.dart
+│   │   │   │   ├── liabilities_tab_screen.dart
+│   │   │   │   └── overview_tab_screen.dart
+│   │   │   ├── financial_record_form_screen.dart
+│   │   │   ├── financial_record_detail_screen.dart
+│   │   │   ├── financial_list_screen.dart
+│   │   │   ├── asset_list_screen.dart   # 旧页面（将遗弃）
+│   │   │   ├── asset_form_screen.dart   # 旧页面（将遗弃）
+│   │   │   └── asset_detail_screen.dart # 旧页面（将遗弃）
 │   │   ├── widgets/              # 通用组件
+│   │   │   ├── smart_financial_record_name_input.dart
+│   │   │   ├── smart_asset_name_input.dart  # 旧组件（将遗弃）
 │   │   │   ├── asset_summary_card.dart
 │   │   │   └── asset_list_item.dart
 │   │   └── main.dart
@@ -222,31 +236,28 @@ Flutter 与 Rust 的通信通过原始 C FFI 实现（未使用 flutter_rust_bri
 | `init_app(db_path)` | 初始化应用，设置数据库路径 |
 | `setup_password(password, hint)` | 设置主密码，生成盐值并派生密钥 |
 | `verify_password(password)` | 验证密码，成功后保存密钥到状态 |
-| `add_asset(...)` / `update_asset(...)` / `delete_asset(id)` | 资产 CRUD |
-| `get_all_assets()` | 返回 JSON 数组（需 free_string） |
+| `add_asset_with_extra_fields()` / `add_liability_with_extra_fields()` | 新模型：添加资产/负债 |
+| `update_asset_with_extra_fields()` / `update_liability_with_extra_fields()` | 新模型：更新资产/负债 |
+| `get_assets_only()` / `get_liabilities_only()` | 新模型：分离获取资产/负债 |
+| `delete_asset()` / `delete_liability()` | 删除资产/负债 |
 | `export_data(password, output_path)` | 导出加密 Zip |
 | `import_data(password, input_path)` | 导入加密 Zip |
 
 ---
 
-## 数据模型
+## 数据模型（新模型 - financial_models.dart）
 
-### AssetType 枚举（必须保持 Rust ↔ Dart 一致）
+### AssetType 枚举（资产）
 
-| 值 | Rust | Dart | 中文名称 |
-|---|------|------|----------|
-| 0 | `Property` | `AssetType.property` | 房产 |
-| 1 | `Deposit` | `AssetType.deposit` | 存款 |
-| 2 | `Stock` | `AssetType.stock` | 股票 |
-| 3 | `Fund` | `AssetType.fund` | 基金 |
-| 4 | `Insurance` | `AssetType.insurance` | 保单 |
-| 5 | `Debt` | `AssetType.debt` | 负债 |
+| 值 | Dart | 中文名称 |
+|---|------|----------|
+| `property` | `AssetType.property` | 房产 |
+| `deposit` | `AssetType.deposit` | 存款 |
+| `stock` | `AssetType.stock` | 股票 |
+| `fund` | `AssetType.fund` | 基金 |
+| `insurance` | `AssetType.insurance` | 保单 |
 
-**重要**：修改枚举值时需同步更新：
-- `rust_core/src/ffi.rs` 的 `asset_type_from_int()`
-- `flutter_app/lib/models/asset.dart` 的 `AssetTypeExtension`
-
-### LiabilityType 枚举
+### LiabilityType 枚举（负债）
 
 | Dart 枚举值 | Rust 存储值 | 中文名称 |
 |------------|-------------|----------|
@@ -287,6 +298,22 @@ pub liability_type: String,  // "car_loan"
 ```
 
 **字段映射**：`depositAccountType` ↔ `deposit_account_type`
+
+---
+
+## ⚠️ 数据模型架构变更（v0.1.0+）
+
+**v0.1.0+ 使用分离模型，旧模型将遗弃。新功能必须使用新模型。**
+
+| 旧模型（⚠️ 遗弃） | 新模型（✅ 推荐） |
+|------------------|------------------|
+| `models/asset.dart` | `models/financial_models.dart` |
+| `AssetProvider` | `FinancialProvider` |
+| 统一 `Asset` 类 | 分离 `Asset` / `Liability` |
+| `smart_asset_name_input.dart` | `smart_financial_record_name_input.dart` |
+| `getAllAssets()` | `getAssetsOnly()` / `getLiabilitiesOnly()` |
+
+**迁移**：`AssetProvider` → `FinancialProvider`，使用 `Asset`/`Liability` 替代统一 `Asset`。
 
 ---
 
