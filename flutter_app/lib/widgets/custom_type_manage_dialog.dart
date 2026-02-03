@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/financial_models.dart';
+import '../models/custom_asset_type.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/custom_type_provider.dart';
