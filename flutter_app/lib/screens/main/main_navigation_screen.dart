@@ -8,6 +8,7 @@ import '../../providers/custom_type_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../core/ffi_bridge.dart';
 import '../auth/lock_screen.dart';
+import '../asset_history_screen.dart';
 import 'assets_tab_screen.dart';
 import 'overview_tab_screen.dart';
 import 'liabilities_tab_screen.dart';
@@ -177,6 +178,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               },
             ),
             const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('操作记录'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AssetHistoryScreen(
+                      assetId: null, // null = 显示全部操作记录
+                    ),
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.lock),
               title: const Text('锁定应用'),

@@ -74,7 +74,7 @@ class AssetChange {
   bool get _isLiability {
     // 优先从新数据快照获取类型
     if (dataSnapshotNew != null) {
-      final typeStr = dataSnapshotNew!['type'] as String?;
+      final typeStr = dataSnapshotNew!['asset_type'] as String?;
       if (typeStr != null) {
         final type = AssetTypeExtension.fromString(typeStr);
         if (type != null) {
@@ -84,7 +84,7 @@ class AssetChange {
     }
     // 其次从旧数据快照获取类型
     if (dataSnapshotOld != null) {
-      final typeStr = dataSnapshotOld!['type'] as String?;
+      final typeStr = dataSnapshotOld!['asset_type'] as String?;
       if (typeStr != null) {
         final type = AssetTypeExtension.fromString(typeStr);
         if (type != null) {

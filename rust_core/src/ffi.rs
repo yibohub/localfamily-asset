@@ -1795,15 +1795,26 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
+    // 计算修改的字段（在移动变量之前）
+    let mut changed_fields = Vec::new();
+    if existing.name != name { changed_fields.push("名称"); }
+    if existing.amount != amount { changed_fields.push("金额"); }
+    if existing.currency != currency { changed_fields.push("币种"); }
+    if existing.asset_type != asset_type { changed_fields.push("类型"); }
+    if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
+        changed_fields.push("发生日期");
+    }
+    if existing.note != note { changed_fields.push("备注"); }
+
     // 创建基础更新对象
     let mut asset = Asset {
-        id,
-        name,
-        asset_type,
+        id: id.clone(),
+        name: name.clone(),
+        asset_type: asset_type.clone(),
         amount,
-        currency,
-        occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
-        note,
+        currency: currency.clone(),
+        occurrence_date: occurrence_date.clone().unwrap_or_else(|| existing.occurrence_date.clone()),
+        note: note.clone(),
         // 默认保留现有值
         account: existing.account.clone(),
         tags: existing.tags.clone(),
@@ -1941,8 +1952,32 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
     }
 
     match AssetRepository::update(&conn, &asset) {
-        Ok(_) => FfiErrorCode::Success as c_int,
-        Err(_) => FfiErrorCode::DatabaseError as c_int,
+        Ok(_) => {
+            // 在解析扩展字段后，检查扩展字段的变化
+            if existing.account != asset.account { changed_fields.push("账户"); }
+            if existing.buy_price != asset.buy_price { changed_fields.push("买入价"); }
+            if existing.current_price != asset.current_price { changed_fields.push("现价"); }
+            if existing.tags != asset.tags { changed_fields.push("标签"); }
+
+            let changed_field = if changed_fields.is_empty() {
+                None
+            } else if changed_fields.len() == 1 {
+                Some(changed_fields[0].to_string())
+            } else {
+                Some(changed_fields.join(", "))
+            };
+
+            // 记录审计日志
+            let change = AssetChange::new(asset.id.clone(), ChangeType::Updated)
+                .with_updated_snapshots(&existing, &asset, changed_field);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        }
+        Err(e) => {
+            eprintln!("更新资产失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
     }
 }
 
@@ -2135,8 +2170,18 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
     }
 
     match LiabilityRepository::create(&conn, &liability) {
-        Ok(_) => FfiErrorCode::Success as c_int,
-        Err(_) => FfiErrorCode::DatabaseError as c_int,
+        Ok(id) => {
+            // 记录审计日志
+            let change = AssetChange::new(id.clone(), ChangeType::Created)
+                .with_created_snapshot_for_liability(&liability);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        }
+        Err(e) => {
+            eprintln!("创建负债失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
     }
 }
 
@@ -2224,15 +2269,26 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
+    // 计算修改的字段（在移动变量之前）
+    let mut changed_fields = Vec::new();
+    if existing.name != name { changed_fields.push("名称"); }
+    if existing.amount != amount { changed_fields.push("金额"); }
+    if existing.currency != currency { changed_fields.push("币种"); }
+    if existing.liability_type != liability_type { changed_fields.push("类型"); }
+    if occurrence_date.is_some() && existing.occurrence_date != *occurrence_date.as_ref().unwrap() {
+        changed_fields.push("发生日期");
+    }
+    if existing.note != note { changed_fields.push("备注"); }
+
     // 更新字段
     let mut liability = Liability {
-        id,
-        name,
-        liability_type: liability_type,
+        id: id.clone(),
+        name: name.clone(),
+        liability_type: liability_type.clone(),
         amount,
-        currency,
-        occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),
-        note,
+        currency: currency.clone(),
+        occurrence_date: occurrence_date.clone().unwrap_or_else(|| existing.occurrence_date.clone()),
+        note: note.clone(),
         // 贷款类通用字段
         lender: existing.lender.clone(),
         due_date: existing.due_date.clone(),
@@ -2349,8 +2405,32 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
     }
 
     match LiabilityRepository::update(&conn, &liability) {
-        Ok(_) => FfiErrorCode::Success as c_int,
-        Err(_) => FfiErrorCode::DatabaseError as c_int,
+        Ok(_) => {
+            // 在解析扩展字段后，检查扩展字段的变化
+            if existing.lender != liability.lender { changed_fields.push("债权人"); }
+            if existing.interest_rate != liability.interest_rate { changed_fields.push("利率"); }
+            if existing.due_date != liability.due_date { changed_fields.push("到期日"); }
+            if existing.repayment_method != liability.repayment_method { changed_fields.push("还款方式"); }
+
+            let changed_field = if changed_fields.is_empty() {
+                None
+            } else if changed_fields.len() == 1 {
+                Some(changed_fields[0].to_string())
+            } else {
+                Some(changed_fields.join(", "))
+            };
+
+            // 记录审计日志
+            let change = AssetChange::new(id, ChangeType::Updated)
+                .with_updated_snapshots_for_liability(&existing, &liability, changed_field);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        }
+        Err(e) => {
+            eprintln!("更新负债失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
     }
 }
 
@@ -2373,8 +2453,22 @@ pub unsafe extern "C" fn delete_liability(id: *const c_char) -> c_int {
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
+    // 先获取现有负债用于审计日志
+    let existing = match LiabilityRepository::get(&conn, &id) {
+        Ok(l) => l,
+        Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
+        Err(_) => return FfiErrorCode::DatabaseError as c_int,
+    };
+
     match LiabilityRepository::delete(&conn, &id) {
-        Ok(_) => FfiErrorCode::Success as c_int,
+        Ok(_) => {
+            // 记录审计日志
+            let change = AssetChange::new(id, ChangeType::Deleted)
+                .with_deleted_snapshot_for_liability(&existing);
+            let _ = AssetChangeRepository::create(&conn, &change);
+
+            FfiErrorCode::Success as c_int
+        }
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }

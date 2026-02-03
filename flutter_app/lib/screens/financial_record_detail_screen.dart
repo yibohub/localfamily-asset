@@ -9,6 +9,7 @@ import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
 import '../widgets/financial_record_form.dart' show RecordType;
 import 'financial_record_form_screen.dart';
+import 'asset_history_screen.dart';
 
 /// 金融记录详情页
 class FinancialRecordDetailScreen extends StatefulWidget {
@@ -113,6 +114,20 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
       appBar: AppBar(
         title: Text(_record.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '操作记录',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AssetHistoryScreen(
+                    assetId: widget.recordId, // 显示该记录的历史
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: '编辑',

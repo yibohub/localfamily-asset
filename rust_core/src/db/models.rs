@@ -236,6 +236,43 @@ impl AssetChange {
         self.changed_field = changed_field;
         self
     }
+
+    /// 设置 Created 类型的快照（Liability 版本）
+    pub fn with_created_snapshot_for_liability(mut self, new_liability: &Liability) -> Self {
+        self.data_snapshot_new = Some(serde_json::to_string(new_liability).unwrap_or_default());
+        self.name_new = Some(new_liability.name.clone());
+        self.amount_new = Some(new_liability.amount);
+        self.occurrence_date_new = Some(new_liability.occurrence_date.clone());
+        self
+    }
+
+    /// 设置 Deleted 类型的快照（Liability 版本）
+    pub fn with_deleted_snapshot_for_liability(mut self, old_liability: &Liability) -> Self {
+        self.data_snapshot_old = Some(serde_json::to_string(old_liability).unwrap_or_default());
+        self.name_old = Some(old_liability.name.clone());
+        self.amount_old = Some(old_liability.amount);
+        self.occurrence_date_old = Some(old_liability.occurrence_date.clone());
+        self
+    }
+
+    /// 设置 Updated 类型的快照（Liability 版本）
+    pub fn with_updated_snapshots_for_liability(
+        mut self,
+        old_liability: &Liability,
+        new_liability: &Liability,
+        changed_field: Option<String>
+    ) -> Self {
+        self.data_snapshot_old = Some(serde_json::to_string(old_liability).unwrap_or_default());
+        self.data_snapshot_new = Some(serde_json::to_string(new_liability).unwrap_or_default());
+        self.name_old = Some(old_liability.name.clone());
+        self.name_new = Some(new_liability.name.clone());
+        self.amount_old = Some(old_liability.amount);
+        self.amount_new = Some(new_liability.amount);
+        self.occurrence_date_old = Some(old_liability.occurrence_date.clone());
+        self.occurrence_date_new = Some(new_liability.occurrence_date.clone());
+        self.changed_field = changed_field;
+        self
+    }
 }
 
 // ============================================================
