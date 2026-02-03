@@ -59,7 +59,16 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
                       .toList(),
                   customTypes: context.read<CustomTypeProvider>().liabilityCustomTypes,
                   selectedTypeId: provider.liabilityTypeFilterId,
-                  onTypeSelected: (id) => provider.setLiabilityTypeFilterById(id),
+                  onTypeSelected: (id) {
+                    provider.setLiabilityTypeFilterById(id);
+                    // 同时保存到 Provider，以便添加时使用
+                    if (id != null) {
+                      final liabilityType = LiabilityTypeExtension.fromString(id);
+                      if (liabilityType != null) {
+                        provider.setLastSelectedLiabilityType(liabilityType);
+                      }
+                    }
+                  },
                   onManageCustomTypes: () => _showManageDialog(context),
                   allLabel: '全部负债',
                 ),
@@ -106,11 +115,22 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
 
   /// 显示添加页面
   void _showAddDialog(BuildContext context) {
+    // 从筛选器或 Provider 获取初始类型
+    final provider = context.read<FinancialProvider>();
+    LiabilityType? initialLiabilityType;
+    if (provider.liabilityTypeFilterId != null) {
+      initialLiabilityType = LiabilityTypeExtension.fromString(provider.liabilityTypeFilterId!);
+    }
+    if (initialLiabilityType == null) {
+      initialLiabilityType = provider.lastSelectedLiabilityType;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FinancialRecordFormScreen(
           initialType: RecordType.liability,
+          initialLiabilityType: initialLiabilityType,
         ),
       ),
     ).then((result) {

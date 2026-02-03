@@ -3,6 +3,8 @@
 /// 与 Rust Core 的 CustomAssetType 结构对应
 library;
 
+import 'package:flutter/material.dart';
+
 /// 自定义资产类型
 class CustomAssetType {
   final String id;
@@ -105,5 +107,3 @@ class CustomAssetType {
     return Colors.teal;
   }
 }
-
-import 'package:flutter/material.dart';

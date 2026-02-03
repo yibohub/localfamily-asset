@@ -54,6 +54,13 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     setState(() {
       _selectedTypeId = typeId;
     });
+    // 同时保存到 Provider，以便添加时使用
+    if (typeId != null) {
+      final assetType = AssetTypeExtension.fromString(typeId);
+      if (assetType != null) {
+        context.read<FinancialProvider>().setLastSelectedAssetType(assetType);
+      }
+    }
   }
 
   @override
@@ -158,11 +165,21 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
 
   /// 显示添加页面
   void _showAddDialog(BuildContext context) {
+    // 从筛选器或 Provider 获取初始类型
+    AssetType? initialAssetType;
+    if (_selectedTypeId != null) {
+      initialAssetType = AssetTypeExtension.fromString(_selectedTypeId!);
+    }
+    if (initialAssetType == null) {
+      initialAssetType = context.read<FinancialProvider>().lastSelectedAssetType;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FinancialRecordFormScreen(
           initialType: RecordType.asset,
+          initialAssetType: initialAssetType,
         ),
       ),
     ).then((result) {

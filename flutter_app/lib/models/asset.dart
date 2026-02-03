@@ -1,4 +1,5 @@
 import 'financial_models.dart';
+import 'custom_asset_type.dart';
 
 /// 资产类型枚举（与 Rust Core 保持一致）
 enum AssetType {

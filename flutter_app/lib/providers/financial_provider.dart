@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../core/ffi_bridge.dart';
 import '../models/financial_models.dart';
+import '../models/custom_asset_type.dart';
 
 /// 金融记录状态管理
 class FinancialProvider with ChangeNotifier {
