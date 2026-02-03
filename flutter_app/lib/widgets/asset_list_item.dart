@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/asset.dart';
-import '../models/custom_asset_type.dart';
+
 import '../providers/custom_type_provider.dart';
 import '../core/theme.dart';
 import '../utils/currency_utils.dart';

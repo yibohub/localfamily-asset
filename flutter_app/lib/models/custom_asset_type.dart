@@ -64,4 +64,46 @@ class CustomAssetType {
   static bool isCustomId(String id) {
     return id.startsWith('custom_');
   }
+
+  /// 获取显示名称
+  String get displayName => name;
+
+  /// 获取图标数据
+  IconData get icon {
+    // 根据图标名称返回对应的图标
+    switch (iconName) {
+      case 'home':
+        return Icons.home;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'pie_chart':
+        return Icons.pie_chart;
+      case 'security':
+        return Icons.security;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'home_work':
+        return Icons.home_work;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'person':
+        return Icons.person;
+      case 'handshake':
+        return Icons.handshake;
+      default:
+        return Icons.category;
+    }
+  }
+
+  /// 获取图标颜色
+  Color get color {
+    if (isLiability) {
+      return Colors.deepOrange;
+    }
+    return Colors.teal;
+  }
 }
+
+import 'package:flutter/material.dart';

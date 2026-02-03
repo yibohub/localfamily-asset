@@ -72,12 +72,21 @@ class _FinancialListScreenState extends State<FinancialListScreen>
   void _showAddDialog(BuildContext context) {
     final currentIndex = _tabController.index;
     final initialType = currentIndex == 0 ? RecordType.asset : RecordType.liability;
+    final provider = context.read<FinancialProvider>();
+
+    // 传递 Provider 中保存的最后选择类型
+    final initialAssetType = provider.lastSelectedAssetType;
+    final initialLiabilityType = provider.lastSelectedLiabilityType;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FinancialRecordFormDialog(initialType: initialType),
+      builder: (context) => FinancialRecordFormDialog(
+        initialType: initialType,
+        initialAssetType: initialAssetType,
+        initialLiabilityType: initialLiabilityType,
+      ),
     );
   }
 }

@@ -1,10 +1,11 @@
 import 'dart:convert';
+import '../models/financial_models.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/asset_change.dart';
-import '../models/custom_asset_type.dart';
+
 import '../models/portfolio_summary.dart';
 import '../core/ffi_bridge.dart';
 

@@ -16,11 +16,15 @@ import '../widgets/financial_record_form.dart' show RecordType, FormMode;
 class FinancialRecordFormScreen extends StatefulWidget {
   final dynamic record; // Asset? or Liability?
   final RecordType initialType;
+  final AssetType? initialAssetType; // 新增：初始资产类型
+  final LiabilityType? initialLiabilityType; // 新增：初始负债类型
 
   const FinancialRecordFormScreen({
     super.key,
     this.record,
     required this.initialType,
+    this.initialAssetType,
+    this.initialLiabilityType,
   });
 
   @override
@@ -118,8 +122,15 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
   void initState() {
     super.initState();
     _selectedRecordType = widget.initialType;
-    _selectedAssetType = AssetType.deposit;
-    _selectedLiabilityType = LiabilityType.debt;
+    final provider = context.read<FinancialProvider>();
+
+    // 使用传入的初始类型，如果没有则使用 Provider 中保存的最后选择，最后使用默认值
+    _selectedAssetType = widget.initialAssetType ??
+                        provider.lastSelectedAssetType ??
+                        AssetType.deposit;
+    _selectedLiabilityType = widget.initialLiabilityType ??
+                            provider.lastSelectedLiabilityType ??
+                            LiabilityType.debt;
     _occurrenceDate = DateTime.now();
 
     // 如果是编辑模式，加载数据
@@ -579,7 +590,11 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         return ChoiceChip(
           label: Text(type.displayName),
           selected: isSelected,
-          onSelected: (_) => setState(() => _selectedAssetType = type),
+          onSelected: (_) {
+            setState(() => _selectedAssetType = type);
+            // 保存选择到 Provider
+            context.read<FinancialProvider>().setLastSelectedAssetType(type);
+          },
           avatar: Icon(
             type.icon,
             size: 18,
@@ -603,7 +618,11 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         return ChoiceChip(
           label: Text(type.displayName),
           selected: isSelected,
-          onSelected: (_) => setState(() => _selectedLiabilityType = type),
+          onSelected: (_) {
+            setState(() => _selectedLiabilityType = type);
+            // 保存选择到 Provider
+            context.read<FinancialProvider>().setLastSelectedLiabilityType(type);
+          },
           avatar: Icon(
             type.icon,
             size: 18,

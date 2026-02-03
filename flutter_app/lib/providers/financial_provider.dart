@@ -17,6 +17,9 @@ class FinancialProvider with ChangeNotifier {
   // 负债列表
   List<Liability> _liabilities = [];
 
+  // 自定义类型列表
+  List<CustomAssetType> _customAssetTypes = [];
+
   // 负债类型筛选器（支持自定义类型 ID，格式: "custom_xxx"）
   String? _liabilityTypeFilterId;
 
@@ -27,14 +30,25 @@ class FinancialProvider with ChangeNotifier {
   // Getters
   List<Asset> get assets => _assets;
   List<Liability> get liabilities => _liabilities;
+  List<CustomAssetType> get customAssetTypes => _customAssetTypes;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get liabilityTypeFilterId => _liabilityTypeFilterId;
 
+  /// 获取自定义资产类型（不包括负债）
+  List<CustomAssetType> get customAssetTypesOnly {
+    return _customAssetTypes.where((t) => !t.isLiability).toList();
+  }
+
+  /// 获取自定义负债类型
+  List<CustomAssetType> get customLiabilityTypes {
+    return _customAssetTypes.where((t) => t.isLiability).toList();
+  }
+
   /// 获取筛选后的负债列表
   List<Liability> get filteredLiabilities {
     if (_liabilityTypeFilterId == null) return _liabilities;
-    return _liabilities.where((l) => l.type.name == _liabilityTypeFilterId).toList();
+    return _liabilities.where((l) => l.type.snakeCaseName == _liabilityTypeFilterId).toList();
   }
 
   /// 计算总资产
@@ -99,10 +113,11 @@ class FinancialProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // 并行加载资产和负债
+      // 并行加载资产、负债和自定义类型
       final results = await Future.wait([
         _loadAssets(),
         _loadLiabilities(),
+        _loadCustomTypes(),
       ]);
 
       final success = results.every((r) => r);
@@ -113,6 +128,21 @@ class FinancialProvider with ChangeNotifier {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
+      return false;
+    }
+  }
+
+  /// 加载自定义类型
+  Future<bool> _loadCustomTypes() async {
+    try {
+      final types = await _ffi.getCustomAssetTypes();
+      _customAssetTypes = types.map((json) {
+        return CustomAssetType.fromJson(json);
+      }).toList();
+      return true;
+    } catch (e) {
+      debugPrint('加载自定义类型失败: $e');
+      _customAssetTypes = [];
       return false;
     }
   }
@@ -558,5 +588,81 @@ class FinancialProvider with ChangeNotifier {
   void clearLiabilityTypeFilter() {
     _liabilityTypeFilterId = null;
     notifyListeners();
+  }
+
+  // 记住最后选择的类型（用于表单默认值）
+  AssetType? _lastSelectedAssetType;
+  LiabilityType? _lastSelectedLiabilityType;
+
+  /// 获取最后选择的资产类型
+  AssetType? get lastSelectedAssetType => _lastSelectedAssetType;
+
+  /// 获取最后选择的负债类型
+  LiabilityType? get lastSelectedLiabilityType => _lastSelectedLiabilityType;
+
+  /// 设置最后选择的资产类型
+  void setLastSelectedAssetType(AssetType? type) {
+    _lastSelectedAssetType = type;
+    notifyListeners();
+  }
+
+  /// 设置最后选择的负债类型
+  void setLastSelectedLiabilityType(LiabilityType? type) {
+    _lastSelectedLiabilityType = type;
+    notifyListeners();
+  }
+
+  /// 创建自定义资产类型
+  Future<Map<String, dynamic>> createCustomAssetType({
+    required String name,
+    required String iconName,
+    required bool isLiability,
+  }) async {
+    try {
+      final result = await _ffi.createCustomAssetType(
+        name: name,
+        iconName: iconName,
+        isLiability: isLiability,
+      );
+
+      // 如果创建成功，重新加载自定义类型列表
+      if (result['success'] == true) {
+        await _loadCustomTypes();
+        notifyListeners();
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('创建自定义类型失败: $e');
+      return {'error': e.toString()};
+    }
+  }
+
+  /// 删除自定义资产类型
+  Future<bool> deleteCustomAssetType(String id) async {
+    try {
+      final success = await _ffi.deleteCustomAssetType(id);
+
+      // 如果删除成功，重新加载自定义类型列表
+      if (success) {
+        await _loadCustomTypes();
+        notifyListeners();
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('删除自定义类型失败: $e');
+      return false;
+    }
+  }
+
+  /// 检查自定义类型是否被使用
+  Future<bool> isCustomTypeInUse(String id) async {
+    try {
+      return await _ffi.isCustomTypeInUse(id);
+    } catch (e) {
+      debugPrint('检查自定义类型使用情况失败: $e');
+      return false;
+    }
   }
 }

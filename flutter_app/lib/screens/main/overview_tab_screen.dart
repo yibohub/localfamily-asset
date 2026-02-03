@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/asset.dart';
-import '../../models/custom_asset_type.dart';
-import '../../providers/asset_provider.dart';
-import '../../providers/custom_type_provider.dart';
+import '../../models/financial_models.dart';
+import '../../providers/financial_provider.dart';
 import '../../utils/currency_utils.dart';
 
 /// 总览标签页 - 显示资产和负债总览
@@ -13,16 +11,15 @@ class OverviewTabScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AssetProvider, CustomTypeProvider>(
-      builder: (context, assetProvider, customTypeProvider, child) {
-        if (assetProvider.isLoading) {
+    return Consumer<FinancialProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final customTypes = customTypeProvider.customTypes;
-        final summary = assetProvider.getSummaryWithCustomTypes(customTypes);
-        final assetsOnly = assetProvider.getAssetsOnly(customTypes);
-        final liabilitiesOnly = assetProvider.getLiabilitiesOnly(customTypes);
+        final summary = provider.getPortfolioSummary();
+        final assets = provider.assets;
+        final liabilities = provider.liabilities;
 
         return Scaffold(
           body: CustomScrollView(
@@ -36,31 +33,25 @@ class OverviewTabScreen extends StatelessWidget {
               ),
 
               // 资产分布
-              if (assetsOnly.isNotEmpty)
+              if (assets.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: _TypeBreakdownSection(
-                      title: '资产分布',
-                      assets: assetsOnly,
+                    child: _AssetBreakdownSection(
+                      assets: assets,
                       total: summary.totalAssets,
-                      isLiability: false,
-                      customTypes: customTypes,
                     ),
                   ),
                 ),
 
               // 负债分布
-              if (liabilitiesOnly.isNotEmpty)
+              if (liabilities.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: _TypeBreakdownSection(
-                      title: '负债分布',
-                      assets: liabilitiesOnly,
+                    child: _LiabilityBreakdownSection(
+                      liabilities: liabilities,
                       total: summary.totalLiabilities,
-                      isLiability: true,
-                      customTypes: customTypes,
                     ),
                   ),
                 ),
@@ -74,7 +65,7 @@ class OverviewTabScreen extends StatelessWidget {
 
 /// 总览统计卡片
 class _OverviewSummaryCard extends StatelessWidget {
-  final dynamic summary;
+  final PortfolioSummary summary;
 
   const _OverviewSummaryCard({required this.summary});
 
@@ -167,28 +158,22 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-/// 类型分布部分
-class _TypeBreakdownSection extends StatelessWidget {
-  final String title;
+/// 资产类型分布部分
+class _AssetBreakdownSection extends StatelessWidget {
   final List<Asset> assets;
   final double total;
-  final bool isLiability;
-  final List<CustomAssetType> customTypes;
 
-  const _TypeBreakdownSection({
-    required this.title,
+  const _AssetBreakdownSection({
     required this.assets,
     required this.total,
-    required this.isLiability,
-    required this.customTypes,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 按类型分组（使用 String 作为键）
-    final typeGroups = <String, double>{};
+    // 按类型分组
+    final typeGroups = <AssetType, double>{};
     for (final asset in assets) {
       typeGroups[asset.type] = (typeGroups[asset.type] ?? 0.0) + asset.amount;
     }
@@ -200,7 +185,7 @@ class _TypeBreakdownSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              '资产分布',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -209,14 +194,12 @@ class _TypeBreakdownSection extends StatelessWidget {
             ...typeGroups.entries.map((entry) {
               final amount = entry.value;
               final percentage = total > 0 ? (amount / total * 100) : 0.0;
-              return _TypeBreakdownItem(
+              return _AssetBreakdownItem(
                 type: entry.key,
                 amount: amount,
                 percentage: percentage,
-                isLiability: isLiability,
-                customTypes: customTypes,
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -224,28 +207,21 @@ class _TypeBreakdownSection extends StatelessWidget {
   }
 }
 
-/// 类型分布项
-class _TypeBreakdownItem extends StatelessWidget {
-  final String type;
+/// 资产类型分布项
+class _AssetBreakdownItem extends StatelessWidget {
+  final AssetType type;
   final double amount;
   final double percentage;
-  final bool isLiability;
-  final List<CustomAssetType> customTypes;
 
-  const _TypeBreakdownItem({
+  const _AssetBreakdownItem({
     required this.type,
     required this.amount,
     required this.percentage,
-    required this.isLiability,
-    required this.customTypes,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // 从字符串类型获取显示名称和图标
-    final typeInfo = _getTypeInfo(type, customTypes);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -257,23 +233,17 @@ class _TypeBreakdownItem extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    typeInfo.icon,
-                    size: 16,
-                    color: isLiability ? Colors.red[400] : null,
-                  ),
+                  Icon(type.icon, size: 16, color: type.color),
                   const SizedBox(width: 8),
                   Text(
-                    typeInfo.name,
+                    type.displayName,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
               Text(
                 CurrencyUtils.formatAmount(amount, 'CNY'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isLiability ? Colors.red[400] : null,
-                ),
+                style: theme.textTheme.bodyMedium,
               ),
             ],
           ),
@@ -281,9 +251,7 @@ class _TypeBreakdownItem extends StatelessWidget {
           LinearProgressIndicator(
             value: percentage / 100,
             backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isLiability ? Colors.red[400]! : theme.colorScheme.primary,
-            ),
+            valueColor: AlwaysStoppedAnimation<Color>(type.color),
           ),
           const SizedBox(height: 2),
           Align(
@@ -299,69 +267,117 @@ class _TypeBreakdownItem extends StatelessWidget {
       ),
     );
   }
+}
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'home':
-        return Icons.home;
-      case 'account_balance':
-        return Icons.account_balance;
-      case 'trending_up':
-        return Icons.trending_up;
-      case 'pie_chart':
-        return Icons.pie_chart;
-      case 'security':
-        return Icons.security;
-      case 'credit_card':
-        return Icons.credit_card;
-      case 'home_work':
-        return Icons.home_work;
-      case 'directions_car':
-        return Icons.directions_car;
-      case 'person':
-        return Icons.person;
-      case 'handshake':
-        return Icons.handshake;
-      default:
-        return Icons.help_outline;
-    }
-  }
+/// 负债类型分布部分
+class _LiabilityBreakdownSection extends StatelessWidget {
+  final List<Liability> liabilities;
+  final double total;
 
-  /// 从字符串类型获取类型信息
-  _TypeInfo _getTypeInfo(String typeStr, List<CustomAssetType> customTypes) {
-    // 尝试解析为内置类型
-    final builtInType = AssetTypeExtension.fromString(typeStr);
-    if (builtInType != null) {
-      return _TypeInfo(
-        name: builtInType.displayName,
-        icon: _getIconData(builtInType.iconName),
-      );
+  const _LiabilityBreakdownSection({
+    required this.liabilities,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // 按类型分组
+    final typeGroups = <LiabilityType, double>{};
+    for (final liability in liabilities) {
+      typeGroups[liability.type] = (typeGroups[liability.type] ?? 0.0) + liability.amount;
     }
 
-    // 查找自定义类型
-    final customType = customTypes.cast<CustomAssetType?>().firstWhere(
-      (t) => t?.id == typeStr,
-      orElse: () => null,
-    );
-    if (customType != null) {
-      return _TypeInfo(
-        name: customType.name,
-        icon: _getIconData(customType.iconName),
-      );
-    }
-
-    // 未知类型 - 使用字符串本身
-    return _TypeInfo(
-      name: typeStr.replaceAll('custom_', ''),
-      icon: Icons.category,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '负债分布',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...typeGroups.entries.map((entry) {
+              final amount = entry.value;
+              final percentage = total > 0 ? (amount / total * 100) : 0.0;
+              return _LiabilityBreakdownItem(
+                type: entry.key,
+                amount: amount,
+                percentage: percentage,
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// 类型信息（名称和图标）
-class _TypeInfo {
-  final String name;
-  final IconData icon;
+/// 负债类型分布项
+class _LiabilityBreakdownItem extends StatelessWidget {
+  final LiabilityType type;
+  final double amount;
+  final double percentage;
 
-  const _TypeInfo({required this.name, required this.icon});
+  const _LiabilityBreakdownItem({
+    required this.type,
+    required this.amount,
+    required this.percentage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(type.icon, size: 16, color: type.color),
+                  const SizedBox(width: 8),
+                  Text(
+                    type.displayName,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+              Text(
+                CurrencyUtils.formatAmount(amount, 'CNY'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.red[400],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: percentage / 100,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(type.color),
+          ),
+          const SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${percentage.toStringAsFixed(1)}%',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

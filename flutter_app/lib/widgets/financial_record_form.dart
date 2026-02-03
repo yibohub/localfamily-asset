@@ -22,11 +22,15 @@ enum RecordType { asset, liability }
 class FinancialRecordFormDialog extends StatefulWidget {
   final dynamic record; // Asset? or Liability?
   final RecordType initialType;
+  final AssetType? initialAssetType; // 新增：初始资产类型
+  final LiabilityType? initialLiabilityType; // 新增：初始负债类型
 
   const FinancialRecordFormDialog({
     super.key,
     this.record,
     required this.initialType,
+    this.initialAssetType,
+    this.initialLiabilityType,
   });
 
   @override
@@ -101,8 +105,15 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
   void initState() {
     super.initState();
     _selectedRecordType = widget.initialType;
-    _selectedAssetType = AssetType.deposit;
-    _selectedLiabilityType = LiabilityType.debt;
+    final provider = context.read<FinancialProvider>();
+
+    // 使用传入的初始类型，如果没有则使用 Provider 中保存的最后选择，最后使用默认值
+    _selectedAssetType = widget.initialAssetType ??
+                        provider.lastSelectedAssetType ??
+                        AssetType.deposit;
+    _selectedLiabilityType = widget.initialLiabilityType ??
+                            provider.lastSelectedLiabilityType ??
+                            LiabilityType.debt;
 
     // 如果是编辑模式，加载数据
     if (widget.record != null) {
@@ -496,6 +507,8 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
             : (value) {
                 if (value != null) {
                   setState(() => _selectedAssetType = value);
+                  // 保存选择到 Provider
+                  context.read<FinancialProvider>().setLastSelectedAssetType(value);
                 }
               },
       );
@@ -514,6 +527,8 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
             : (value) {
                 if (value != null) {
                   setState(() => _selectedLiabilityType = value);
+                  // 保存选择到 Provider
+                  context.read<FinancialProvider>().setLastSelectedLiabilityType(value);
                 }
               },
       );
