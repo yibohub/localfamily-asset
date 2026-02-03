@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
+import 'smart_financial_record_name_input.dart';
 
 /// 表单模式
 enum FormMode {
@@ -242,6 +243,14 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
   }
 
   Future<void> _save() async {
+    // 验证名称
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入名称')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -419,21 +428,20 @@ class _FinancialRecordFormDialogState extends State<FinancialRecordFormDialog> {
 
     return Column(
       children: [
-        // 名称
-        TextFormField(
-          controller: _nameController,
-          decoration: InputDecoration(
-            labelText: '$typeLabel名称',
-            hintText: _selectedRecordType == RecordType.asset
-                ? '例如：苹果公司股票'
-                : '例如：招商银行房贷',
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return '请输入$typeLabel名称';
-            }
-            return null;
-          },
+        // 名称（智能提示）
+        SmartFinancialRecordNameInput(
+          nameController: _nameController,
+          subAccountController: _accountController,
+          assetTypeFilter: _selectedRecordType == RecordType.asset && _selectedAssetType != null
+              ? [_selectedAssetType!]
+              : null,
+          liabilityTypeFilter: _selectedRecordType == RecordType.liability && _selectedLiabilityType != null
+              ? [_selectedLiabilityType!]
+              : null,
+          labelText: '$typeLabel名称',
+          hintText: _selectedRecordType == RecordType.asset
+              ? '例如：苹果公司股票'
+              : '例如：招商银行房贷',
         ),
         const SizedBox(height: 16),
 

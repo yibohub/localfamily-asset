@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
 import '../widgets/financial_record_form.dart' show RecordType, FormMode;
+import '../widgets/smart_financial_record_name_input.dart';
 
 /// 金融记录表单页面（全屏）
 class FinancialRecordFormScreen extends StatefulWidget {
@@ -286,6 +287,14 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
   }
 
   Future<void> _handleSave() async {
+    // 验证名称
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入名称')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -512,22 +521,20 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         else
           _buildLiabilityTypeSelector(),
         const SizedBox(height: 16),
-        // 名称
-        TextFormField(
-          controller: _nameController,
-          decoration: InputDecoration(
-            labelText: '$typeLabel名称',
-            hintText: _selectedRecordType == RecordType.asset
-                ? '例如：苹果公司股票'
-                : '例如：招商银行房贷',
-            border: const OutlineInputBorder(),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return '请输入$typeLabel名称';
-            }
-            return null;
-          },
+        // 名称（智能提示）
+        SmartFinancialRecordNameInput(
+          nameController: _nameController,
+          subAccountController: _accountController,
+          assetTypeFilter: _selectedRecordType == RecordType.asset && _selectedAssetType != null
+              ? [_selectedAssetType!]
+              : null,
+          liabilityTypeFilter: _selectedRecordType == RecordType.liability && _selectedLiabilityType != null
+              ? [_selectedLiabilityType!]
+              : null,
+          labelText: '$typeLabel名称',
+          hintText: _selectedRecordType == RecordType.asset
+              ? '例如：苹果公司股票'
+              : '例如：招商银行房贷',
         ),
         const SizedBox(height: 16),
         // 金额
