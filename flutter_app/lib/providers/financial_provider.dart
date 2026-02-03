@@ -24,6 +24,11 @@ class FinancialProvider with ChangeNotifier {
   // 负债类型筛选器（支持自定义类型 ID，格式: "custom_xxx"）
   String? _liabilityTypeFilterId;
 
+  // 搜索结果
+  final List<Asset> _assetSearchResults = [];
+  final List<Liability> _liabilitySearchResults = [];
+  bool _isSearching = false;
+
   // 加载状态
   bool _isLoading = false;
   String? _errorMessage;
@@ -35,6 +40,9 @@ class FinancialProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get liabilityTypeFilterId => _liabilityTypeFilterId;
+  List<Asset> get assetSearchResults => _assetSearchResults;
+  List<Liability> get liabilitySearchResults => _liabilitySearchResults;
+  bool get isSearching => _isSearching;
 
   /// 获取自定义资产类型（不包括负债）
   List<CustomAssetType> get customAssetTypesOnly {
@@ -665,5 +673,97 @@ class FinancialProvider with ChangeNotifier {
       debugPrint('检查自定义类型使用情况失败: $e');
       return false;
     }
+  }
+
+  /// 按名称搜索资产
+  Future<void> searchAssetsByName(String namePattern, {List<AssetType>? types}) async {
+    if (namePattern.trim().isEmpty) {
+      _assetSearchResults.clear();
+      _isSearching = false;
+      notifyListeners();
+      return;
+    }
+
+    _isSearching = true;
+    notifyListeners();
+
+    try {
+      final results = <Asset>[];
+      for (final asset in _assets) {
+        // 检查名称是否匹配
+        if (!asset.name.toLowerCase().contains(namePattern.toLowerCase())) {
+          continue;
+        }
+
+        // 如果有类型过滤，检查类型是否匹配
+        if (types != null && types.isNotEmpty) {
+          if (!types.contains(asset.type)) {
+            continue;
+          }
+        }
+
+        results.add(asset);
+      }
+
+      _assetSearchResults.clear();
+      _assetSearchResults.addAll(results);
+      _isSearching = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('搜索资产失败: $e');
+      _isSearching = false;
+      _assetSearchResults.clear();
+      notifyListeners();
+    }
+  }
+
+  /// 按名称搜索负债
+  Future<void> searchLiabilitiesByName(String namePattern, {List<LiabilityType>? types}) async {
+    if (namePattern.trim().isEmpty) {
+      _liabilitySearchResults.clear();
+      _isSearching = false;
+      notifyListeners();
+      return;
+    }
+
+    _isSearching = true;
+    notifyListeners();
+
+    try {
+      final results = <Liability>[];
+      for (final liability in _liabilities) {
+        // 检查名称是否匹配
+        if (!liability.name.toLowerCase().contains(namePattern.toLowerCase())) {
+          continue;
+        }
+
+        // 如果有类型过滤，检查类型是否匹配
+        if (types != null && types.isNotEmpty) {
+          if (!types.contains(liability.type)) {
+            continue;
+          }
+        }
+
+        results.add(liability);
+      }
+
+      _liabilitySearchResults.clear();
+      _liabilitySearchResults.addAll(results);
+      _isSearching = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('搜索负债失败: $e');
+      _isSearching = false;
+      _liabilitySearchResults.clear();
+      notifyListeners();
+    }
+  }
+
+  /// 清除搜索结果
+  void clearSearch() {
+    _assetSearchResults.clear();
+    _liabilitySearchResults.clear();
+    _isSearching = false;
+    notifyListeners();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/asset.dart';
+import '../models/custom_asset_type.dart';
 
 import '../providers/asset_provider.dart';
 import '../providers/custom_type_provider.dart';
