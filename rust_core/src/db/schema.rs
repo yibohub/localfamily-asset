@@ -474,6 +474,113 @@ fn migrate_v6_add_extended_fields(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// 迁移 v7：重命名 type 列为 asset_type
+/// SQLite 不支持直接重命名列，需要重建表
+fn migrate_v7_rename_type_to_asset_type(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("========== 开始数据库迁移 v7：重命名 type 列为 asset_type ==========");
+
+    // 检查当前列名
+    let mut stmt = conn.prepare("PRAGMA table_info(assets)")
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let rows = stmt.query_map([], |row| {
+        let col_name: String = row.get(1).unwrap_or_default();
+        Ok(col_name)
+    }).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let existing_columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+    eprintln!("当前 assets 表的列: {:?}", existing_columns);
+
+    // 如果已经有 asset_type 列，跳过迁移
+    if existing_columns.contains(&"asset_type".to_string()) {
+        eprintln!("跳过迁移 v7：asset_type 列已存在");
+        return Ok(());
+    }
+
+    // 如果没有 type 列但有 asset_type 列（理论上不应该发生），也跳过
+    if !existing_columns.contains(&"type".to_string()) {
+        eprintln!("跳过迁移 v7：type 列不存在（可能是新数据库）");
+        return Ok(());
+    }
+
+    eprintln!("开始重建 assets 表，将 type 列重命名为 asset_type...");
+
+    // 清理之前可能失败的迁移
+    let _ = conn.execute("DROP TABLE IF EXISTS assets_new", []);
+
+    // SQLite 不支持 ALTER TABLE RENAME COLUMN，需要重建表
+    // 1. 获取原表的 CREATE TABLE 语句，然后替换 type 为 asset_type
+    let create_sql: String = conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='assets'",
+        [],
+        |row| row.get(0),
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    eprintln!("原表 CREATE SQL: {}", create_sql);
+
+    // 替换表名和列名
+    let new_create_sql = create_sql
+        .replace("CREATE TABLE assets", "CREATE TABLE assets_new")
+        .replace("type TEXT NOT NULL", "asset_type TEXT NOT NULL")
+        .replace(",type TEXT,", ",asset_type TEXT,")
+        .replace(", type TEXT NOT NULL,", ", asset_type TEXT NOT NULL,");
+
+    eprintln!("新表 CREATE SQL: {}", new_create_sql);
+
+    // 2. 创建新表
+    conn.execute(&new_create_sql, [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    // 3. 复制数据（将 type 映射到 asset_type）
+    // 构建列列表（type 改为 asset_type）
+    let columns_list = existing_columns.iter()
+        .map(|c| if c == "type" { "asset_type".to_string() } else { c.clone() })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let source_columns = existing_columns.iter()
+        .map(|c| if c == "type" { "type as asset_type".to_string() } else { c.clone() })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let copy_sql = format!(
+        "INSERT INTO assets_new ({}) SELECT {} FROM assets",
+        columns_list, source_columns
+    );
+
+    eprintln!("复制数据 SQL: {}", copy_sql);
+
+    conn.execute(&copy_sql, [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    // 4. 删除旧表
+    conn.execute("DROP TABLE assets", [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    // 5. 重命名新表
+    conn.execute("ALTER TABLE assets_new RENAME TO assets", [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    // 6. 重建索引
+    // 删除旧索引（如果存在）
+    let _ = conn.execute("DROP INDEX IF EXISTS idx_assets_type", []);
+    let _ = conn.execute("DROP INDEX IF EXISTS idx_assets_created_at", []);
+
+    // 创建新索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(asset_type)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assets_created_at ON assets(created_at)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    eprintln!("========== 完成数据库迁移 v7 ==========");
+    Ok(())
+}
+
 /// 强制检查并添加 buy_price 和 current_price 列
 /// 无论数据库版本如何，都确保这两个列存在
 fn ensure_price_columns_exist(conn: &Connection) -> Result<(), DbError> {
@@ -566,6 +673,11 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     if version < 6 {
         migrate_v6_add_extended_fields(conn)?;
         set_schema_version(conn, 6)?;
+    }
+
+    if version < 7 {
+        migrate_v7_rename_type_to_asset_type(conn)?;
+        set_schema_version(conn, 7)?;
     }
 
     // 插入默认设置

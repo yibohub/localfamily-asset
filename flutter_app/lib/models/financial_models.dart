@@ -612,7 +612,7 @@ class Asset extends FinancialRecord {
       'ownership_type': ownershipType,
       'deed_number': deedNumber,
       // 存款字段
-      'account_type': depositAccountType,
+      'deposit_account_type': depositAccountType,
       'deposit_period': depositPeriod,
       'maturity_date': maturityDate?.toIso8601String(),
       'deposit_interest_rate': depositInterestRate,
@@ -674,7 +674,7 @@ class Asset extends FinancialRecord {
       ownershipType: json['ownership_type'] as String?,
       deedNumber: json['deed_number'] as String?,
       // 存款字段
-      depositAccountType: json['account_type'] as String?,
+      depositAccountType: json['deposit_account_type'] as String?,
       depositPeriod: json['deposit_period'] as int?,
       maturityDate: json['maturity_date'] != null
           ? DateTime.parse(json['maturity_date'] as String)
@@ -950,7 +950,7 @@ class Liability extends FinancialRecord {
       id: json['id'] as String,
       name: json['name'] as String,
       type: LiabilityType.values.firstWhere(
-        (e) => e.name == json['liability_type'],
+        (e) => e.snakeCaseName == json['liability_type'],
         orElse: () => LiabilityType.debt,
       ),
       amount: (json['amount'] as num).toDouble(),

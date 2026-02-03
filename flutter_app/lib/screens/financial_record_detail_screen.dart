@@ -37,10 +37,16 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
   void _loadRecord() {
     final provider = context.read<FinancialProvider>();
     setState(() {
-      if (widget.recordType == RecordType.asset) {
-        _record = provider.assets.firstWhere((a) => a.id == widget.recordId);
-      } else {
-        _record = provider.liabilities.firstWhere((l) => l.id == widget.recordId);
+      try {
+        if (widget.recordType == RecordType.asset) {
+          _record = provider.assets.firstWhere((a) => a.id == widget.recordId);
+        } else {
+          _record = provider.liabilities.firstWhere((l) => l.id == widget.recordId);
+        }
+      } catch (e) {
+        // 记录未找到，可能刚刚被删除或列表未刷新
+        debugPrint('记录未找到: $e');
+        _record = null;
       }
     });
   }
@@ -78,7 +84,26 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
     if (_record == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('详情')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text('记录未找到'),
+              const SizedBox(height: 8),
+              Text(
+                '该记录可能已被删除',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('返回'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -130,7 +155,28 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           // 负债信息
           if (!isAsset) ...[
             const SizedBox(height: 16),
-            _buildLiabilityInfo(context),
+            _buildLoanBasicInfo(context),
+            // 信用卡信息
+            if ((_record as Liability).isCreditCard) ...[
+              const SizedBox(height: 16),
+              _buildCreditCardInfo(context),
+            ],
+            // 房贷信息
+            if ((_record as Liability).type == LiabilityType.mortgage) ...[
+              const SizedBox(height: 16),
+              _buildMortgageInfo(context),
+            ],
+            // 车贷信息
+            if ((_record as Liability).type == LiabilityType.carLoan) ...[
+              const SizedBox(height: 16),
+              _buildCarLoanInfo(context),
+            ],
+            // 个人/私人借款信息
+            if ((_record as Liability).type == LiabilityType.personalLoan ||
+                (_record as Liability).type == LiabilityType.privateLoan) ...[
+              const SizedBox(height: 16),
+              _buildPersonalLoanInfo(context),
+            ],
           ],
           // 备注信息
           if (_record.note != null && _record.note!.isNotEmpty) ...[
@@ -231,12 +277,6 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           _buildInfoTile(context, isAsset ? '资产类型' : '负债类型', _getTypeDisplayName()),
           _buildInfoTile(context, '货币', _record.currency),
           _buildInfoTile(context, '发生日期', _formatDate(_record.occurrenceDate)),
-          if (!isAsset && _record.lender != null)
-            _buildInfoTile(context, '债权人/机构', _record.lender!),
-          if (!isAsset && _record.interestRate != null)
-            _buildInfoTile(context, '年利率', '${_record.interestRate!.toStringAsFixed(2)}%'),
-          if (!isAsset && _record.repaymentMethod != null)
-            _buildInfoTile(context, '还款方式', _record.repaymentMethod!.displayName),
           const SizedBox(height: 8),
         ],
       ),
@@ -375,7 +415,10 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
     );
   }
 
-  Widget _buildLiabilityInfo(BuildContext context) {
+  /// 贷款/借款基本信息卡片
+  Widget _buildLoanBasicInfo(BuildContext context) {
+    final liability = _record as Liability;
+
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,21 +426,141 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '负债信息',
+              '贷款/借款信息',
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
+          if (_record.lender != null)
+            _buildInfoTile(context, '债权人/机构', liability.lender!),
+          if (_record.interestRate != null)
+            _buildInfoTile(context, '年利率', '${_record.interestRate!.toStringAsFixed(2)}%'),
+          if (liability.repaymentMethod != null)
+            _buildInfoTile(context, '还款方式', liability.repaymentMethod!.displayName),
           if (_record.dueDate != null)
             _buildInfoTile(context, '到期日', _formatDate(_record.dueDate!)),
-          if (_record.isCreditCard && _record.billingDate != null)
-            _buildInfoTile(context, '账单日', '${_record.billingDate!.day}号'),
-          if (_record.isCreditCard && _record.paymentDueDate != null)
-            _buildInfoTile(context, '还款日', '${_record.paymentDueDate!.day}号'),
-          if (_record.isCreditCard && _record.creditLimit != null) ...[
-            _buildInfoTile(context, '信用额度', _formatAmount(_record.creditLimit!, '')),
+          if (liability.loanTerm != null)
+            _buildInfoTile(context, '贷款期限', '${liability.loanTerm} 个月'),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 信用卡信息卡片
+  Widget _buildCreditCardInfo(BuildContext context) {
+    final liability = _record as Liability;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '信用卡信息',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (liability.lastFourDigits != null)
+            _buildInfoTile(context, '卡号后四位', liability.lastFourDigits!),
+          if (liability.billingDate != null)
+            _buildInfoTile(context, '账单日', '${liability.billingDate!.day}号'),
+          if (liability.paymentDueDate != null)
+            _buildInfoTile(context, '还款日', '${liability.paymentDueDate!.day}号'),
+          if (liability.creditLimit != null) ...[
+            _buildInfoTile(context, '信用额度', _formatAmount(liability.creditLimit!, '')),
             if (_record.availableCredit != null)
               _buildInfoTile(context, '可用额度', _formatAmount(_record.availableCredit!, '')),
           ],
+          if (liability.cashLimit != null)
+            _buildInfoTile(context, '取现额度', _formatAmount(liability.cashLimit!, '')),
+          if (liability.annualFee != null)
+            _buildInfoTile(context, '年费', _formatAmount(liability.annualFee!, '')),
+          if (liability.issuer != null)
+            _buildInfoTile(context, '发卡行', liability.issuer!),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 房贷信息卡片
+  Widget _buildMortgageInfo(BuildContext context) {
+    final liability = _record as Liability;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '房贷信息',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (liability.propertyAddress != null)
+            _buildInfoTile(context, '房产地址', liability.propertyAddress!),
+          if (liability.originalLoanAmount != null)
+            _buildInfoTile(context, '原始贷款金额', _formatAmount(liability.originalLoanAmount!, '')),
+          if (liability.remainingPrincipal != null)
+            _buildInfoTile(context, '剩余本金', _formatAmount(liability.remainingPrincipal!, '')),
+          if (liability.loanType != null)
+            _buildInfoTile(context, '贷款类型', liability.loanType!),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 车贷信息卡片
+  Widget _buildCarLoanInfo(BuildContext context) {
+    final liability = _record as Liability;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '车贷信息',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (liability.vehicleBrand != null)
+            _buildInfoTile(context, '车辆品牌', liability.vehicleBrand!),
+          if (liability.vehicleModel != null)
+            _buildInfoTile(context, '车型', liability.vehicleModel!),
+          if (liability.licensePlate != null)
+            _buildInfoTile(context, '车牌号', liability.licensePlate!),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 个人/私人借款信息卡片
+  Widget _buildPersonalLoanInfo(BuildContext context) {
+    final liability = _record as Liability;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '借款信息',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (liability.purpose != null)
+            _buildInfoTile(context, '借款用途', liability.purpose!),
+          if (liability.hasInterest != null)
+            _buildInfoTile(context, '是否有利息', liability.hasInterest == true ? '是' : '否'),
+          if (liability.repaymentPlan != null)
+            _buildInfoTile(context, '还款计划', liability.repaymentPlan!),
           const SizedBox(height: 8),
         ],
       ),

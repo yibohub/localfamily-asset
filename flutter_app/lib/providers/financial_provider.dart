@@ -194,7 +194,7 @@ class FinancialProvider with ChangeNotifier {
       if (asset.deedNumber != null) extraFields['deed_number'] = asset.deedNumber;
 
       // 存款字段
-      if (asset.depositAccountType != null) extraFields['account_type'] = asset.depositAccountType;
+      if (asset.depositAccountType != null) extraFields['deposit_account_type'] = asset.depositAccountType;
       if (asset.depositPeriod != null) extraFields['deposit_period'] = asset.depositPeriod;
       if (asset.maturityDate != null) extraFields['maturity_date'] = asset.maturityDate!.toIso8601String().split('T')[0];
       if (asset.depositInterestRate != null) extraFields['deposit_interest_rate'] = asset.depositInterestRate;
@@ -283,7 +283,7 @@ class FinancialProvider with ChangeNotifier {
 
       final success = await _ffi.addLiabilityWithExtraFields(
         name: liability.name,
-        liabilityType: liability.type.name,
+        liabilityType: liability.type.snakeCaseName,
         amount: liability.amount,
         currency: liability.currency,
         occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],
@@ -338,7 +338,7 @@ class FinancialProvider with ChangeNotifier {
       if (asset.deedNumber != null) extraFields['deed_number'] = asset.deedNumber;
 
       // 存款字段
-      if (asset.depositAccountType != null) extraFields['account_type'] = asset.depositAccountType;
+      if (asset.depositAccountType != null) extraFields['deposit_account_type'] = asset.depositAccountType;
       if (asset.depositPeriod != null) extraFields['deposit_period'] = asset.depositPeriod;
       if (asset.maturityDate != null) extraFields['maturity_date'] = asset.maturityDate!.toIso8601String().split('T')[0];
       if (asset.depositInterestRate != null) extraFields['deposit_interest_rate'] = asset.depositInterestRate;
@@ -429,7 +429,7 @@ class FinancialProvider with ChangeNotifier {
       final success = await _ffi.updateLiabilityWithExtraFields(
         id: liability.id,
         name: liability.name,
-        liabilityType: liability.type.name,
+        liabilityType: liability.type.snakeCaseName,
         amount: liability.amount,
         currency: liability.currency,
         occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],

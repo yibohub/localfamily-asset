@@ -1519,6 +1519,13 @@ pub unsafe extern "C" fn add_asset_with_extra_fields(
                 if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
                     asset.current_price = Some(v);
                 }
+                // 投资类专属字段 - code 和 exchange
+                if let Some(v) = obj.get("code").and_then(|v| v.as_str()) {
+                    asset.code = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("exchange").and_then(|v| v.as_str()) {
+                    asset.exchange = Some(v.to_string());
+                }
 
                 // 房产专属字段
                 if let Some(v) = obj.get("address").and_then(|v| v.as_str()) {
@@ -1850,6 +1857,13 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
                 if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
                     asset.current_price = Some(v);
                 }
+                // 投资类专属字段 - code 和 exchange
+                if let Some(v) = obj.get("code").and_then(|v| v.as_str()) {
+                    asset.code = Some(v.to_string());
+                }
+                if let Some(v) = obj.get("exchange").and_then(|v| v.as_str()) {
+                    asset.exchange = Some(v.to_string());
+                }
 
                 // 房产专属字段
                 if let Some(v) = obj.get("address").and_then(|v| v.as_str()) {
@@ -1965,7 +1979,7 @@ pub unsafe extern "C" fn get_all_liabilities() -> *mut c_char {
 #[no_mangle]
 pub unsafe extern "C" fn add_liability_with_extra_fields(
     name: *const c_char,
-    liability_type: c_int,
+    liability_type: *const c_char,
     amount: c_double,
     currency: *const c_char,
     occurrence_date: *const c_char,
@@ -1977,9 +1991,10 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
         Err(_) => return FfiErrorCode::GenericError as c_int,
     };
 
-    // 将整数类型转换为字符串
-    let liability_type_enum = liability_type_from_int(liability_type);
-    let liability_type_str = liability_type_enum.as_str().to_string();
+    let liability_type = match CStr::from_ptr(liability_type).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
 
     let currency = match CStr::from_ptr(currency).to_str() {
         Ok(s) => s.to_string(),
@@ -2032,7 +2047,7 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
     };
 
     // 解析扩展字段
-    let mut liability = Liability::new(liability_type_str, name, amount);
+    let mut liability = Liability::new(liability_type.clone(), name, amount);
     liability.currency = currency;
     liability.occurrence_date = occurrence_date;
     liability.note = note;
@@ -2130,7 +2145,7 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
 pub unsafe extern "C" fn update_liability_with_extra_fields(
     id: *const c_char,
     name: *const c_char,
-    liability_type: c_int,
+    liability_type: *const c_char,
     amount: c_double,
     currency: *const c_char,
     occurrence_date: *const c_char,
@@ -2147,9 +2162,10 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
         Err(_) => return FfiErrorCode::GenericError as c_int,
     };
 
-    // 将整数类型转换为字符串
-    let liability_type_enum = liability_type_from_int(liability_type);
-    let liability_type_str = liability_type_enum.as_str().to_string();
+    let liability_type = match CStr::from_ptr(liability_type).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
 
     let currency = match CStr::from_ptr(currency).to_str() {
         Ok(s) => s.to_string(),
@@ -2212,7 +2228,7 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
     let mut liability = Liability {
         id,
         name,
-        liability_type: liability_type_str,
+        liability_type: liability_type,
         amount,
         currency,
         occurrence_date: occurrence_date.unwrap_or_else(|| existing.occurrence_date.clone()),

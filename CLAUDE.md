@@ -246,6 +246,48 @@ Flutter 与 Rust 的通信通过原始 C FFI 实现（未使用 flutter_rust_bri
 - `rust_core/src/ffi.rs` 的 `asset_type_from_int()`
 - `flutter_app/lib/models/asset.dart` 的 `AssetTypeExtension`
 
+### LiabilityType 枚举
+
+| Dart 枚举值 | Rust 存储值 | 中文名称 |
+|------------|-------------|----------|
+| `LiabilityType.debt` | `debt` | 其他负债 |
+| `LiabilityType.mortgage` | `mortgage` | 房贷 |
+| `LiabilityType.carLoan` | `car_loan` | 车贷 |
+| `LiabilityType.creditCard` | `credit_card` | 信用卡 |
+| `LiabilityType.personalLoan` | `personal_loan` | 个人贷款 |
+| `LiabilityType.privateLoan` | `private_loan` | 私人借款 |
+
+---
+
+## 命名规则（FFI 通信）
+
+**核心原则**：Dart 驼峰 ↔ Rust 蛇形，FFI 使用蛇形命名
+
+```
+Dart              Rust             FFI
+carLoan     →    car_loan     →   "car_loan"
+creditCard  →    credit_card  →   "credit_card"
+```
+
+**Dart 端**：发送/接收使用 `.snakeCaseName`
+```dart
+// 发送
+liabilityType: liability.type.snakeCaseName
+
+// 接收
+type: LiabilityType.values.firstWhere(
+  (e) => e.snakeCaseName == json['liability_type'],
+  orElse: () => LiabilityType.debt,
+)
+```
+
+**Rust 端**：直接使用蛇形命名
+```rust
+pub liability_type: String,  // "car_loan"
+```
+
+**字段映射**：`depositAccountType` ↔ `deposit_account_type`
+
 ---
 
 ## 环境配置
