@@ -133,12 +133,12 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
     });
 
     if (record is Asset) {
-      widget.nameController.text = record.name;
+      widget.nameController.text = record.name.trim();  // 去除首尾空格
       if (widget.subAccountController != null) {
         widget.subAccountController!.text = record.account ?? '';
       }
     } else if (record is Liability) {
-      widget.nameController.text = record.name;
+      widget.nameController.text = record.name.trim();  // 去除首尾空格
       if (widget.subAccountController != null) {
         // 负债用债权人字段
         widget.subAccountController!.text = record.lender ?? '';

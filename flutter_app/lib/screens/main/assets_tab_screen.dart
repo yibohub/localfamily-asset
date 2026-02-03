@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +11,17 @@ import '../../widgets/custom_type_manage_dialog.dart';
 import '../../widgets/financial_record_form.dart';
 import '../financial_record_form_screen.dart';
 import '../financial_record_detail_screen.dart';
+
+/// 规范化资产名称用于分组（去除所有可能导致无法匹配的差异）
+String _normalizeGroupName(String name) {
+  // 去除首尾空格
+  var normalized = name.trim();
+  // 去除所有内部空格
+  normalized = normalized.replaceAll(' ', '');
+  // 去除零宽空格和其他不可见字符
+  normalized = normalized.replaceAll(RegExp(r'[\u200B\u200C\u200D\uFEFF]'), '');
+  return normalized;
+}
 
 /// 资产标签页 - 显示所有资产（不含负债）
 class AssetsTabScreen extends StatefulWidget {
@@ -127,17 +139,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: filteredAssets.length,
-                        itemBuilder: (context, index) {
-                          final asset = filteredAssets[index];
-                          return _AssetListItem(
-                            asset: asset,
-                            onTap: () => _openDetail(context, asset),
-                          );
-                        },
-                      ),
+                      child: _AssetGroupedList(assets: filteredAssets),
                     ),
             ],
           ),
@@ -385,6 +387,216 @@ class _EmptyListState extends StatelessWidget {
           Text('点击右下角按钮添加', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
         ],
       ),
+    );
+  }
+}
+
+/// 资产分组列表（同名资产合并显示）
+class _AssetGroupedList extends StatelessWidget {
+  final List<Asset> assets;
+
+  const _AssetGroupedList({required this.assets});
+
+  @override
+  Widget build(BuildContext context) {
+    // 按名称分组
+    final grouped = <String, List<Asset>>{};
+    for (final asset in assets) {
+      final normalizedName = _normalizeGroupName(asset.name);
+      if (!grouped.containsKey(normalizedName)) {
+        grouped[normalizedName] = [];
+      }
+      grouped[normalizedName]!.add(asset);
+    }
+
+    // 转换为列表并按总金额排序
+    final sortedGroups = grouped.entries.toList()
+      ..sort((a, b) {
+        final totalA = a.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
+        final totalB = b.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
+        return totalB.compareTo(totalA);
+      });
+
+    // 调试输出
+    if (kDebugMode) {
+      debugPrint('🔍 资产分组调试:');
+      debugPrint('  总资产数: ${assets.length}');
+      debugPrint('  分组数: ${sortedGroups.length}');
+      for (final entry in sortedGroups) {
+        debugPrint('  "${entry.key}": ${entry.value.length} 个账户');
+      }
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: sortedGroups.length,
+      itemBuilder: (context, index) {
+        final entry = sortedGroups[index];
+        return _AssetGroupListItem(
+          groupName: entry.key,
+          assets: entry.value,
+        );
+      },
+    );
+  }
+}
+
+/// 资产分组列表项
+class _AssetGroupListItem extends StatelessWidget {
+  final String groupName;
+  final List<Asset> assets;
+
+  const _AssetGroupListItem({
+    required this.groupName,
+    required this.assets,
+  });
+
+  /// 计算分组总金额
+  double get _totalAmount {
+    return assets.fold(0.0, (sum, asset) => sum + asset.amount);
+  }
+
+  /// 获取分组显示名称（使用第一个资产的原始名称）
+  String get _displayName {
+    return assets.first.name;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 单个资产：直接显示
+    if (assets.length == 1) {
+      return _AssetListItem(
+        asset: assets.first,
+        onTap: () => _openDetail(context, assets.first),
+      );
+    }
+
+    // 多个同名资产：显示可展开的分组
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: assets.first.type.color.withOpacity(0.1),
+          child: Icon(assets.first.type.icon, color: assets.first.type.color, size: 20),
+        ),
+        title: Text(
+          _displayName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Row(
+          children: [
+            Text(
+              '${assets.length}个账户',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '合计 ${CurrencyUtils.formatAmount(_totalAmount, 'CNY')}',
+              style: const TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        children: [
+          const Divider(height: 1),
+          ...assets.asMap().entries.map((entry) {
+            final index = entry.key;
+            final asset = entry.value;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  _AssetSubListItem(
+                    asset: asset,
+                    onTap: () => _openDetail(context, asset),
+                  ),
+                  if (index < assets.length - 1) const Divider(height: 1),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, Asset asset) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FinancialRecordDetailScreen(
+          recordId: asset.id,
+          recordType: RecordType.asset,
+        ),
+      ),
+    );
+  }
+}
+
+/// 资产子列表项（分组内显示）
+class _AssetSubListItem extends StatelessWidget {
+  final Asset asset;
+  final VoidCallback onTap;
+
+  const _AssetSubListItem({
+    required this.asset,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      title: Text(asset.account ?? '无账户'),
+      subtitle: _buildSubtitle(context, asset),
+      trailing: Text(
+        CurrencyUtils.formatAmount(asset.amount, asset.currency),
+        style: const TextStyle(
+          color: Colors.blue,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget? _buildSubtitle(BuildContext context, Asset asset) {
+    final parts = <String>[];
+
+    // 添加类型名称
+    parts.add(asset.type.displayName);
+
+    // 添加投资类信息
+    if (asset.isInvestment) {
+      if (asset.buyPrice != null) {
+        parts.add('买入价: ${asset.buyPrice!.toStringAsFixed(2)}');
+      }
+      if (asset.currentPrice != null) {
+        parts.add('现价: ${asset.currentPrice!.toStringAsFixed(2)}');
+      }
+    }
+
+    // 添加房产信息
+    if (asset.type == AssetType.property) {
+      if (asset.address != null) {
+        parts.add(asset.address!);
+      }
+      if (asset.buildingArea != null) {
+        parts.add('${asset.buildingArea!.toStringAsFixed(0)}㎡');
+      }
+    }
+
+    if (parts.isEmpty) {
+      return null;
+    }
+
+    return Text(
+      parts.join(' · '),
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey[600],
+          ),
     );
   }
 }
