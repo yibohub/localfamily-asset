@@ -47,6 +47,12 @@ flutter build windows
 
 # 代码检查
 flutter analyze
+
+# 运行测试
+flutter test                    # 单元测试 + 组件测试
+flutter drive \                # 集成测试
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/app_test.dart
 ```
 
 ### Rust Core 开发
@@ -216,6 +222,7 @@ Flutter 与 Rust 通过原始 C FFI 通信：
 - 所有导出函数使用 `#[no_mangle]` 和 `extern "C"`
 - 字符串使用 `*const c_char`，调用方负责释放
 - 返回字符串通过 `string_to_c_char()` 转换，调用方使用 `free_string()` 释放
+- 错误通过 `FfiErrorCode` 枚举（负整数）返回
 
 **Flutter 端**（`flutter_app/lib/core/ffi_bridge.dart`）：
 - `FfiBridge` 单例负责加载动态库和函数查找
@@ -228,7 +235,7 @@ Flutter 与 Rust 通过原始 C FFI 通信：
 |------|------|
 | `init_app(db_path)` | 初始化应用 |
 | `setup_password(password, hint)` | 设置主密码 |
-| `verify_password(password)` | 验证密码 |
+| `verify_password(password)` | 验证密码，成功后保存密钥到状态 |
 | `add_asset_with_extra_fields()` | 添加资产 |
 | `add_liability_with_extra_fields()` | 添加负债 |
 | `update_asset_with_extra_fields()` | 更新资产 |
@@ -287,6 +294,7 @@ creditCard  →    credit_card  →   "credit_card"
 ### 数据库加密（计划中）
 - 当前 MVP 版本使用明文 SQLite（开发阶段）
 - 生产版本将实现文件级加密：整个 `.db` 文件用 AES-256-GCM 加密
+- 启动流程：解密文件 → 内存数据库 → 操作 → 加密落盘
 
 ## 许可证
 
