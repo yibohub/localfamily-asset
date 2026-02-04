@@ -2434,6 +2434,32 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
     }
 }
 
+/// 重置应用（清除所有状态）
+///
+/// 此函数用于"忘记密码"场景，彻底清除内存中的所有敏感数据
+/// 调用方应负责删除数据库文件
+#[export_name = "reset_app"]
+pub unsafe extern "C" fn reset_app() -> c_int {
+    let mut state = APP_STATE.lock().unwrap();
+
+    // 清除主密钥（最关键的安全操作）
+    if let Some(ref mut s) = state.as_mut() {
+        // 用零覆盖密钥内存，防止内存转储攻击
+        if let Some(mut key) = s.master_key.take() {
+            for byte in key.iter_mut() {
+                *byte = 0;
+            }
+            // 让密钥向量超出作用域，内存被释放
+        }
+    }
+
+    // 完全清除应用状态
+    *state = None;
+
+    eprintln!("应用已重置，所有敏感数据已从内存清除");
+    FfiErrorCode::Success as c_int
+}
+
 /// 删除负债
 #[no_mangle]
 pub unsafe extern "C" fn delete_liability(id: *const c_char) -> c_int {

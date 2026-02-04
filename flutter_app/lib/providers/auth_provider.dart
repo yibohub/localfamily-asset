@@ -127,9 +127,20 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// 重置应用（删除所有数据）
+  ///
+  /// 安全流程：
+  /// 1. 调用 Rust 端清除内存中的主密钥和状态
+  /// 2. 删除数据库文件
+  /// 3. 重置应用状态
   Future<void> reset() async {
     try {
-      // 删除数据库文件
+      // 步骤1: 先清除 Rust 端的敏感数据（主密钥等）
+      final rustResetSuccess = await _ffi.resetApp();
+      if (!rustResetSuccess) {
+        debugPrint('警告：Rust 端重置失败，可能存在内存泄漏');
+      }
+
+      // 步骤2: 删除数据库文件
       if (_dbPath != null) {
         final dbFile = File(_dbPath!);
         if (await dbFile.exists()) {
@@ -137,14 +148,15 @@ class AuthProvider with ChangeNotifier {
         }
       }
 
-      // 重置状态
+      // 步骤3: 重置状态
       _status = AuthStatus.setup;
       _passwordHint = null;
       notifyListeners();
 
-      debugPrint('应用已重置');
+      debugPrint('应用已重置，所有数据已清除');
     } catch (e) {
       debugPrint('重置应用失败: $e');
+      rethrow;
     }
   }
 }

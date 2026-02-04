@@ -137,6 +137,9 @@ class FfiBridge {
     ffi.Pointer<ffi.Char>,
   ) _updateLiabilityWithExtraFields;
 
+  // 重置函数
+  late final int Function() _resetApp;
+
   FfiBridge._internal() {
     _loadLibrary();
     _loadFunctions();
@@ -398,6 +401,10 @@ class FfiBridge {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
         )>>('update_liability_with_extra_fields')
+        .asFunction();
+
+    _resetApp = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function()>>('reset_app')
         .asFunction();
   }
 
@@ -1171,6 +1178,26 @@ class FfiBridge {
       if (occurrenceDatePtr != ffi.nullptr) malloc.free(occurrenceDatePtr);
       if (extraFieldsPtr != ffi.nullptr) malloc.free(extraFieldsPtr);
       if (notePtr != ffi.nullptr) malloc.free(notePtr);
+    }
+  }
+
+  /// 重置应用（清除所有内存中的敏感数据）
+  ///
+  /// 此函数会清除 Rust 端的所有状态，包括：
+  /// - 主密钥 (master_key) - 用零覆盖后清除
+  /// - 应用状态 (AppState)
+  ///
+  /// 调用此函数后，还需要删除数据库文件以完全重置应用
+  Future<bool> resetApp() async {
+    try {
+      final result = _resetApp();
+      if (result != FfiErrorCode.success) {
+        debugPrint('resetApp 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('resetApp 异常: $e');
+      return false;
     }
   }
 }
