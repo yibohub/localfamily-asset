@@ -581,7 +581,38 @@ fn asset_type_from_int(value: c_int) -> AssetType {
 }
 ```
 
-#### 4. 重新编译 Rust Core
+#### 4. 更新审计日志映射
+
+**文件**: `flutter_app/lib/models/asset_change.dart`
+
+在 `_translateEnumValue()` 方法中添加新类型的中文映射：
+
+```dart
+// 资产类型映射（第338-344行）
+const assetTypeMap = {
+  'property': '房产',
+  'deposit': '存款',
+  'stock': '股票',
+  'fund': '基金',
+  'insurance': '保单',
+  'bond': '债券',  // 新增
+};
+
+// 负债类型映射（第347-354行）
+const liabilityTypeMap = {
+  'debt': '其他负债',
+  'mortgage': '房贷',
+  'car_loan': '车贷',
+  'credit_card': '信用卡',
+  'personal_loan': '个人贷款',
+  'privateLoan': '私人借款',
+  'student_loan': '学生贷款',  // 新增
+};
+```
+
+**重要**：如果不更新映射表，审计日志会显示英文名称而不是中文。
+
+#### 5. 重新编译 Rust Core
 
 ```bash
 cd rust_core
