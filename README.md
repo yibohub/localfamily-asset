@@ -26,7 +26,7 @@
 | **📝 多资产记录** | 房产、存款、股票、基金、保单、负债统一登记 |
 | **🔒 本地加密存储** | 所有数据仅存储在设备本地，无云端同步 |
 | **🔐 AES-256 加密** | 文件级整库加密，支持密码和 BIP39 助记词恢复 |
-| **📊 可视化统计** | 自动计算资产总额，按类型分组展示 |
+| **📊 可视化统计** | 自动计算资产总额，按类型分组展示，同名资产智能合并 |
 | **💾 数据可控** | 支持加密导出/导入，随时备份恢复 |
 | **🖥️ 跨平台支持** | Windows / Android / iOS / macOS / Linux |
 | **👁️ 完全开源** | GPL-3.0 许可证，代码可审计 |
@@ -42,7 +42,7 @@
 - **类型**：房产/存款/股票/基金/保单/负债等（支持自定义类型）
 - **金额**：资产价值或负债金额
 - **币种**：支持 CNY/USD/HKD/EUR 等
-- **账户**：可选，如银行名称、证券账户等
+- **账户/债权人**：可选，如银行名称、证券账户、债权人等
 - **发生日期**：购买日期或记录日期
 - **买入价/现价**：✅ 已实现，用于计算盈亏（适用于股票、基金等）
 - **备注**：详细信息记录（详见下方说明）
@@ -54,7 +54,9 @@
 |------|------|------|
 | 买入价/现价输入 | ✅ 已实现 | 支持记录和自动计算盈亏 |
 | 盈亏百分比显示 | ✅ 已实现 | 列表和详情页显示盈亏信息 |
-| 预设详细字段 | ⏳ 计划中 | 未来版本将添加（见路线图） |
+| 同名资产智能合并 | ✅ 已实现 | 自动合并同名资产（支持空格等差异） |
+| 资产/负债分离模型 | ✅ 已实现 | 类型安全的分离架构 |
+| 审计日志 | ✅ 已实现 | 完整的变更历史记录 |
 
 **详细信息记录方式**：
 
@@ -71,6 +73,20 @@
 
 **设计理念**：通过灵活的备注字段，你可以自由记录任何与资产相关的详细信息，而不受预设字段的限制。
 
+### 智能分组显示
+
+应用自动将同名资产合并显示，提升浏览体验：
+
+**资产分组规则**：
+- 同一名称的多个资产自动合并为分组卡片
+- 支持空格差异自动识别（"招商银行" 和 "招商 银行" 会被合并）
+- 支持零宽字符等不可见字符的规范化处理
+- 点击分组卡片可展开查看所有子账户详情
+
+**示例**：
+- 5个"建设银行存款"账户 → 显示为1个分组卡片（5个账户）
+- 3个不同房产（长城雅苑、大学里、阳光花园） → 显示为3个独立卡片
+
 ### 隐私与安全
 
 - **零数据收集**：不联网、无追踪、无第三方 SDK
@@ -78,6 +94,8 @@
 - **军工级加密**：AES-256-GCM + Argon2id 密钥派生
 
 ## 技术架构
+
+### 系统架构
 
 ```
 Flutter UI (Provider 状态管理)
@@ -89,6 +107,40 @@ Rust Core
   ├─ db: SQLite + 文件级加密
   └─ export: 加密 Zip 导出/导入
 ```
+
+### 数据模型架构（v0.2.0+）
+
+项目采用**分离模型架构**，类型安全且职责明确：
+
+```dart
+// 新模型：分离的资产和负债类
+class Asset extends FinancialRecord {
+  final AssetType type;  // property, deposit, stock, fund, insurance
+  final String? account; // 账户名称
+  final double? buyPrice;
+  final double? currentPrice;
+  // ...
+}
+
+class Liability extends FinancialRecord {
+  final LiabilityType type;  // debt, mortgage, carLoan, creditCard, personalLoan, privateLoan
+  final String? lender;      // 债权人
+  final String? issuer;      // 机构
+  final DateTime? dueDate;   // 到期日
+  // ...
+}
+```
+
+**架构优势**：
+- ✅ 类型安全：编译时检查，避免混淆资产和负债
+- ✅ 职责明确：Asset 和 Liability 各自管理专属字段
+- ✅ 易于扩展：可以为不同类型添加特定字段
+- ✅ 代码清晰：通过类名即可区分资产和负债操作
+
+**迁移状态**：
+- ✅ 核心数据模型已迁移到新架构
+- ✅ UI 层使用新模型（`FinancialProvider`）
+- ✅ 旧模型代码已清理
 
 ## 快速开始
 
@@ -194,6 +246,21 @@ cargo test
 cargo clippy
 ```
 
+### 修改 Rust 代码后的操作
+
+**⚠️ 常见错误**：修改 Rust 代码后 Flutter 没有更新？
+
+**操作流程**：
+1. 重新编译：`cd rust_core && cargo build`
+2. 停止应用：关闭正在运行的 Flutter 应用
+3. 重启应用：`flutter run -d windows`（Debug 模式会自动从 target/debug/ 加载）
+
+**判断是否需要重新编译**：
+| 操作 | 需重新编译 Rust |
+|------|----------------|
+| 修改 Dart 代码 | ❌ 否 |
+| 修改 Rust 代码 | ✅ 是 |
+
 ## 项目结构
 
 ```
@@ -207,14 +274,14 @@ localfamily-asset/
 │   │   │   └── bip39.rs          # BIP39 助记词
 │   │   ├── db/                   # 数据库模块
 │   │   │   ├── mod.rs
-│   │   │   ├── models.rs         # 数据模型
+│   │   │   ├── models.rs         # 数据模型（Rust 端）
 │   │   │   ├── schema.rs         # 数据库表结构
 │   │   │   ├── crud.rs           # CRUD 操作
 │   │   │   └── custom_types.rs   # 自定义资产类型
 │   │   ├── export/               # 导出模块
 │   │   │   ├── mod.rs
 │   │   │   └── zip.rs            # 加密 Zip 导出/导入
-│   │   ├── lib.rs                # �入口
+│   │   ├── lib.rs                # 库入口
 │   │   └── ffi.rs                # FFI 接口（C 兼容）
 │   └── Cargo.toml
 │
@@ -224,32 +291,47 @@ localfamily-asset/
 │   │   │   ├── ffi_bridge.dart   # FFI 桥接层
 │   │   │   ├── theme.dart        # 主题配置
 │   │   │   └── app.dart          # 应用入口
-│   │   ├── models/               # 数据模型
-│   │   │   ├── asset.dart        # Asset 模型 + AssetType 枚举
-│   │   │   ├── custom_asset_type.dart
-│   │   │   └── portfolio_summary.dart
+│   │   ├── models/               # 数据模型（Dart 端）
+│   │   │   ├── financial_models.dart    # ✅ 新模型：分离的 Asset/Liability 类
+│   │   │   ├── custom_asset_type.dart   # 自定义资产类型
+│   │   │   ├── asset_change.dart        # 审计日志模型
+│   │   │   ├── asset_type_info.dart     # 类型元数据
+│   │   │   └── portfolio_summary.dart   # 投资组合汇总
 │   │   ├── providers/            # Provider 状态管理
-│   │   │   ├── auth_provider.dart
-│   │   │   ├── asset_provider.dart
-│   │   │   └── custom_type_provider.dart
+│   │   │   ├── financial_provider.dart  # ✅ 新 Provider：管理资产和负债
+│   │   │   ├── auth_provider.dart       # 认证管理
+│   │   │   ├── custom_type_provider.dart # 自定义类型管理
+│   │   │   └── theme_provider.dart      # 主题管理
 │   │   ├── screens/              # 页面
-│   │   │   ├── splash_screen.dart
-│   │   │   ├── home_screen.dart
-│   │   │   ├── auth/
-│   │   │   │   ├── setup_screen.dart
-│   │   │   │   └── lock_screen.dart
-│   │   │   ├── asset_detail_screen.dart
-│   │   │   ├── asset_form_screen.dart
-│   │   │   └── asset_history_screen.dart
+│   │   │   ├── splash_screen.dart       # 启动页
+│   │   │   ├── home_screen.dart         # 主页
+│   │   │   ├── auth/                    # 认证页面
+│   │   │   │   ├── setup_screen.dart    # 初始化设置
+│   │   │   │   └── lock_screen.dart     # 密码锁定
+│   │   │   ├── main/                    # ✅ 新主界面（标签页）
+│   │   │   │   ├── main_navigation_screen.dart  # 主导航
+│   │   │   │   ├── assets_tab_screen.dart       # 资产标签页
+│   │   │   │   ├── liabilities_tab_screen.dart  # 负债标签页
+│   │   │   │   └── overview_tab_screen.dart     # 概览标签页
+│   │   │   ├── financial_list_screen.dart        # 资产负债列表页
+│   │   │   ├── financial_record_form_screen.dart # 记录表单页
+│   │   │   └── financial_record_detail_screen.dart # 记录详情页
 │   │   ├── widgets/              # 通用组件
-│   │   │   ├── asset_list_item.dart
-│   │   │   ├── asset_summary_card.dart
-│   │   │   ├── asset_type_filter_bar.dart
-│   │   │   └── smart_asset_name_input.dart
+│   │   │   ├── smart_financial_record_name_input.dart # ✅ 新智能输入组件
+│   │   │   ├── financial_record_form.dart               # 记录表单组件
+│   │   │   ├── liability_grouped_list.dart             # 负债分组列表
+│   │   │   ├── liability_list_tile.dart                # 负债列表项
+│   │   │   ├── asset_type_filter_bar.dart              # 资产类型筛选
+│   │   │   ├── liability_type_filter_bar.dart          # 负债类型筛选
+│   │   │   ├── custom_type_manage_dialog.dart          # 自定义类型管理
+│   │   │   └── add_asset_dialog.dart                   # 快速添加对话框
 │   │   └── main.dart
 │   └── pubspec.yaml
 │
 ├── CLAUDE.md                     # Claude Code 指导文档
+├── docs/                         # 文档目录
+│   ├── CLEANUP_REDUNDANT_CODE.md # 代码冗余清理计划
+│   └── brand/                    # 品牌文档
 ├── install_flutter.ps1           # Flutter 自动安装脚本
 └── README.md
 ```
@@ -258,19 +340,26 @@ localfamily-asset/
 
 ### 内置资产类型
 
-| 类型值 | 中文名称 | 图标 | 是否负债 |
-|--------|----------|------|----------|
-| `property` | 房产 | home | 否 |
-| `deposit` | 存款 | account_balance | 否 |
-| `stock` | 股票 | trending_up | 否 |
-| `fund` | 基金 | pie_chart | 否 |
-| `insurance` | 保单 | security | 否 |
-| `debt` | 负债 | credit_card | 是 |
-| `mortgage` | 房贷 | home_work | 是 |
-| `carLoan` | 车贷 | directions_car | 是 |
-| `creditCard` | 信用卡 | credit_card | 是 |
-| `personalLoan` | 个人贷款 | person | 是 |
-| `privateLoan` | 私人借款 | handshake | 是 |
+**资产类型（AssetType）**：
+
+| 类型值 | 中文名称 | 图标 | 说明 |
+|--------|----------|------|------|
+| `property` | 房产 | home | 房地产、建筑物等 |
+| `deposit` | 存款 | account_balance | 银行存款、定期存款等 |
+| `stock` | 股票 | trending_up | 股票投资，支持买入价/现价 |
+| `fund` | 基金 | pie_chart | 基金投资，支持买入价/现价 |
+| `insurance` | 保单 | security | 保险合同、保单等 |
+
+**负债类型（LiabilityType）**：
+
+| 类型值 | 中文名称 | 图标 | 说明 |
+|--------|----------|------|------|
+| `debt` | 其他负债 | money_off | 其他类型的负债 |
+| `mortgage` | 房贷 | home_work | 房屋贷款 |
+| `carLoan` | 车贷 | directions_car | 车辆贷款 |
+| `creditCard` | 信用卡 | credit_card | 信用卡欠款 |
+| `personalLoan` | 个人贷款 | person | 银行个人贷款 |
+| `privateLoan` | 私人借款 | handshake | 私人借款 |
 
 ### 自定义资产类型
 
@@ -281,20 +370,25 @@ localfamily-asset/
 Flutter 与 Rust 通过原始 C FFI 通信：
 
 **关键函数**：
+
 | 函数 | 作用 |
 |------|------|
 | `init_app(db_path)` | 初始化应用，设置数据库路径 |
 | `setup_password(password, hint)` | 设置主密码，生成盐值并派生密钥 |
 | `verify_password(password)` | 验证密码 |
-| `add_asset_with_type(...)` | 添加资产（支持自定义类型） |
-| `update_asset_with_type(...)` | 更新资产 |
-| `delete_asset(id)` | 删除资产 |
-| `get_all_assets()` | 获取所有资产（JSON） |
-| `search_assets_by_name(...)` | 按名称搜索资产 |
+| **新模型 API** | |
+| `add_asset_with_extra_fields()` | 添加资产（支持扩展字段） |
+| `add_liability_with_extra_fields()` | 添加负债（支持扩展字段） |
+| `update_asset_with_extra_fields()` | 更新资产 |
+| `update_liability_with_extra_fields()` | 更新负债 |
+| `get_assets_only()` | 仅获取资产列表 |
+| `get_liabilities_only()` | 仅获取负债列表 |
+| `delete_asset()` | 删除资产 |
+| `delete_liability()` | 删除负债 |
 | `get_asset_changes()` | 获取变更历史（审计日志） |
-| `create_custom_asset_type(...)` | 创建自定义资产类型 |
+| `create_custom_asset_type()` | 创建自定义资产类型 |
 | `get_custom_asset_types()` | 获取所有自定义类型 |
-| `delete_custom_asset_type(id)` | 删除自定义类型 |
+| `delete_custom_asset_type()` | 删除自定义类型 |
 | `export_data(password, output_path)` | 导出加密 Zip |
 | `import_data(password, input_path)` | 导入加密 Zip |
 
@@ -332,30 +426,18 @@ A: 由于使用强加密保护，忘记密码无法找回数据。建议使用�
 
 **Q: 修改 Rust 代码后 Flutter 没有更新？**
 
-A: **⚠️ 常见错误**：修改 Rust 代码后忘记复制 DLL，导致 Flutter 仍在使用旧版本。
+A: **⚠️ 常见错误**：修改 Rust 代码后忘记重新编译。
 
-**Rust 代码修改后的操作流程**：
-1. 重新编译：`cd rust_core && cargo build`
+**解决方法**：
+1. 重新编译 Rust：`cd rust_core && cargo build`
 2. 停止应用：关闭正在运行的 Flutter 应用
-3. 复制 DLL：`cp target/debug/localfamily_asset_core.dll ../flutter_app/`
-4. 重启应用：`flutter run -d windows`
-
-**判断是否需要重新编译**：
-| 操作 | 需重新编译 Rust |
-|------|----------------|
-| 修改 Dart 代码 | ❌ 否 |
-| 修改 Rust 代码 | ✅ 是 |
+3. 重启应用：`flutter run -d windows`
 
 **Q: Flutter FFI 调用 Rust 函数报错 "DynamicLibrary.open() failed"**
 
 A: 确保 Rust 动态库已构建且路径正确：
-- Windows: `flutter_app/assets/localfamily_asset_core.dll`
-
-**Q: Dart 和 Rust 的 AssetType 枚举值不一致？**
-
-A: 检查两个文件：
-- `rust_core/src/ffi.rs` 的 `asset_type_from_int()`
-- `flutter_app/lib/models/asset.dart` 的 `AssetTypeExtension.value`
+- Windows Debug: `rust_core/target/debug/localfamily_asset_core.dll`
+- Windows Release: `rust_core/target/release/localfamily_asset_core.dll`
 
 **Q: 如何调试 FFI 数据传递问题？**
 
@@ -363,17 +445,11 @@ A: **快速诊断**：
 ```bash
 # 检查 DLL 文件修改时间
 ls -la rust_core/target/debug/localfamily_asset_core.dll
-ls -la flutter_app/localfamily_asset_core.dll
 
-# 直接查询数据库验证数据
-cd rust_core
-cargo run --example check_all
+# 调试方法
+# Rust 端：eprintln!() 输出到 Flutter 控制台
+# Dart 端：debugPrint() 输出调试信息
 ```
-
-**调试方法**：
-- `eprintln!()` in Rust → 输出会显示在 Flutter 控制台
-- Dart `debugPrint()` → Dart 端调试
-- 直接 SQL 查询 → 隔离数据库问题
 
 **Q: 为什么要开源？**
 
@@ -410,6 +486,12 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 
 - [x] 买入价/现价功能 - 支持记录投资成本和当前价值，自动计算盈亏
 - [x] 盈亏百分比显示 - 在列表和详情页显示盈亏信息
+- [x] 资产/负债分离模型 - 类型安全的数据架构
+- [x] 同名资产智能合并 - 自动处理空格等差异
+- [x] 审计日志功能 - 完整的变更历史记录
+- [x] 自定义资产类型 - 支持用户创建自定义类型
+- [x] 快速添加对话框 - 便捷的记录添加方式
+- [x] 资产/负债标签页 - 清晰的主界面导航
 
 ### 计划中 ⏳
 
@@ -420,10 +502,10 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 - [ ] 资产价值变化趋势图 - 追踪资产价值的历史变化
 
 **功能完善**：
-- [ ] 完善资产变更历史和审计日志
-- [ ] 添加到期提醒功能（保单到期、存款到期等）
+- [ ] 到期提醒功能（保单到期、存款到期等）
 - [ ] 支持多设备数据合并
 - [ ] 资产导入模板 - 支持 Excel/CSV 批量导入
+- [ ] 高级筛选和搜索 - 支持多条件组合筛选
 
 **平台支持**：
 - [ ] 发布移动端版本（Android/iOS）
