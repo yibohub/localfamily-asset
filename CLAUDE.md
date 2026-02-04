@@ -1,22 +1,22 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+项目开发指南（Claude Code 使用）
 
 ## 项目概述
 
-**LocalFamily Asset** 是一款本地优先的家庭资产管理应用，采用 Flutter UI + Rust Core 架构。
+**LocalFamily Asset** - 本地优先的家庭资产管理应用（Flutter UI + Rust Core）
 
 核心特点：
 - 真·本地存储：所有数据仅存储在设备本地，零数据收集
 - AES-256 加密：文件级整库加密，支持 BIP39 助记词/密码恢复
-- 跨平台：支持 Windows/Android/iOS/macOS/Linux
+- 跨平台：Windows/Android/iOS/macOS/Linux
 
 ## 技术架构
 
 ```
 Flutter UI (Provider 状态管理)
         ↓
-   Rust FFI Bridge
+   Rust FFI Bridge (原始 C FFI)
         ↓
 Rust Core (加密 + 存储)
   ├─ crypto: aes-256-gcm + argon2id + bip39
@@ -27,19 +27,15 @@ Rust Core (加密 + 存储)
 **重要设计决策**：
 - 避免使用 SQLCipher（GPL 许可证传染风险），改用文件级加密
 - 所有加密操作在 Rust Core 层完成，Flutter 仅负责 UI
-- 数据库文件启动时解密到内存，退出时加密落盘
-
----
 
 ## 常用开发命令
 
 ### Flutter 开发
 
 ```bash
-# 进入 Flutter 应用目录
 cd flutter_app
 
-# 获取依赖（需要先配置国内镜像源）
+# 获取依赖
 flutter pub get
 
 # 运行应用（Windows）
@@ -50,21 +46,14 @@ flutter build windows
 
 # 代码检查
 flutter analyze
-
-# 运行测试
-flutter test                    # 单元测试 + 组件测试
-flutter drive \                # 集成测试
-  --driver=test_driver/integration_test.dart \
-  --target=integration_test/app_test.dart
 ```
 
 ### Rust Core 开发
 
 ```bash
-# 进入 Rust 项目目录
 cd rust_core
 
-# 开发构建（生成动态库供 Flutter FFI 调用）
+# 开发构建
 cargo build
 
 # 发布构建
@@ -77,153 +66,155 @@ cargo test
 cargo clippy
 ```
 
-### 完整构建流程
+### 修改 Rust 代码后
 
-**⚠️ 重要：Flutter Debug/Release 模式使用不同的 Rust 动态库**
-
-| Flutter 模式 | Rust 构建命令 | DLL 位置 | 大小参考 | 用途 |
-|------------|--------------|---------|---------|------|
-| Debug | `cargo build` | `rust_core/target/debug/` | ~6MB | 开发调试 |
-| Release | `cargo build --release` | `rust_core/target/release/` | ~3MB | 发布部署 |
-
-**`pubspec.yaml` 配置**：
-```yaml
-assets:
-  - ../rust_core/target/debug/  # Debug 模式读取此目录
-```
-
-#### 开发调试流程（Debug）
-
-```bash
-# 1. 构建 Debug 版本的 Rust Core
-cd rust_core
-cargo build
-
-# 2. Flutter 自动从 target/debug/ 加载动态库
-cd ../flutter_app
-flutter run -d windows
-```
-
-#### 发布构建流程（Release）
-
-```bash
-# 1. 构建 Release 版本的 Rust Core
-cd rust_core
-cargo build --release
-
-# 2. 将生成的动态库复制到 Flutter 资源目录
-# Windows:
-copy target\release\localfamily_asset_core.dll ..\flutter_app\assets\
-# Linux/macOS:
-cp target/release/liblocalfamily_asset_core.* ../flutter_app/assets/
-
-# 3. 构建 Flutter 应用
-cd ../flutter_app
-flutter build windows
-```
-
-**⚠️ 常见错误**：修改 Rust 代码后 `flutter run` 没有更新？
-- **Debug 模式**：只需要运行 `cargo build`（自动从 target/debug/ 加载）
-- **Release 模式**：需要运行 `cargo build --release` 并手动复制 DLL
-
-#### Rust 代码修改后必须执行的操作
+**⚠️ 重要**：修改 Rust 代码后必须重新编译
 
 1. 重新编译：`cd rust_core && cargo build`
 2. 停止应用：关闭正在运行的 Flutter 应用
-3. 复制 DLL：`cp target/debug/localfamily_asset_core.dll ../flutter_app/`
-4. 重启应用：`flutter run -d windows`
+3. 重启应用：`flutter run -d windows`（Debug 模式自动从 target/debug/ 加载）
 
-**常见错误**：修改 Rust 代码后忘记复制 DLL，导致 Flutter 仍在使用旧版本。
-
-**判断是否需要重新编译**：
 | 操作 | 需重新编译 Rust |
 |------|----------------|
 | 修改 Dart 代码 | ❌ 否 |
 | 修改 Rust 代码 | ✅ 是 |
 
----
-
 ## 代码架构
 
-### 目录结构（遵循单一职责原则）
+### 目录结构
 
 ```
 localfamily-asset/
 ├── rust_core/                    # Rust 核心层
 │   ├── src/
 │   │   ├── crypto/               # 加密模块
-│   │   │   ├── mod.rs            # 模块导出
-│   │   │   ├── aes_gcm.rs        # AES-256-GCM 加密/解密
-│   │   │   ├── argon2.rs         # Argon2id 密钥派生
-│   │   │   └── bip39.rs          # BIP39 助记词
 │   │   ├── db/                   # 数据库模块
-│   │   │   ├── mod.rs            # 模块导出
-│   │   │   ├── models.rs         # 数据模型（Asset, AssetType 等）
-│   │   │   ├── schema.rs         # 数据库表结构
-│   │   │   └── crud.rs           # CRUD 操作
 │   │   ├── export/               # 导出模块
-│   │   │   ├── mod.rs
-│   │   │   └── zip.rs            # 加密 Zip 导出/导入
-│   │   ├── lib.rs                # 库入口，导出公共 API
-│   │   └── ffi.rs                # FFI 接口（C 兼容函数）
+│   │   ├── lib.rs                # 库入口
+│   │   └── ffi.rs                # FFI 接口
 │   └── Cargo.toml
 │
 ├── flutter_app/                  # Flutter 应用
-│   ├── integration_test/         # 集成测试
-│   ├── test/                     # 单元测试 + 组件测试
-│   ├── test_driver/              # 测试驱动脚本
 │   ├── lib/
 │   │   ├── core/                 # 核心层
 │   │   │   ├── ffi_bridge.dart   # FFI 桥接层
 │   │   │   ├── theme.dart        # 主题配置
 │   │   │   └── app.dart          # 应用入口
 │   │   ├── models/               # 数据模型
-│   │   │   ├── financial_models.dart  # 新模型：Asset, Liability 分离
-│   │   │   ├── asset.dart        # 旧模型（将遗弃）
+│   │   │   ├── financial_models.dart    # ✅ 分离的 Asset/Liability 类
 │   │   │   ├── custom_asset_type.dart
+│   │   │   ├── asset_change.dart        # 审计日志
 │   │   │   └── portfolio_summary.dart
 │   │   ├── providers/            # Provider 状态管理
-│   │   │   ├── financial_provider.dart  # 新 Provider
-│   │   │   ├── asset_provider.dart     # 旧 Provider（将遗弃）
+│   │   │   ├── financial_provider.dart  # ✅ 新 Provider
 │   │   │   ├── auth_provider.dart
-│   │   │   └── custom_type_provider.dart
+│   │   │   ├── custom_type_provider.dart
+│   │   │   └── theme_provider.dart
 │   │   ├── screens/              # 页面
 │   │   │   ├── splash_screen.dart
 │   │   │   ├── home_screen.dart
-│   │   │   ├── auth/
+│   │   │   ├── auth/                    # 认证页面
 │   │   │   │   ├── setup_screen.dart
 │   │   │   │   └── lock_screen.dart
-│   │   │   ├── main/             # 新主界面（分离模型）
+│   │   │   ├── main/                    # ✅ 主界面（标签页）
 │   │   │   │   ├── main_navigation_screen.dart
-│   │   │   │   ├── assets_tab_screen.dart
-│   │   │   │   ├── liabilities_tab_screen.dart
-│   │   │   │   └── overview_tab_screen.dart
-│   │   │   ├── financial_record_form_screen.dart
-│   │   │   ├── financial_record_detail_screen.dart
-│   │   │   ├── financial_list_screen.dart
-│   │   │   ├── asset_list_screen.dart   # 旧页面（将遗弃）
-│   │   │   ├── asset_form_screen.dart   # 旧页面（将遗弃）
-│   │   │   └── asset_detail_screen.dart # 旧页面（将遗弃）
+│   │   │   │   ├── assets_tab_screen.dart       # 资产标签页
+│   │   │   │   ├── liabilities_tab_screen.dart  # 负债标签页
+│   │   │   │   └── overview_tab_screen.dart     # 概览标签页
+│   │   │   ├── financial_list_screen.dart        # 资产负债列表页
+│   │   │   ├── financial_record_form_screen.dart # 记录表单页
+│   │   │   └── financial_record_detail_screen.dart # 记录详情页
 │   │   ├── widgets/              # 通用组件
-│   │   │   ├── smart_financial_record_name_input.dart
-│   │   │   ├── smart_asset_name_input.dart  # 旧组件（将遗弃）
-│   │   │   ├── asset_summary_card.dart
-│   │   │   └── asset_list_item.dart
+│   │   │   ├── smart_financial_record_name_input.dart # ✅ 智能输入组件
+│   │   │   ├── financial_record_form.dart               # 记录表单
+│   │   │   ├── liability_grouped_list.dart             # 负债分组列表
+│   │   │   ├── liability_list_tile.dart                # 负债列表项
+│   │   │   ├── asset_type_filter_bar.dart              # 资产类型筛选
+│   │   │   ├── liability_type_filter_bar.dart          # 负债类型筛选
+│   │   │   ├── custom_type_manage_dialog.dart          # 自定义类型管理
+│   │   │   └── add_asset_dialog.dart                   # 快速添加
 │   │   └── main.dart
 │   └── pubspec.yaml
 │
 └── docs/                         # 文档
 ```
 
-### FFI 接口规范
+## 数据模型架构（v0.2.0+）
 
-Flutter 与 Rust 的通信通过原始 C FFI 实现（未使用 flutter_rust_bridge）：
+**✅ 迁移已完成**
+
+采用分离模型架构，类型安全且职责明确：
+
+```dart
+// 资产类
+class Asset extends FinancialRecord {
+  final AssetType type;  // property, deposit, stock, fund, insurance
+  final String? account;
+  final double? buyPrice;
+  final double? currentPrice;
+}
+
+// 负债类
+class Liability extends FinancialRecord {
+  final LiabilityType type;  // debt, mortgage, carLoan, creditCard, personalLoan, privateLoan
+  final String? lender;
+  final String? issuer;
+  final DateTime? dueDate;
+}
+```
+
+**架构优势**：
+- ✅ 类型安全：编译时检查，避免混淆资产和负债
+- ✅ 职责明确：Asset 和 Liability 各自管理专属字段
+- ✅ 旧模型代码已完全清理
+
+### 资产类型（AssetType）
+
+| 值 | 中文名称 |
+|---|----------|
+| `property` | 房产 |
+| `deposit` | 存款 |
+| `stock` | 股票 |
+| `fund` | 基金 |
+| `insurance` | 保单 |
+
+### 负债类型（LiabilityType）
+
+| 值 | 中文名称 |
+|---|----------|
+| `debt` | 其他负债 |
+| `mortgage` | 房贷 |
+| `carLoan` | 车贷 |
+| `creditCard` | 信用卡 |
+| `personalLoan` | 个人贷款 |
+| `privateLoan` | 私人借款 |
+
+## 同名资产智能合并
+
+应用自动将同名资产合并显示，提升浏览体验：
+
+**分组规则**：
+- 同一名称的多个资产自动合并为分组卡片
+- 使用名称规范化处理空格差异（"招商银行" 和 "招商 银行" 会被合并）
+- 去除零宽字符等不可见字符
+- 点击分组卡片可展开查看所有子账户
+
+**示例**：
+- 5个"建设银行存款"账户 → 显示为1个分组卡片（5个账户）
+- 单一资产 → 直接显示为独立卡片
+
+**实现位置**：
+- 资产分组：`flutter_app/lib/screens/main/assets_tab_screen.dart`
+- 负债分组：`flutter_app/lib/widgets/liability_grouped_list.dart`
+
+## FFI 接口规范
+
+Flutter 与 Rust 通过原始 C FFI 通信：
 
 **Rust 端**（`rust_core/src/ffi.rs`）：
 - 所有导出函数使用 `#[no_mangle]` 和 `extern "C"`
 - 字符串使用 `*const c_char`，调用方负责释放
-- 返回字符串需通过 `string_to_c_char()` 转换，调用方使用 `free_string()` 释放
-- 错误通过 `FfiErrorCode` 枚举（负整数）返回
+- 返回字符串通过 `string_to_c_char()` 转换，调用方使用 `free_string()` 释放
 
 **Flutter 端**（`flutter_app/lib/core/ffi_bridge.dart`）：
 - `FfiBridge` 单例负责加载动态库和函数查找
@@ -231,44 +222,22 @@ Flutter 与 Rust 的通信通过原始 C FFI 实现（未使用 flutter_rust_bri
 - 使用 `toNativeUtf8()` 和 `malloc.free()` 管理字符串内存
 
 **关键 FFI 函数**：
+
 | 函数 | 作用 |
 |------|------|
-| `init_app(db_path)` | 初始化应用，设置数据库路径 |
-| `setup_password(password, hint)` | 设置主密码，生成盐值并派生密钥 |
-| `verify_password(password)` | 验证密码，成功后保存密钥到状态 |
-| `add_asset_with_extra_fields()` / `add_liability_with_extra_fields()` | 新模型：添加资产/负债 |
-| `update_asset_with_extra_fields()` / `update_liability_with_extra_fields()` | 新模型：更新资产/负债 |
-| `get_assets_only()` / `get_liabilities_only()` | 新模型：分离获取资产/负债 |
-| `delete_asset()` / `delete_liability()` | 删除资产/负债 |
+| `init_app(db_path)` | 初始化应用 |
+| `setup_password(password, hint)` | 设置主密码 |
+| `verify_password(password)` | 验证密码 |
+| `add_asset_with_extra_fields()` | 添加资产 |
+| `add_liability_with_extra_fields()` | 添加负债 |
+| `update_asset_with_extra_fields()` | 更新资产 |
+| `update_liability_with_extra_fields()` | 更新负债 |
+| `get_assets_only()` | 获取资产列表 |
+| `get_liabilities_only()` | 获取负债列表 |
+| `delete_asset()` / `delete_liability()` | 删除记录 |
+| `get_asset_changes()` | 获取审计日志 |
 | `export_data(password, output_path)` | 导出加密 Zip |
 | `import_data(password, input_path)` | 导入加密 Zip |
-
----
-
-## 数据模型（新模型 - financial_models.dart）
-
-### AssetType 枚举（资产）
-
-| 值 | Dart | 中文名称 |
-|---|------|----------|
-| `property` | `AssetType.property` | 房产 |
-| `deposit` | `AssetType.deposit` | 存款 |
-| `stock` | `AssetType.stock` | 股票 |
-| `fund` | `AssetType.fund` | 基金 |
-| `insurance` | `AssetType.insurance` | 保单 |
-
-### LiabilityType 枚举（负债）
-
-| Dart 枚举值 | Rust 存储值 | 中文名称 |
-|------------|-------------|----------|
-| `LiabilityType.debt` | `debt` | 其他负债 |
-| `LiabilityType.mortgage` | `mortgage` | 房贷 |
-| `LiabilityType.carLoan` | `car_loan` | 车贷 |
-| `LiabilityType.creditCard` | `credit_card` | 信用卡 |
-| `LiabilityType.personalLoan` | `personal_loan` | 个人贷款 |
-| `LiabilityType.privateLoan` | `private_loan` | 私人借款 |
-
----
 
 ## 命名规则（FFI 通信）
 
@@ -281,47 +250,14 @@ creditCard  →    credit_card  →   "credit_card"
 ```
 
 **Dart 端**：发送/接收使用 `.snakeCaseName`
-```dart
-// 发送
-liabilityType: liability.type.snakeCaseName
-
-// 接收
-type: LiabilityType.values.firstWhere(
-  (e) => e.snakeCaseName == json['liability_type'],
-  orElse: () => LiabilityType.debt,
-)
-```
 
 **Rust 端**：直接使用蛇形命名
-```rust
-pub liability_type: String,  // "car_loan"
-```
-
-**字段映射**：`depositAccountType` ↔ `deposit_account_type`
-
----
-
-## ⚠️ 数据模型架构变更（v0.1.0+）
-
-**v0.1.0+ 使用分离模型，旧模型将遗弃。新功能必须使用新模型。**
-
-| 旧模型（⚠️ 遗弃） | 新模型（✅ 推荐） |
-|------------------|------------------|
-| `models/asset.dart` | `models/financial_models.dart` |
-| `AssetProvider` | `FinancialProvider` |
-| 统一 `Asset` 类 | 分离 `Asset` / `Liability` |
-| `smart_asset_name_input.dart` | `smart_financial_record_name_input.dart` |
-| `getAllAssets()` | `getAssetsOnly()` / `getLiabilitiesOnly()` |
-
-**迁移**：`AssetProvider` → `FinancialProvider`，使用 `Asset`/`Liability` 替代统一 `Asset`。
-
----
 
 ## 环境配置
 
-### Flutter 国内镜像（中国网络环境）
+### Flutter 国内镜像
 
-项目已提供自动安装脚本 `install_flutter.ps1`：
+项目提供自动安装脚本 `install_flutter.ps1`：
 
 ```powershell
 # 使用默认镜像（CFUG 社区镜像）
@@ -334,16 +270,10 @@ pub liability_type: String,  // "car_loan"
 
 手动配置环境变量：
 ```powershell
-# 临时设置
-$env:PUB_HOSTED_URL="https://pub.flutter-io.cn"
-$env:FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
-
 # 永久设置（推荐）
 [System.Environment]::SetEnvironmentVariable('PUB_HOSTED_URL', 'https://pub.flutter-io.cn', 'User')
 [System.Environment]::SetEnvironmentVariable('FLUTTER_STORAGE_BASE_URL', 'https://storage.flutter-io.cn', 'User')
 ```
-
----
 
 ## 加密流程
 
@@ -356,9 +286,6 @@ $env:FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
 ### 数据库加密（计划中）
 - 当前 MVP 版本使用明文 SQLite（开发阶段）
 - 生产版本将实现文件级加密：整个 `.db` 文件用 AES-256-GCM 加密
-- 启动流程：解密文件 → 内存数据库 → 操作 → 加密落盘
-
----
 
 ## 许可证
 
