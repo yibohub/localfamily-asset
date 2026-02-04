@@ -484,7 +484,7 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 
 如需添加新的内置资产类型或负债类型，需要修改以下代码部分：
 
-### 必须修改的文件（5个）
+### 必须修改的文件（4个）
 
 | 序号 | 文件 | 修改内容 |
 |------|------|---------|
@@ -492,13 +492,12 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 | 2 | `rust_core/src/db/models.rs` | Rust 端：添加枚举值和转换方法 |
 | 3 | `rust_core/src/ffi.rs` | FFI 层：添加类型转换映射 |
 | 4 | `flutter_app/lib/models/asset_change.dart` | 审计日志：添加类型名称映射 |
-| 5 | `flutter_app/lib/models/asset_type_info.dart` | 类型元数据：使用动态检查（已修复） |
 
 ### 建议修改的文件（1个）
 
 | 序号 | 文件 | 修改内容 |
 |------|------|---------|
-| 6 | `flutter_app/lib/widgets/smart_financial_record_name_input.dart` | 智能输入：添加类型显示标签 |
+| 5 | `flutter_app/lib/widgets/smart_financial_record_name_input.dart` | 智能输入：添加类型显示标签 |
 
 ### 添加步骤示例（以添加"债券"类型为例）
 
@@ -620,40 +619,7 @@ const liabilityTypeMap = {
 
 **重要**：如果不更新映射表，审计日志会显示英文名称而不是中文。
 
-#### 5. 修复类型元数据硬编码
-
-**文件**: `flutter_app/lib/models/asset_type_info.dart`
-
-**问题**（第62-67行）：硬编码了内置类型名称列表，添加新类型后无法识别。
-
-**修复方案**：删除硬编码检查，使用动态枚举遍历：
-
-```dart
-// 原代码（有问题）
-if (builtInType != AssetType.deposit ||
-    typeId == 'deposit' ||
-    typeId == 'property' ||
-    typeId == 'stock' ||
-    typeId == 'fund' ||
-    typeId == 'insurance') {
-  // ...
-}
-
-// 修复后：使用 AssetType.values 检查
-try {
-  for (final type in AssetType.values) {
-    if (type.name == typeId) {
-      return AssetTypeInfo.fromAssetType(type);
-    }
-  }
-} catch (e) {
-  // 不是内置类型，继续查找自定义类型
-}
-```
-
-**重要**：如果不修复，新类型在某些场景下无法正确识别。
-
-#### 6. 更新智能输入显示（可选）
+#### 5. 更新智能输入显示（可选）
 
 **文件**: `flutter_app/lib/widgets/smart_financial_record_name_input.dart`
 
@@ -674,7 +640,7 @@ String _getSubtitle(Object record) {
 
 **建议**：如果不更新，建议列表中会显示空字符串作为类型标签。
 
-#### 7. 重新编译 Rust Core
+#### 6. 重新编译 Rust Core
 
 ### 关键注意事项
 

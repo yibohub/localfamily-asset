@@ -296,6 +296,19 @@ creditCard  →    credit_card  →   "credit_card"
 - 生产版本将实现文件级加密：整个 `.db` 文件用 AES-256-GCM 加密
 - 启动流程：解密文件 → 内存数据库 → 操作 → 加密落盘
 
+## 变更日志
+
+项目使用 `CHANGELOG.md` 记录所有重要变更（遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)）。
+
+**何时需要更新**：
+- ✅ 新增功能（Added）
+- ✅ 修复 Bug（Fixed）
+- ✅ 破坏性变更（Changed）
+- ✅ 文档更新（Docs）
+- ❌ 代码格式化、重构内部实现
+
+**更新位置**：`[Unreleased]` 章节下对应分类中
+
 ## 许可证
 
 GPL-3.0
