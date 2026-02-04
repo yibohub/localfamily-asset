@@ -484,13 +484,21 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 
 如需添加新的内置资产类型或负债类型，需要修改以下代码部分：
 
-### 必须修改的文件（3个）
+### 必须修改的文件（5个）
 
-| 文件 | 修改内容 |
-|------|---------|
-| `flutter_app/lib/models/financial_models.dart` | Dart 端：添加枚举值和扩展方法 |
-| `rust_core/src/db/models.rs` | Rust 端：添加枚举值和转换方法 |
-| `rust_core/src/ffi.rs` | FFI 层：添加类型转换映射 |
+| 序号 | 文件 | 修改内容 |
+|------|------|---------|
+| 1 | `flutter_app/lib/models/financial_models.dart` | Dart 端：添加枚举值和扩展方法 |
+| 2 | `rust_core/src/db/models.rs` | Rust 端：添加枚举值和转换方法 |
+| 3 | `rust_core/src/ffi.rs` | FFI 层：添加类型转换映射 |
+| 4 | `flutter_app/lib/models/asset_change.dart` | 审计日志：添加类型名称映射 |
+| 5 | `flutter_app/lib/models/asset_type_info.dart` | 类型元数据：使用动态检查（已修复） |
+
+### 建议修改的文件（1个）
+
+| 序号 | 文件 | 修改内容 |
+|------|------|---------|
+| 6 | `flutter_app/lib/widgets/smart_financial_record_name_input.dart` | 智能输入：添加类型显示标签 |
 
 ### 添加步骤示例（以添加"债券"类型为例）
 
