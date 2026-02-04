@@ -57,24 +57,15 @@ class AssetTypeInfo {
     String typeId,
     List<CustomAssetType> customTypes,
   ) {
-    // 检查是否为内置类型
-    final builtInType = AssetTypeExtension.fromString(typeId);
-    if (builtInType != AssetType.deposit ||
-        typeId == 'deposit' ||
-        typeId == 'property' ||
-        typeId == 'stock' ||
-        typeId == 'fund' ||
-        typeId == 'insurance') {
-      try {
-        // 尝试解析为内置类型
-        for (final type in AssetType.values) {
-          if (type.name == typeId) {
-            return AssetTypeInfo.fromAssetType(type);
-          }
+    // 检查是否为内置类型（使用动态枚举遍历）
+    try {
+      for (final type in AssetType.values) {
+        if (type.name == typeId) {
+          return AssetTypeInfo.fromAssetType(type);
         }
-      } catch (e) {
-        // 忽略错误，继续查找自定义类型
       }
+    } catch (e) {
+      // 忽略错误，继续查找自定义类型
     }
 
     // 查找自定义类型
