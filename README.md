@@ -612,15 +612,61 @@ const liabilityTypeMap = {
 
 **重要**：如果不更新映射表，审计日志会显示英文名称而不是中文。
 
-#### 5. 重新编译 Rust Core
+#### 5. 修复类型元数据硬编码
 
-```bash
-cd rust_core
-cargo build
-# Debug 模式会自动从 target/debug/ 加载
-cd ../flutter_app
-flutter run -d windows
+**文件**: `flutter_app/lib/models/asset_type_info.dart`
+
+**问题**（第62-67行）：硬编码了内置类型名称列表，添加新类型后无法识别。
+
+**修复方案**：删除硬编码检查，使用动态枚举遍历：
+
+```dart
+// 原代码（有问题）
+if (builtInType != AssetType.deposit ||
+    typeId == 'deposit' ||
+    typeId == 'property' ||
+    typeId == 'stock' ||
+    typeId == 'fund' ||
+    typeId == 'insurance') {
+  // ...
+}
+
+// 修复后：使用 AssetType.values 检查
+try {
+  for (final type in AssetType.values) {
+    if (type.name == typeId) {
+      return AssetTypeInfo.fromAssetType(type);
+    }
+  }
+} catch (e) {
+  // 不是内置类型，继续查找自定义类型
+}
 ```
+
+**重要**：如果不修复，新类型在某些场景下无法正确识别。
+
+#### 6. 更新智能输入显示（可选）
+
+**文件**: `flutter_app/lib/widgets/smart_financial_record_name_input.dart`
+
+在 `_getSubtitle()` 方法中添加新类型的显示标签：
+
+```dart
+String _getSubtitle(Object record) {
+  if (record is Asset) {
+    switch (record.type) {
+      case AssetType.bond:
+        return '债券';  // 新增
+      // ... 其他类型
+    }
+  }
+  // ...
+}
+```
+
+**建议**：如果不更新，建议列表中会显示空字符串作为类型标签。
+
+#### 7. 重新编译 Rust Core
 
 ### 关键注意事项
 
