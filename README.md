@@ -480,6 +480,152 @@ A: 开源让代码可以接受公众审计，证明我们确实做到了隐私�
 
 ---
 
+## 开发指南：添加新的预设资产/负债类型
+
+如需添加新的内置资产类型或负债类型，需要修改以下代码部分：
+
+### 必须修改的文件（3个）
+
+| 文件 | 修改内容 |
+|------|---------|
+| `flutter_app/lib/models/financial_models.dart` | Dart 端：添加枚举值和扩展方法 |
+| `rust_core/src/db/models.rs` | Rust 端：添加枚举值和转换方法 |
+| `rust_core/src/ffi.rs` | FFI 层：添加类型转换映射 |
+
+### 添加步骤示例（以添加"债券"类型为例）
+
+#### 1. Dart 端 - 添加枚举和扩展
+
+**文件**: `flutter_app/lib/models/financial_models.dart`
+
+```dart
+// 添加枚举值
+enum AssetType {
+  property,
+  deposit,
+  stock,
+  fund,
+  insurance,
+  bond,  // 新增
+}
+
+// 在 AssetTypeExtension 中添加各个扩展方法
+extension AssetTypeExtension on AssetType {
+  String get displayName {
+    switch (this) {
+      case AssetType.bond: return '债券';  // 新增
+      // ...
+    }
+  }
+
+  String get iconName {
+    switch (this) {
+      case AssetType.bond: return 'receipt_long';  // 新增
+      // ...
+    }
+  }
+
+  bool get isInvestment {
+    return this == AssetType.stock ||
+           this == AssetType.fund ||
+           this == AssetType.bond;  // 新增（如果是投资类）
+  }
+
+  // 其他方法也需要添加对应的 case...
+}
+```
+
+#### 2. Rust 端 - 添加枚举和转换
+
+**文件**: `rust_core/src/db/models.rs`
+
+```rust
+// 添加枚举值
+pub enum AssetType {
+    Property,
+    Deposit,
+    Stock,
+    Fund,
+    Insurance,
+    #[serde(rename = "bond")]
+    Bond,  // 新增
+}
+
+// 在 from_str 中添加
+"bond" => Some(AssetType::Bond),
+
+// 在 as_str 中添加
+AssetType::Bond => "bond",
+
+// 在 is_investment 中添加
+pub fn is_investment(&self) -> bool {
+    matches!(self, AssetType::Stock | AssetType::Fund | AssetType::Bond)
+}
+```
+
+#### 3. Rust FFI - 添加类型转换
+
+**文件**: `rust_core/src/ffi.rs`
+
+```rust
+fn asset_type_from_int(value: c_int) -> AssetType {
+    match value {
+        0 => AssetType::Property,
+        1 => AssetType::Deposit,
+        2 => AssetType::Stock,
+        3 => AssetType::Fund,
+        4 => AssetType::Insurance,
+        5 => AssetType::Bond,  // 新增
+        _ => AssetType::Stock,
+    }
+}
+```
+
+#### 4. 重新编译 Rust Core
+
+```bash
+cd rust_core
+cargo build
+# Debug 模式会自动从 target/debug/ 加载
+cd ../flutter_app
+flutter run -d windows
+```
+
+### 关键注意事项
+
+1. **命名一致性**
+   - Dart: camelCase (`carLoan`, `creditCard`)
+   - Rust: snake_case (`car_loan`, `credit_card`)
+   - FFI: snake_case (`"car_loan"`, `"credit_card"`)
+
+2. **枚举顺序**
+   - Dart 和 Rust 端的枚举值顺序必须一致
+   - 整数值映射必须连续
+
+3. **投资类判断**
+   - 如果类型有买入价/现价概念，在 `isInvestment` 中添加
+   - 这影响盈亏计算等 UI 逻辑
+
+4. **图标选择**
+   - 使用 Material Icons 中存在的图标
+   - 参考: https://api.flutter.dev/flutter/material/Material-class.html
+
+5. **数据兼容性**
+   - 当前使用字符串存储类型，不需要数据迁移
+   - 已有数据不受影响
+
+### UI 层（可选优化）
+
+以下文件会自动适配新类型，无需修改：
+
+- `flutter_app/lib/widgets/asset_type_filter_bar.dart` - 资产筛选器
+- `flutter_app/lib/widgets/liability_type_filter_bar.dart` - 负债筛选器
+- `flutter_app/lib/widgets/smart_financial_record_name_input.dart` - 智能输入
+
+这些组件通过枚举动态获取类型信息，新添加的类型会自动显示。
+
+---
+
 ## 路线图
 
 ### 已完成 ✅
