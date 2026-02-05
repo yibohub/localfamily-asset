@@ -20,13 +20,15 @@ Write-Output ""
 
 # 检查 NDK 路径
 $ndkPath = "$env:LOCALAPPDATA\Android\Sdk\ndk"
-if (Test-Path "$ndkPath\25.2.9519653") {
-    $ndkVersion = "25.2.9519653"
+if (Test-Path "$ndkPath\27.0.12077973") {
+    $ndkVersion = "27.0.12077973"
 } elseif (Test-Path "$ndkPath\26.1.10909125") {
     $ndkVersion = "26.1.10909125"
+} elseif (Test-Path "$ndkPath\25.2.9519653") {
+    $ndkVersion = "25.2.9519653"
 } else {
     Write-ColorOutput Red "未找到 Android NDK"
-    Write-Output "请安装 Android NDK 25 或 26"
+    Write-Output "请安装 Android NDK (版本 25/26/27)"
     Write-Output "下载地址: https://developer.android.com/ndk/downloads"
     exit 1
 }
@@ -34,12 +36,16 @@ if (Test-Path "$ndkPath\25.2.9519653") {
 $ndkPath = "$ndkPath\$ndkVersion"
 Write-ColorOutput Cyan "使用 NDK: $ndkPath"
 
+# NDK 工具链路径
+$toolchainBin = Join-Path $ndkPath "toolchains\llvm\prebuilt\windows-x86_64\bin"
+Write-ColorOutput Cyan "工具链路径: $toolchainBin"
+
 # Android 架构配置
 $architectures = @(
-    @{ Name = "arm64-v8a"; RustTarget = "aarch64-linux-android"; Enable = $true },
-    @{ Name = "armeabi-v7a"; RustTarget = "armv7-linux-androideabi"; Enable = $true },
-    @{ Name = "x86_64"; RustTarget = "x86_64-linux-android"; Enable = $false },
-    @{ Name = "x86"; RustTarget = "i686-linux-android"; Enable = $false }
+    @{ Name = "arm64-v8a"; RustTarget = "aarch64-linux-android"; ApiLevel = "21"; Clang = "aarch64-linux-android21-clang"; Enable = $true },
+    @{ Name = "armeabi-v7a"; RustTarget = "armv7-linux-androideabi"; ApiLevel = "21"; Clang = "armv7a-linux-androideabi21-clang"; Enable = $true },
+    @{ Name = "x86_64"; RustTarget = "x86_64-linux-android"; ApiLevel = "21"; Clang = "x86_64-linux-android21-clang"; Enable = $false },
+    @{ Name = "x86"; RustTarget = "i686-linux-android"; ApiLevel = "21"; Clang = "i686-linux-android21-clang"; Enable = $false }
 )
 
 # 输出目录
@@ -66,6 +72,7 @@ foreach ($arch in $architectures) {
     Write-ColorOutput Yellow "=========================================="
     Write-ColorOutput Yellow "编译架构: $($arch.Name)"
     Write-ColorOutput Yellow "Rust 目标: $($arch.RustTarget)"
+    Write-ColorOutput Yellow "API Level: $($arch.ApiLevel)"
     Write-ColorOutput Yellow "=========================================="
 
     try {
@@ -76,11 +83,42 @@ foreach ($arch in $architectures) {
             rustup target add $arch.RustTarget
         }
 
-        # 设置环境变量
-        $env:CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER = Join-Path $ndkPath "toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android33-clang.cmd"
-        $env:CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER = Join-Path $ndkPath "toolchains\llvm\prebuilt\windows-x86_64\bin\armv7a-linux-androideabi33-clang.cmd"
+        # 设置 clang 路径
+        $clangPath = Join-Path $toolchainBin "$($arch.Clang).cmd"
+        $clangxxPath = Join-Path $toolchainBin "$($arch.Clang)++.cmd"
+        $arPath = Join-Path $toolchainBin "llvm-ar.exe"
 
-        # 编译
+        if (-not (Test-Path $clangPath)) {
+            Write-ColorOutput Red "✗ 找不到 clang: $clangPath"
+            continue
+        }
+
+        Write-Output "使用 clang: $clangPath"
+
+        # 设置 C/C++ 编译器和链接器环境变量（供 cc crate 使用）
+        $targetUpper = $arch.RustTarget.Replace("-", "_").ToUpper()
+        $ccEnvName = "CC_$targetUpper"
+        $cxxEnvName = "CXX_$targetUpper"
+        $arEnvName = "AR_$targetUpper"
+        $linkerEnvName = "CARGO_TARGET_${targetUpper}_LINKER"
+        $cflagsEnvName = "CFLAGS_$targetUpper"
+        $cxxflagsEnvName = "CXXFLAGS_$targetUpper"
+
+        [System.Environment]::SetEnvironmentVariable($ccEnvName, $clangPath, "Process")
+        [System.Environment]::SetEnvironmentVariable($cxxEnvName, $clangxxPath, "Process")
+        [System.Environment]::SetEnvironmentVariable($arEnvName, $arPath, "Process")
+        [System.Environment]::SetEnvironmentVariable($linkerEnvName, $clangPath, "Process")
+
+        # 设置通用的 CC/CXX/AR（cc crate 会检查这些）
+        $env:CC = $clangPath
+        $env:CXX = $clangxxPath
+        $env:AR = $arPath
+
+        # 设置 CFLAGS 添加 Android API level
+        $cflagsValue = "--target=$($arch.RustTarget) -DANDROID_API_LEVEL=$($arch.ApiLevel)"
+        [System.Environment]::SetEnvironmentVariable($cflagsEnvName, $cflagsValue, "Process")
+        [System.Environment]::SetEnvironmentVariable($cxxflagsEnvName, $cflagsValue, "Process")
+
         Write-Output "开始编译..."
         cargo build --release --target $arch.RustTarget
 
@@ -104,6 +142,11 @@ foreach ($arch in $architectures) {
         Write-ColorOutput Red $_.Exception.Message
     }
 }
+
+# 清理环境变量
+Remove-Item Env:CC -ErrorAction SilentlyContinue
+Remove-Item Env:CXX -ErrorAction SilentlyContinue
+Remove-Item Env:AR -ErrorAction SilentlyContinue
 
 # 总结
 Write-Output ""
