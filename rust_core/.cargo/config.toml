@@ -1,0 +1,23 @@
+# Cargo configuration for Android cross-compilation
+#
+# 使用方法：
+# 1. 安装 Android NDK (推荐 25 或 26)
+# 2. 运行 build_android.ps1 脚本自动设置环境变量
+# 3. 或手动设置环境变量后运行 cargo build
+
+# Android NDK 路径（自动检测）
+# 脚本会设置以下环境变量：
+# - ANDROID_NDK_ROOT
+# - CARGO_TARGET_<TARGET>_LINKER
+# - CARGO_TARGET_<TARGET>_AR
+
+# Android 目标架构
+# aarch64-linux-android  - ARM 64位 (arm64-v8a)
+# armv7-linux-androideabi - ARM 32位 (armeabi-v7a)
+# i686-linux-android      - x86 32位
+# x86_64-linux-android    - x86_64 64位
+
+[build]
+# 可选：使用 cargo-zigbuild 简化跨平台编译
+# 安装: cargo install cargo-zigbuild
+# 然后: cargo zigbuild --target aarch64-linux-android --release

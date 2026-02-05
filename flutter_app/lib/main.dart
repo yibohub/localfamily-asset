@@ -1,9 +1,10 @@
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'core/app.dart';
 import 'providers/asset_provider.dart';
@@ -12,6 +13,10 @@ import 'providers/custom_type_provider.dart';
 import 'providers/financial_provider.dart';
 import 'providers/theme_provider.dart';
 
+// 条件导入：仅在桌面平台导入 window_manager
+import 'package:window_manager/window_manager.dart'
+    if (dart.library.io) '';
+
 /// 隐财 (Yincai) - 本地加密的家庭资产登记管理工具
 ///
 /// 品牌标语：你的资产，只有你知道
@@ -19,23 +24,28 @@ import 'providers/theme_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化窗口管理器（隐藏系统标题栏）
-  await windowManager.ensureInitialized();
+  // 仅在桌面平台初始化窗口管理器
+  final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
-  const windowOptions = WindowOptions(
-    size: Size(1200, 800),
-    minimumSize: Size(800, 600),
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    title: 'Yincai - LocalFamily Asset', // 使用英文标题避免任务栏乱码
-    windowButtonVisibility: true,
-  );
+  if (isDesktop) {
+    // 初始化窗口管理器（隐藏系统标题栏）
+    await windowManager.ensureInitialized();
 
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
+    const windowOptions = WindowOptions(
+      size: Size(1200, 800),
+      minimumSize: Size(800, 600),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      title: 'Yincai - LocalFamily Asset', // 使用英文标题避免任务栏乱码
+      windowButtonVisibility: true,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   // 设置系统UI样式 - 使用品牌深海蓝
   SystemChrome.setSystemUIOverlayStyle(
