@@ -126,6 +126,31 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// 重置密码（已解锁状态下使用，无需旧密码）
+  ///
+  /// 适用场景：
+  /// - 助记词恢复后设置新密码
+  /// - 设置页面中的"修改密码"功能
+  Future<bool> resetPassword(String newPassword, {String? hint}) async {
+    try {
+      // 必须在已解锁状态下才能重置密码
+      if (_status != AuthStatus.unlocked) {
+        debugPrint('重置密码失败：应用未解锁');
+        return false;
+      }
+
+      final success = await _ffi.setupPassword(newPassword, hint: hint);
+      if (success) {
+        _passwordHint = hint;
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      debugPrint('重置密码失败: $e');
+      return false;
+    }
+  }
+
   /// 重置应用（删除所有数据）
   ///
   /// 安全流程：

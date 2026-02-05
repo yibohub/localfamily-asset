@@ -148,13 +148,12 @@ class _LockScreenState extends State<LockScreen> {
               final success = await authProvider.recoverWithMnemonic(controller.text.trim());
 
               if (mounted) {
-                Navigator.pop(context); // 关闭助记词对话框
-
                 if (success) {
-                  // 恢复成功，导航到主页面
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-                  );
+                  // 恢复成功，先关闭助记词对话框
+                  Navigator.pop(context);
+
+                  // 引导用户设置新密码
+                  _showSetNewPasswordDialog(context, authProvider);
                 } else {
                   // 恢复失败
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -169,6 +168,159 @@ class _LockScreenState extends State<LockScreen> {
             child: const Text('恢复'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 显示设置新密码对话框（助记词恢复后）
+  void _showSetNewPasswordDialog(BuildContext context, AuthProvider authProvider) {
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final hintController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool showPassword = true;
+    bool showConfirmPassword = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 不允许点击外部关闭
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('设置新密码'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '助记词恢复成功！建议您设置一个新密码以方便日后访问。',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: showPassword,
+                    decoration: InputDecoration(
+                      labelText: '新密码',
+                      hintText: '至少 6 个字符',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => showPassword = !showPassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '请输入新密码';
+                      }
+                      if (value.length < 6) {
+                        return '密码至少需要 6 个字符';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: showConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: '确认密码',
+                      hintText: '请再次输入新密码',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(showConfirmPassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => showConfirmPassword = !showConfirmPassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '请确认新密码';
+                      }
+                      if (value != passwordController.text) {
+                        return '两次输入的密码不一致';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: hintController,
+                    decoration: const InputDecoration(
+                      labelText: '密码提示（可选）',
+                      hintText: '用于帮助您回忆密码',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                // 跳过设置密码，直接进入主界面
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                );
+              },
+              child: const Text('跳过'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+
+                final password = passwordController.text.trim();
+                final hint = hintController.text.trim();
+
+                // 显示加载状态
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                );
+
+                try {
+                  final success = await authProvider.resetPassword(password, hint: hint);
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context); // 关闭加载对话框
+
+                  if (success) {
+                    Navigator.pop(dialogContext); // 关闭设置密码对话框
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('密码设置成功')),
+                    );
+                    // 进入主界面
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('密码设置失败，请重试'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (!context.mounted) return;
+                  Navigator.pop(context); // 关闭加载对话框
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('密码设置失败: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('设置'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -34,8 +34,9 @@ class _AssetHistoryScreenState extends State<AssetHistoryScreen> {
       await provider.loadAssetChanges();
     } else {
       await provider.loadAssetChangesByAssetId(widget.assetId!);
-      // 获取资产信息以确定类型
-      _asset = provider.assets.firstWhere((a) => a.id == widget.assetId);
+      // 获取资产信息以确定类型（使用 where + firstOrNull 避免找不到时抛出异常）
+      final matchingAssets = provider.assets.where((a) => a.id == widget.assetId).toList();
+      _asset = matchingAssets.isEmpty ? null : matchingAssets.first;
     }
     setState(() => _isLoading = false);
   }
