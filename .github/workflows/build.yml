@@ -234,25 +234,37 @@ jobs:
         working-directory: flutter_app
         run: |
           if [ "${{ matrix.target }}" = "windows" ]; then
-            flutter build windows --release
+            flutter build windows --release --verbose
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            flutter build linux --release
+            flutter build linux --release --verbose
           elif [ "${{ matrix.target }}" = "android" ]; then
-            flutter build apk --release
-            flutter build appbundle --release
+            flutter build apk --release --verbose
+            flutter build appbundle --release --verbose
           fi
+
+      # 列出构建产物（调试用）
+      - name: List build outputs
+        shell: bash
+        working-directory: flutter_app
+        run: |
+          echo "=== Build directory structure ==="
+          find build -type f -name "*.exe" -o -name "*.dll" -o -name "*.apk" -o -name "*.aab" -o -name "*.tar.gz" 2>/dev/null || echo "No build artifacts found"
+          echo "=== Full directory tree ==="
+          ls -la build/ || echo "No build directory"
 
       # 上传构建产物
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: hashFiles('flutter_app/build/windows/x64/runner/Release/*.exe') != '' || hashFiles('flutter_app/build/linux/x64/release/bundle/*') != '' || hashFiles('flutter_app/build/app/outputs/apk/release/*.apk') != ''
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
-            flutter_app/build/linux/*/release/bundle/*
-            flutter_app/build/app/outputs/apk/*
-            flutter_app/build/app/outputs/bundle/release/*
+            flutter_app/build/windows/x64/runner/Release/
+            flutter_app/build/linux/x64/release/bundle/
+            flutter_app/build/app/outputs/apk/release/
+            flutter_app/build/app/outputs/bundle/release/
           retention-days: 7
+          if-no-files-found: warn
 
       # 发布 GitHub Release (仅在 tag 时)
       - name: Create Release
