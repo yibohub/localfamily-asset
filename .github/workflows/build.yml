@@ -190,12 +190,14 @@ jobs:
       # 编译 Rust Core (非 Android 平台)
       - name: Build Rust Core
         if: matrix.android != true
+        shell: bash
         working-directory: rust_core
         run: cargo build --release
 
       # 设置 Android 环境
       - name: Setup Android
         if: matrix.android == true
+        shell: bash
         run: |
           mkdir -p flutter_app/android/app/src/main/jniLibs/arm64-v8a
           mkdir -p flutter_app/android/app/src/main/jniLibs/armeabi-v7a
@@ -204,11 +206,13 @@ jobs:
 
       # 获取依赖
       - name: Get Flutter dependencies
+        shell: bash
         working-directory: flutter_app
         run: flutter pub get
 
       # 构建 Flutter 应用
       - name: Build Flutter app
+        shell: bash
         working-directory: flutter_app
         run: |
           if [ "${{ matrix.target }}" = "windows" ]; then
