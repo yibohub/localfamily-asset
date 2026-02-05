@@ -2,11 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches: [main, master]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 env:
@@ -246,39 +243,3 @@ jobs:
             - **Windows**: localfamily_asset.exe
             - **Android APK**: localfamily-asset.apk
             - **Android App Bundle**: localfamily-asset.aab
-
-  # 生成变更日志
-  generate-changelog:
-    name: Generate Changelog
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate changelog
-        run: |
-          # 提取上一个 tag 和当前 tag 之间的提交
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          echo "Previous tag: $PREV_TAG"
-
-          # 生成变更日志
-          echo "# Changelog" > CHANGELOG_NEW.md
-          echo "" >> CHANGELOG_NEW.md
-          echo "## ${{ github.ref_name }}" >> CHANGELOG_NEW.md
-          echo "" >> CHANGELOG_NEW.md
-          echo '```' >> CHANGELOG_NEW.md
-          if [ -n "$PREV_TAG" ]; then
-            git log ${PREV_TAG}..HEAD --oneline --pretty=format:"%h %s" >> CHANGELOG_NEW.md
-          else
-            git log HEAD --oneline --pretty=format:"%h %s" >> CHANGELOG_NEW.md
-          fi
-          echo '```' >> CHANGELOG_NEW.md
-
-      - name: Upload changelog
-        uses: actions/upload-artifact@v4
-        with:
-          name: changelog
-          path: CHANGELOG_NEW.md
