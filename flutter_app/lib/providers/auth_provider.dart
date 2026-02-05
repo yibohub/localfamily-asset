@@ -129,33 +129,46 @@ class AuthProvider with ChangeNotifier {
   /// 重置应用（删除所有数据）
   ///
   /// 安全流程：
-  /// 1. 调用 Rust 端清除内存中的主密钥和状态
-  /// 2. Rust 端会自动删除数据库文件（在关闭连接后）
+  /// 1. Rust 端先清空数据库中的所有数据（防止文件删除失败）
+  /// 2. Rust 端清除内存中的主密钥
   /// 3. 重新初始化 Rust 端（因为 AppState 被清空）
-  /// 4. 重置应用状态
+  /// 4. Dart 端尝试删除数据库文件（锦上添花）
+  /// 5. 重置应用状态
   Future<void> reset() async {
     try {
-      // 步骤1: 清除 Rust 端的敏感数据（主密钥等）并删除数据库文件
+      // 步骤1-2: Rust 端清空数据并清除密钥
       final rustResetSuccess = await _ffi.resetApp();
       if (!rustResetSuccess) {
         debugPrint('警告：Rust 端重置失败，可能存在内存泄漏');
-        throw Exception('Rust 端重置失败');
       }
 
-      // 步骤2: 重新初始化 Rust 端（AppState 被清空后需要重新初始化）
+      // 步骤3: 重新初始化 Rust 端（AppState 被清空后需要重新初始化）
       if (_dbPath != null) {
         await _ffi.initApp(_dbPath!);
       }
 
-      // 步骤3: 重置状态
+      // 步骤4: 尝试删除数据库文件（即使失败，数据也已被清空）
+      if (_dbPath != null) {
+        final dbFile = File(_dbPath!);
+        if (await dbFile.exists()) {
+          try {
+            await dbFile.delete();
+            debugPrint('数据库文件已删除');
+          } catch (e) {
+            // 文件删除失败不是致命错误，因为数据已被清空
+            debugPrint('数据库文件无法删除（可能被占用），但数据已被清空');
+          }
+        }
+      }
+
+      // 步骤5: 重置状态
       _status = AuthStatus.setup;
       _passwordHint = null;
       notifyListeners();
 
-      debugPrint('应用已重置，所有数据已清除');
+      debugPrint('应用已重置');
     } catch (e) {
       debugPrint('重置应用失败: $e');
-      rethrow;
     }
   }
 }

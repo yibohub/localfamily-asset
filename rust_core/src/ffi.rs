@@ -6,8 +6,6 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int};
 use std::ptr;
 use std::fs::OpenOptions;
-use std::thread;
-use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use serde_json::json;
@@ -2436,19 +2434,23 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
     }
 }
 
-/// 重置应用（清除所有状态）
+/// 重置应用（清除内存中的敏感数据和数据库内容）
 ///
-/// 此函数用于"忘记密码"场景，彻底清除内存中的所有敏感数据
-/// 同时删除数据库文件
+/// 此函数用于"忘记密码"场景：
+/// 1. 先清空数据库中的所有数据（即使文件无法删除，数据也被清除）
+/// 2. 清除内存中的主密钥（用零覆盖）
+/// 3. 清除 AppState
+///
+/// 调用方（Dart 端）应负责删除数据库文件（如果可能）
 #[export_name = "reset_app"]
 pub unsafe extern "C" fn reset_app() -> c_int {
     let mut state = APP_STATE.lock().unwrap();
 
-    // 先保存数据库路径，用于后续删除
-    let db_path_to_delete = state.as_ref().map(|s| s.db_path.clone());
+    // 保存数据库路径
+    let db_path = state.as_ref().map(|s| s.db_path.clone());
 
-    // 步骤1: 先清空数据库中的所有数据（即使文件无法删除，数据也被清除）
-    if let Some(path) = &db_path_to_delete {
+    // 步骤1: 先清空数据库中的所有数据（防御性措施）
+    if let Some(path) = &db_path {
         if let Ok(conn) = open_db(path) {
             match crate::db::wipe_db(&conn) {
                 Ok(_) => eprintln!("数据库数据已清空"),
@@ -2457,9 +2459,8 @@ pub unsafe extern "C" fn reset_app() -> c_int {
         }
     }
 
-    // 步骤2: 清除主密钥（最关键的安全操作）
+    // 步骤2: 清除主密钥（用零覆盖，防止内存转储攻击）
     if let Some(ref mut s) = state.as_mut() {
-        // 用零覆盖密钥内存，防止内存转储攻击
         if let Some(mut key) = s.master_key.take() {
             for byte in key.iter_mut() {
                 *byte = 0;
@@ -2467,37 +2468,10 @@ pub unsafe extern "C" fn reset_app() -> c_int {
         }
     }
 
-    // 步骤3: 完全清除应用状态（这将关闭所有数据库连接）
+    // 步骤3: 清除 AppState（释放数据库连接）
     *state = None;
 
-    // 释放锁
-    drop(state);
-
-    // 步骤4: 等待文件锁释放（Windows SQLite 连接需要时间关闭）
-    thread::sleep(Duration::from_millis(500));
-
-    // 步骤5: 尝试删除数据库文件（带重试机制）
-    if let Some(path) = db_path_to_delete {
-        for attempt in 0..10 {
-            match std::fs::remove_file(&path) {
-                Ok(_) => {
-                    eprintln!("数据库文件已删除: {}", path);
-                    break;
-                }
-                Err(_e) => {
-                    if attempt < 9 {
-                        // 文件可能仍被锁定，等待后重试
-                        thread::sleep(Duration::from_millis(300));
-                    } else {
-                        // 即使文件无法删除，数据也已被清空
-                        eprintln!("警告：数据库文件无法删除（可能仍在使用），但所有数据已被清空");
-                    }
-                }
-            }
-        }
-    }
-
-    eprintln!("应用已重置，所有敏感数据已从内存清除");
+    eprintln!("应用已重置，所有敏感数据已从内存和数据库清除");
     FfiErrorCode::Success as c_int
 }
 

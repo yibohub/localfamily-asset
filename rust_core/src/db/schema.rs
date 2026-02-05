@@ -719,7 +719,6 @@ pub fn wipe_db(conn: &Connection) -> Result<(), DbError> {
 
     // 对每个表执行 DELETE
     for table in &table_names {
-        // 如果表有 rowid，使用 DELETE 重置自增
         if table == "sqlite_sequence" {
             continue;
         }
@@ -730,7 +729,6 @@ pub fn wipe_db(conn: &Connection) -> Result<(), DbError> {
             }
             Err(e) => {
                 eprintln!("清空表 {} 失败: {}", table, e);
-                // 继续尝试清空其他表
             }
         }
 
