@@ -30,10 +30,10 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             name: linux-x64
-          # macOS
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            name: macos-x64
+          # macOS - disabled (no desktop support configured)
+          # - os: macos-latest
+          #   target: x86_64-apple-darwin
+          #   name: macos-x64
           # Android ARM64
           - os: ubuntu-latest
             target: aarch64-linux-android
@@ -149,10 +149,10 @@ jobs:
           - os: ubuntu-latest
             target: linux
             artifact_name: localfamily-asset-linux
-          # macOS
-          - os: macos-latest
-            target: macos
-            artifact_name: localfamily-asset-macos
+          # macOS - disabled (no desktop support configured)
+          # - os: macos-latest
+          #   target: macos
+          #   artifact_name: localfamily-asset-macos
           # Android
           - os: ubuntu-latest
             target: android
@@ -223,8 +223,6 @@ jobs:
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
             flutter build linux --release
-          elif [ "${{ matrix.target }}" = "macos" ]; then
-            flutter build macos --release
           elif [ "${{ matrix.target }}" = "android" ]; then
             flutter build apk --release
             flutter build appbundle --release
@@ -238,7 +236,6 @@ jobs:
           path: |
             flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
             flutter_app/build/linux/x64/release/bundle/*
-            flutter_app/build/macos/Build/Products/Release//*
             flutter_app/build/app/outputs/apk/*
             flutter_app/build/app/outputs/bundle/release/*
             flutter_app/build/windows/x64/runner/Release/PORTABLE/*
@@ -254,7 +251,6 @@ jobs:
           files: |
             flutter_app/build/windows/x64/runner/Release/*.exe
             flutter_app/build/linux/x64/release/bundle/**/*.tar.gz
-            flutter_app/build/macos/Build/Products/Release/*.app.zip
             flutter_app/build/app/outputs/apk/**/*.apk
             flutter_app/build/app/outputs/bundle/release/**/*.aab
           generate_release_notes: true
@@ -262,7 +258,6 @@ jobs:
             ## 下载
             - **Windows**: localfamily_asset.exe
             - **Linux**: localfamily-asset.tar.gz
-            - **macOS**: LocalFamily-Asset.app.zip
             - **Android APK**: localfamily-asset.apk
             - **Android App Bundle**: localfamily-asset.aab
 
