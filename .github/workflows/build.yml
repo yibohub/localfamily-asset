@@ -132,6 +132,8 @@ jobs:
   build-flutter:
     name: Build Flutter (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     needs: build-rust-core
     strategy:
       fail-fast: false
@@ -284,15 +286,8 @@ jobs:
           prerelease: true
           files: |
             flutter_app/build/windows/x64/runner/Release/*.exe
-            flutter_app/build/linux/*/release/bundle/*.tar.gz
-            flutter_app/build/app/outputs/apk/**/*.apk
-            flutter_app/build/app/outputs/bundle/release/**/*.aab
+            flutter_app/build/windows/x64/runner/Release/*.dll
           generate_release_notes: true
           body: |
             ## 下载
             - **Windows**: localfamily_asset.exe
-
-            - **Linux**: localfamily-asset-linux-x64.tar.gz
-            - **macOS**: LocalFamily Asset.app.zip
-            - **Android APK**: localfamily-asset.apk
-            - **Android App Bundle**: localfamily-asset.aab
