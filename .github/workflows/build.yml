@@ -141,10 +141,6 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: localfamily-asset-windows
-          - os: windows-latest
-            target: windows
-            artifact_name: localfamily-asset-windows-exe
-            portable: true
           # Linux - disabled (no desktop support configured)
           # - os: ubuntu-latest
           #   target: linux
@@ -216,11 +212,7 @@ jobs:
         working-directory: flutter_app
         run: |
           if [ "${{ matrix.target }}" = "windows" ]; then
-            if [ "${{ matrix.portable }}" = "true" ]; then
-              flutter build windows --release -p portable
-            else
-              flutter build windows --release
-            fi
+            flutter build windows --release
           elif [ "${{ matrix.target }}" = "android" ]; then
             flutter build apk --release
             flutter build appbundle --release
@@ -235,7 +227,6 @@ jobs:
             flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
             flutter_app/build/app/outputs/apk/*
             flutter_app/build/app/outputs/bundle/release/*
-            flutter_app/build/windows/x64/runner/Release/PORTABLE/*
           retention-days: 7
 
       # 发布 GitHub Release (仅在 tag 时)
