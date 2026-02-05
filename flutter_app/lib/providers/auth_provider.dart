@@ -130,22 +130,21 @@ class AuthProvider with ChangeNotifier {
   ///
   /// 安全流程：
   /// 1. 调用 Rust 端清除内存中的主密钥和状态
-  /// 2. 删除数据库文件
-  /// 3. 重置应用状态
+  /// 2. Rust 端会自动删除数据库文件（在关闭连接后）
+  /// 3. 重新初始化 Rust 端（因为 AppState 被清空）
+  /// 4. 重置应用状态
   Future<void> reset() async {
     try {
-      // 步骤1: 先清除 Rust 端的敏感数据（主密钥等）
+      // 步骤1: 清除 Rust 端的敏感数据（主密钥等）并删除数据库文件
       final rustResetSuccess = await _ffi.resetApp();
       if (!rustResetSuccess) {
         debugPrint('警告：Rust 端重置失败，可能存在内存泄漏');
+        throw Exception('Rust 端重置失败');
       }
 
-      // 步骤2: 删除数据库文件
+      // 步骤2: 重新初始化 Rust 端（AppState 被清空后需要重新初始化）
       if (_dbPath != null) {
-        final dbFile = File(_dbPath!);
-        if (await dbFile.exists()) {
-          await dbFile.delete();
-        }
+        await _ffi.initApp(_dbPath!);
       }
 
       // 步骤3: 重置状态

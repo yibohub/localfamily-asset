@@ -695,3 +695,49 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
 
     Ok(())
 }
+
+/// 清空数据库中的所有数据（用于重置应用）
+///
+/// 此函数会删除所有表中的数据，但保留表结构
+/// 即使文件因锁定无法删除，也可以确保数据被清除
+pub fn wipe_db(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("开始清空数据库数据...");
+
+    // 获取所有表名
+    let mut tables = conn.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    let table_names: Vec<String> = tables.query_map([], |row| {
+        let name: String = row.get(0)?;
+        Ok(name)
+    }).map_err(|e| DbError::DatabaseError(e.to_string()))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    eprintln!("找到表: {:?}", table_names);
+
+    // 对每个表执行 DELETE
+    for table in &table_names {
+        // 如果表有 rowid，使用 DELETE 重置自增
+        if table == "sqlite_sequence" {
+            continue;
+        }
+
+        match conn.execute(&format!("DELETE FROM {}", table), []) {
+            Ok(rows_affected) => {
+                eprintln!("清空表 {}: {} 行", table, rows_affected);
+            }
+            Err(e) => {
+                eprintln!("清空表 {} 失败: {}", table, e);
+                // 继续尝试清空其他表
+            }
+        }
+
+        // 重置自增序列
+        let _ = conn.execute(&format!("DELETE FROM sqlite_sequence WHERE name='{}'", table), []);
+    }
+
+    eprintln!("数据库数据清空完成");
+    Ok(())
+}

@@ -209,8 +209,10 @@ class _LockScreenState extends State<LockScreen> {
 
     if (!mounted) return;
 
-    // 重置后状态变为 setup，需要手动导航到设置页面
-    // 由于 LockScreen 可能不在 AuthWrapper 中，需要主动导航
+    // 重置后重新初始化，确保状态正确
+    await authProvider.init();
+
+    // 重置后状态变为 setup，导航到设置页面
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const SetupScreen()),
       (route) => false,
