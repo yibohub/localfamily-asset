@@ -93,14 +93,19 @@ jobs:
       - name: Setup Android build env
         if: matrix.android == true
         run: |
-          echo "NDK_ROOT=${{ env.NDK }}" >> $GITHUB_ENV
-          echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
-          echo "TOOLCHAIN_BIN=${{ env.NDK }}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+          echo "NDK_ROOT=$NDK" >> $GITHUB_ENV
+          echo "TOOLCHAIN_BIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
           # 设置编译器
-          export CC="${{ env.NDK }}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.target == 'aarch64-linux-android' && 'aarch64-linux-android21-clang' || 'armv7a-linux-androideabi21-clang' }}"
-          export CXX="${{ env.NDK }}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.target == 'aarch64-linux-android' && 'aarch64-linux-android21-clang++' || 'armv7a-linux-androideabi21-clang++' }}"
+          if [ "${{ matrix.target }}" = "aarch64-linux-android" ]; then
+            export CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+            export CXX="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
+          else
+            export CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+            export CXX="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++"
+          fi
           echo "CC=$CC" >> $GITHUB_ENV
           echo "CXX=$CXX" >> $GITHUB_ENV
+          echo "AR=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
 
       # 编译 Rust Core
       - name: Build Rust Core
