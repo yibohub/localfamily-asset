@@ -52,7 +52,7 @@ jobs:
 
       # 安装 Rust
       - name: Install Rust
-        uses: dtolnay-rust/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: ${{ matrix.target }}
@@ -182,7 +182,7 @@ jobs:
       # 安装 Rust (Windows/Linux/macOS 需要本地编译 Rust FFI)
       - name: Install Rust for FFI
         if: matrix.android != true
-        uses: dtolnay-rust/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
