@@ -86,7 +86,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: rust_core/target
-          key: ${{ runner.os }}-cargo-target-${{ matrix.target }}-${{ hashFiles('rust_core/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-target-${{ matrix.target }}-v2-${{ hashFiles('rust_core/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-target-${{ matrix.target }}-
 
