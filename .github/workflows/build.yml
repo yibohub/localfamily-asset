@@ -44,15 +44,6 @@ jobs:
           #   target: armv7-linux-androideabi
           #   name: android-armv7
           #   android: true
-          - os: ubuntu-latest
-            target: aarch64-linux-android
-            name: android-arm64
-            android: true
-          # Android ARMv7
-          - os: ubuntu-latest
-            target: armv7-linux-androideabi
-            name: android-armv7
-            android: true
 
     steps:
       - name: Checkout code
@@ -163,10 +154,6 @@ jobs:
           #   target: android
           #   artifact_name: localfamily-asset-android
           #   android: true
-          - os: ubuntu-latest
-            target: android
-            artifact_name: localfamily-asset-android
-            android: true
 
     steps:
       - name: Checkout code
