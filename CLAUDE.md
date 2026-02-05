@@ -309,6 +309,10 @@ creditCard  →    credit_card  →   "credit_card"
 
 **更新位置**：`[Unreleased]` 章节下对应分类中
 
+## Git 工作流
+
+**标签规则**：仅在用户明确要求时才推送标签触发 CI/CD 构建。普通提交不会触发构建。
+
 ## 许可证
 
 GPL-3.0
