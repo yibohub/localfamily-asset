@@ -13,7 +13,7 @@ use chrono::Local;
 use sha2::{Sha256, Digest};
 
 use crate::crypto::{derive_key, generate_salt, mnemonic_to_key};
-use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, LiabilityType, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
+use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
 use rusqlite::Connection;
 
 /// 文件日志
@@ -428,19 +428,6 @@ fn asset_type_from_int(value: c_int) -> AssetType {
         3 => AssetType::Fund,
         4 => AssetType::Insurance,
         _ => AssetType::Stock,
-    }
-}
-
-/// 获取负债类型枚举值（处理负债类型，0-5）
-fn liability_type_from_int(value: c_int) -> LiabilityType {
-    match value {
-        0 => LiabilityType::Debt,
-        1 => LiabilityType::Mortgage,
-        2 => LiabilityType::CarLoan,
-        3 => LiabilityType::CreditCard,
-        4 => LiabilityType::PersonalLoan,
-        5 => LiabilityType::PrivateLoan,
-        _ => LiabilityType::Debt,
     }
 }
 
