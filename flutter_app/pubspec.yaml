@@ -48,9 +48,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # 桌面平台支持
+  # Windows: 已配置
+  # Linux: 需运行 `flutter config --enable-linux-desktop`
+  # macOS: 需在 Mac 上运行 `flutter config --enable-macos-desktop`
 
   assets:
     - assets/images/
     - assets/icons/
     - assets/demo/
-    - ../rust_core/target/debug/
