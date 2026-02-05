@@ -1,0 +1,298 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.27.5'
+  RUST_VERSION: '1.83.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  # Rust Core 多平台编译
+  build-rust-core:
+    name: Build Rust Core (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x64
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
+          # macOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x64
+          # Android ARM64
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            name: android-arm64
+            android: true
+          # Android ARMv7
+          - os: ubuntu-latest
+            target: armv7-linux-androideabi
+            name: android-armv7
+            android: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 安装 Rust
+      - name: Install Rust
+        uses: dtolnay-rust/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: ${{ matrix.target }}
+
+      # 安装 Android NDK (仅 Android 构建)
+      - name: Install Android NDK
+        if: matrix.android == true
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+
+      # 缓存 Cargo 依赖
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('rust_core/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('rust_core/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: rust_core/target
+          key: ${{ runner.os }}-cargo-target-${{ matrix.target }}-${{ hashFiles('rust_core/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-${{ matrix.target }}-
+
+      # 设置 Android 编译环境变量
+      - name: Setup Android build env
+        if: matrix.android == true
+        run: |
+          echo "NDK=${{env.NDK_ROOT}}" >> $GITHUB_ENV
+          echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TOOLCHAIN_BIN=${{env.NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+          # 设置编译器
+          export CC="${{env.NDK_ROOT}}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ env.TARGET == 'aarch64-linux-android' && 'aarch64-linux-android21-clang' || 'armv7a-linux-androideabi21-clang' }}"
+          export CXX="${{env.NDK_ROOT}}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ env.TARGET == 'aarch64-linux-android' && 'aarch64-linux-android21-clang++' || 'armv7a-linux-androideabi21-clang++' }}"
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+
+      # 编译 Rust Core
+      - name: Build Rust Core
+        working-directory: rust_core
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cargo build --release --target ${{ matrix.target }}
+          elif [ "${{ matrix.android }}" = "true" ]; then
+            # Android 构建
+            cargo build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      # 上传 Android .so 文件
+      - name: Upload Android libraries
+        if: matrix.android == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-core-${{ matrix.name }}
+          path: |
+            rust_core/target/${{ matrix.target }}/release/liblocalfamily_asset_core.so
+            rust_core/target/${{ matrix.target }}/release/*.a
+          retention-days: 7
+
+  # Flutter 应用构建
+  build-flutter:
+    name: Build Flutter (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: build-rust-core
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - os: windows-latest
+            target: windows
+            artifact_name: localfamily-asset-windows
+          - os: windows-latest
+            target: windows
+            artifact_name: localfamily-asset-windows-exe
+            portable: true
+          # Linux
+          - os: ubuntu-latest
+            target: linux
+            artifact_name: localfamily-asset-linux
+          # macOS
+          - os: macos-latest
+            target: macos
+            artifact_name: localfamily-asset-macos
+          # Android
+          - os: ubuntu-latest
+            target: android
+            artifact_name: localfamily-asset-android
+            android: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('flutter_app/pubspec.lock') }}
+
+      # 下载 Rust Core 编译产物
+      - name: Download Rust Core (Android)
+        if: matrix.android == true
+        uses: actions/download-artifact@v4
+        with:
+          path: rust-core-*
+          pattern: rust-core-*
+          merge-multiple: true
+
+      # 安装 Rust (Windows/Linux/macOS 需要本地编译 Rust FFI)
+      - name: Install Rust for FFI
+        if: matrix.android != true
+        uses: dtolnay-rust/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      # 编译 Rust Core (非 Android 平台)
+      - name: Build Rust Core
+        if: matrix.android != true
+        working-directory: rust_core
+        run: cargo build --release
+
+      # 设置 Android 环境
+      - name: Setup Android
+        if: matrix.android == true
+        run: |
+          mkdir -p flutter_app/android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p flutter_app/android/app/src/main/jniLibs/armeabi-v7a
+          cp rust-core-aarch64-linux-android/release/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/arm64-v8a/ || echo "arm64 not found"
+          cp rust-core-armv7-linux-androideabi/release/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/armeabi-v7a/ || echo "armv7 not found"
+
+      # 获取依赖
+      - name: Get Flutter dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      # 构建 Flutter 应用
+      - name: Build Flutter app
+        working-directory: flutter_app
+        run: |
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            if [ "${{ matrix.portable }}" = "true" ]; then
+              flutter build windows --release -p portable
+            else
+              flutter build windows --release
+            fi
+          elif [ "${{ matrix.target }}" = "linux" ]; then
+            flutter build linux --release
+          elif [ "${{ matrix.target }}" = "macos" ]; then
+            flutter build macos --release
+          elif [ "${{ matrix.target }}" = "android" ]; then
+            flutter build apk --release
+            flutter build appbundle --release
+          fi
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
+            flutter_app/build/linux/x64/release/bundle/*
+            flutter_app/build/macos/Build/Products/Release//*
+            flutter_app/build/app/outputs/apk/*
+            flutter_app/build/app/outputs/bundle/release/*
+            flutter_app/build/windows/x64/runner/Release/PORTABLE/*
+          retention-days: 7
+
+      # 发布 GitHub Release (仅在 tag 时)
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: true
+          files: |
+            flutter_app/build/windows/x64/runner/Release/*.exe
+            flutter_app/build/linux/x64/release/bundle/**/*.tar.gz
+            flutter_app/build/macos/Build/Products/Release/*.app.zip
+            flutter_app/build/app/outputs/apk/**/*.apk
+            flutter_app/build/app/outputs/bundle/release/**/*.aab
+          generate_release_notes: true
+          body: |
+            ## 下载
+            - **Windows**: localfamily_asset.exe
+            - **Linux**: localfamily-asset.tar.gz
+            - **macOS**: LocalFamily-Asset.app.zip
+            - **Android APK**: localfamily-asset.apk
+            - **Android App Bundle**: localfamily-asset.aab
+
+  # 生成变更日志
+  generate-changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        run: |
+          # 提取上一个 tag 和当前 tag 之间的提交
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "Previous tag: $PREV_TAG"
+
+          # 生成变更日志
+          echo "# Changelog" > CHANGELOG_NEW.md
+          echo "" >> CHANGELOG_NEW.md
+          echo "## ${{ github.ref_name }}" >> CHANGELOG_NEW.md
+          echo "" >> CHANGELOG_NEW.md
+          echo '```' >> CHANGELOG_NEW.md
+          if [ -n "$PREV_TAG" ]; then
+            git log ${PREV_TAG}..HEAD --oneline --pretty=format:"%h %s" >> CHANGELOG_NEW.md
+          else
+            git log HEAD --oneline --pretty=format:"%h %s" >> CHANGELOG_NEW.md
+          fi
+          echo '```' >> CHANGELOG_NEW.md
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG_NEW.md

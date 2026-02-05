@@ -232,6 +232,9 @@ env/
 *.dylib
 *.dll
 
+# 例外：Flutter Android jniLibs 中的 .so 文件需要打包
+!flutter_app/android/app/src/main/jniLibs/**/*.so
+
 # 静态库
 *.a
 *.lib
