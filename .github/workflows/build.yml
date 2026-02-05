@@ -110,7 +110,7 @@ jobs:
               export CC_armv7_linux_androideabi="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
               export CXX_armv7_linux_androideabi="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++"
               export AR_armv7_linux_androideabi="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-              export CARGO_TARGET_ARMV7_LINUX_ANDEABI_LINKER="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+              export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
             fi
             cargo build --release --target ${{ matrix.target }}
           else
