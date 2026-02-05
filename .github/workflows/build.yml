@@ -242,6 +242,15 @@ jobs:
             flutter build appbundle --release --verbose
           fi
 
+      # 复制 Rust DLL 到 Flutter Windows 构建输出目录
+      - name: Copy Rust DLL for Windows
+        if: matrix.target == 'windows'
+        shell: bash
+        run: |
+          # 复制 DLL 到 Flutter 构建输出目录
+          cp rust_core/target/release/localfamily_asset_core.dll flutter_app/build/windows/x64/runner/Release/
+          echo "Copied localfamily_asset_core.dll to Flutter build output"
+
       # 列出构建产物（调试用）
       - name: List build outputs
         shell: bash
