@@ -146,10 +146,10 @@ jobs:
           - os: ubuntu-latest
             target: linux
             artifact_name: localfamily-asset-linux
-          # macOS (x64)
+          # macOS (ARM64)
           - os: macos-latest
             target: macos
-            artifact_name: localfamily-asset-macos-x64
+            artifact_name: localfamily-asset-macos
           # Android
           - os: ubuntu-latest
             target: android
@@ -167,6 +167,24 @@ jobs:
           channel: stable
           cache: true
           cache-key: flutter-stable-${{ hashFiles('flutter_app/pubspec.lock') }}
+
+      # 启用 Linux 桌面支持
+      - name: Enable Linux desktop
+        if: matrix.target == 'linux'
+        shell: bash
+        working-directory: flutter_app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux . --project-name localfamily_asset --org com.example
+
+      # 启用 macOS 桌面支持
+      - name: Enable macOS desktop
+        if: matrix.target == 'macos'
+        shell: bash
+        working-directory: flutter_app
+        run: |
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos . --project-name localfamily_asset --org com.example
 
       # 安装 Linux 桌面依赖
       - name: Install Linux dependencies
@@ -244,7 +262,7 @@ jobs:
           path: |
             flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
             flutter_app/build/linux/*/release/bundle/*
-            flutter_app/build/macos/*/release/LocalFamily Asset.app/*
+            flutter_app/build/macos/*/release/*.app
             flutter_app/build/app/outputs/apk/*
             flutter_app/build/app/outputs/bundle/release/*
           retention-days: 7
@@ -259,13 +277,15 @@ jobs:
           files: |
             flutter_app/build/windows/x64/runner/Release/*.exe
             flutter_app/build/linux/*/release/bundle/*.tar.gz
-            flutter_app/build/macos/*/release/LocalFamily Asset.app.zip
+            flutter_app/build/macos/*/release/*.app.zip
             flutter_app/build/app/outputs/apk/**/*.apk
             flutter_app/build/app/outputs/bundle/release/**/*.aab
           generate_release_notes: true
           body: |
             ## 下载
             - **Windows**: localfamily_asset.exe
+            - **Linux**: localfamily-asset.tar.gz
+            - **macOS**: localfamily_asset.app.zip
             - **Linux**: localfamily-asset-linux-x64.tar.gz
             - **macOS**: LocalFamily Asset.app.zip
             - **Android APK**: localfamily-asset.apk
