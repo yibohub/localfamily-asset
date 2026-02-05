@@ -23,14 +23,18 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             name: windows-x64
-          # Linux - disabled (no desktop support configured)
-          # - os: ubuntu-latest
-          #   target: x86_64-unknown-linux-gnu
-          #   name: linux-x64
-          # macOS - disabled (no desktop support configured)
-          # - os: macos-latest
-          #   target: x86_64-apple-darwin
-          #   name: macos-x64
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
+          # macOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x64
+          # macOS ARM64 (Apple Silicon)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
           # Android ARM64
           - os: ubuntu-latest
             target: aarch64-linux-android
@@ -138,14 +142,14 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: localfamily-asset-windows
-          # Linux - disabled (no desktop support configured)
-          # - os: ubuntu-latest
-          #   target: linux
-          #   artifact_name: localfamily-asset-linux
-          # macOS - disabled (no desktop support configured)
-          # - os: macos-latest
-          #   target: macos
-          #   artifact_name: localfamily-asset-macos
+          # Linux
+          - os: ubuntu-latest
+            target: linux
+            artifact_name: localfamily-asset-linux
+          # macOS (x64)
+          - os: macos-latest
+            target: macos
+            artifact_name: localfamily-asset-macos-x64
           # Android
           - os: ubuntu-latest
             target: android
@@ -163,6 +167,19 @@ jobs:
           channel: stable
           cache: true
           cache-key: flutter-stable-${{ hashFiles('flutter_app/pubspec.lock') }}
+
+      # 安装 Linux 桌面依赖
+      - name: Install Linux dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            liblzma-dev
 
       # 下载 Rust Core 编译产物
       - name: Download Rust Core (Android)
@@ -210,6 +227,10 @@ jobs:
         run: |
           if [ "${{ matrix.target }}" = "windows" ]; then
             flutter build windows --release
+          elif [ "${{ matrix.target }}" = "linux" ]; then
+            flutter build linux --release
+          elif [ "${{ matrix.target }}" = "macos" ]; then
+            flutter build macos --release
           elif [ "${{ matrix.target }}" = "android" ]; then
             flutter build apk --release
             flutter build appbundle --release
@@ -222,6 +243,8 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: |
             flutter_app/build/windows/x64/runner/Release/*.{exe,dll}
+            flutter_app/build/linux/*/release/bundle/*
+            flutter_app/build/macos/*/release/LocalFamily Asset.app/*
             flutter_app/build/app/outputs/apk/*
             flutter_app/build/app/outputs/bundle/release/*
           retention-days: 7
@@ -235,11 +258,15 @@ jobs:
           prerelease: true
           files: |
             flutter_app/build/windows/x64/runner/Release/*.exe
+            flutter_app/build/linux/*/release/bundle/*.tar.gz
+            flutter_app/build/macos/*/release/LocalFamily Asset.app.zip
             flutter_app/build/app/outputs/apk/**/*.apk
             flutter_app/build/app/outputs/bundle/release/**/*.aab
           generate_release_notes: true
           body: |
             ## 下载
             - **Windows**: localfamily_asset.exe
+            - **Linux**: localfamily-asset-linux-x64.tar.gz
+            - **macOS**: LocalFamily Asset.app.zip
             - **Android APK**: localfamily-asset.apk
             - **Android App Bundle**: localfamily-asset.aab
