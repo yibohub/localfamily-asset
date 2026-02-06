@@ -1656,22 +1656,42 @@ pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
 /// 获取仅负债（不包括资产）
 #[no_mangle]
 pub unsafe extern "C" fn get_liabilities_only() -> *mut c_char {
+    eprintln!("get_liabilities_only: 被调用");
     let state = APP_STATE.lock().unwrap();
     let state = match state.as_ref() {
         Some(s) => s,
-        None => return ptr::null_mut(),
+        None => {
+            eprintln!("get_liabilities_only: state 为空");
+            return ptr::null_mut();
+        }
     };
+
+    eprintln!("get_liabilities_only: 检查状态 - master_key: {}, memory_conn: {}",
+        state.master_key.is_some(),
+        state.memory_conn.is_some());
 
     let liabilities = match with_db_connection(&state, |conn| -> DbResult<Vec<Liability>> {
         LiabilityRepository::list(conn)
     }) {
-        Ok(l) => l,
-        Err(_) => return ptr::null_mut(),
+        Ok(l) => {
+            eprintln!("get_liabilities_only: 成功获取 {} 个负债", l.len());
+            l
+        }
+        Err(e) => {
+            eprintln!("get_liabilities_only: 获取负债失败: {}", e);
+            return ptr::null_mut();
+        }
     };
 
     match serde_json::to_string(&liabilities) {
-        Ok(json) => string_to_c_char(json),
-        Err(_) => ptr::null_mut(),
+        Ok(json) => {
+            eprintln!("get_liabilities_only: JSON 序列化成功，长度: {}", json.len());
+            string_to_c_char(json)
+        }
+        Err(e) => {
+            eprintln!("get_liabilities_only: JSON 序列化失败: {}", e);
+            ptr::null_mut()
+        }
     }
 }
 

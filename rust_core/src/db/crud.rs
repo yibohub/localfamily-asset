@@ -1009,8 +1009,11 @@ impl LiabilityRepository {
 
     /// 获取所有负债（包含所有扩展字段）
     pub fn list(conn: &Connection) -> DbResult<Vec<Liability>> {
+        eprintln!("LiabilityRepository::list: 开始查询负债");
         // 负债类型列表
         let liability_types = ["debt", "mortgage", "car_loan", "credit_card", "personal_loan", "private_loan"];
+        eprintln!("LiabilityRepository::list: 负债类型列表: {:?}", liability_types);
+
         let placeholders = liability_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
         let sql = format!(
@@ -1077,6 +1080,10 @@ impl LiabilityRepository {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
+        eprintln!("LiabilityRepository::list: 查询成功，返回 {} 个负债", liabilities.len());
+        for (i, liability) in liabilities.iter().enumerate() {
+            eprintln!("  [{}] {} (类型: {})", i, liability.name, liability.liability_type);
+        }
         Ok(liabilities)
     }
 
