@@ -265,6 +265,8 @@ class FinancialProvider with ChangeNotifier {
       );
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadAssets();
       }
 
@@ -410,6 +412,8 @@ class FinancialProvider with ChangeNotifier {
       );
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadAssets();
       }
 
@@ -480,6 +484,8 @@ class FinancialProvider with ChangeNotifier {
       );
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadLiabilities();
       }
 
@@ -504,6 +510,8 @@ class FinancialProvider with ChangeNotifier {
       final success = await _ffi.deleteAsset(id);
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadAssets();
       }
 
@@ -527,6 +535,8 @@ class FinancialProvider with ChangeNotifier {
       final success = await _ffi.deleteLiability(id);
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadLiabilities();
       }
 

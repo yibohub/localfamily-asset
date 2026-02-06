@@ -3073,6 +3073,7 @@ pub unsafe extern "C" fn save_database() -> c_int {
 /// 3. 关闭内存数据库连接
 #[export_name = "cleanup_app"]
 pub unsafe extern "C" fn cleanup_app(save: c_int) -> c_int {
+    eprintln!("cleanup_app: 被调用，save={}", save);
     let should_save = save != 0;
 
     let mut state = APP_STATE.lock().unwrap();
@@ -3084,7 +3085,9 @@ pub unsafe extern "C" fn cleanup_app(save: c_int) -> c_int {
     // 保存数据（如果需要）
     // 注意：即使 is_dirty 为 false，如果内存数据库存在也需要保存（用于迁移明文数据库）
     if should_save && state.memory_conn.is_some() {
+        eprintln!("cleanup_app: 准备保存数据，memory_conn 存在");
         if let Some(key) = state.master_key {
+            eprintln!("cleanup_app: master_key 存在，开始保存");
             if let Some(memory_conn) = state.memory_conn.as_ref() {
                 // 从内存数据库获取盐值
                 let result: Result<(), DbError> = (|| {

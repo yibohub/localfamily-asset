@@ -222,14 +222,14 @@ class AuthProvider with ChangeNotifier {
     super.dispose();
   }
 
-  /// 启动自动保存定时器（每 5 分钟）
+  /// 启动自动保存定时器（每 30 秒）
   void _startAutoSave() {
     _stopAutoSave(); // 先停止现有的定时器
     _autoSaveTimer = Timer.periodic(
-      const Duration(minutes: 5),
+      const Duration(seconds: 30),
       (_) => _autoSave(),
     );
-    debugPrint('自动保存定时器已启动（每 5 分钟）');
+    debugPrint('自动保存定时器已启动（每 30 秒）');
   }
 
   /// 停止自动保存定时器
