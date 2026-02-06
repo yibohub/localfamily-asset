@@ -1620,9 +1620,13 @@ pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
         Some(s) => s,
         None => {
             eprintln!("get_assets_only: state 为空");
-            return ptr::null_mut(),
+            return ptr::null_mut();
         }
     };
+
+    eprintln!("get_assets_only: 检查状态 - master_key: {}, memory_conn: {}",
+        state.master_key.is_some(),
+        state.memory_conn.is_some());
 
     let assets = match with_db_connection(&state, |conn| -> DbResult<Vec<Asset>> {
         AssetRepository::list(conn)
@@ -1630,7 +1634,7 @@ pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
         Ok(a) => {
             eprintln!("get_assets_only: 成功获取 {} 个资产", a.len());
             a
-        },
+        }
         Err(e) => {
             eprintln!("get_assets_only: 获取资产失败: {}", e);
             return ptr::null_mut();
@@ -1641,11 +1645,11 @@ pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
         Ok(json) => {
             eprintln!("get_assets_only: JSON 序列化成功，长度: {}", json.len());
             string_to_c_char(json)
-        },
+        }
         Err(e) => {
             eprintln!("get_assets_only: JSON 序列化失败: {}", e);
             ptr::null_mut()
-        },
+        }
     }
 }
 
@@ -2519,12 +2523,25 @@ pub unsafe extern "C" fn init_app_v2(db_path: *const c_char) -> c_int {
     };
 
     let mut state = APP_STATE.lock().unwrap();
-    *state = Some(AppState {
-        db_path: db_path.clone(),
-        master_key: None,
-        memory_conn: None,
-        is_dirty: false,
-    });
+    // 只在 state 为 None 时才创建新的 state
+    // 如果 state 已存在（例如已解锁），则不覆盖
+    if state.is_none() {
+        eprintln!("initAppV2: 创建新的 AppState");
+        *state = Some(AppState {
+            db_path: db_path.clone(),
+            master_key: None,
+            memory_conn: None,
+            is_dirty: false,
+        });
+    } else {
+        // state 已存在，只更新 db_path（以防路径变化）
+        eprintln!("initAppV2: AppState 已存在，保留现有状态（master_key: {}, memory_conn: {}）",
+            state.as_ref().unwrap().master_key.is_some(),
+            state.as_ref().unwrap().memory_conn.is_some());
+        if let Some(s) = state.as_mut() {
+            s.db_path = db_path.clone();
+        }
+    }
 
     // 检测文件是否存在
     if !std::path::Path::new(&db_path).exists() {
@@ -2558,6 +2575,7 @@ pub unsafe extern "C" fn init_app_v2(db_path: *const c_char) -> c_int {
 /// 3. 如果是明文数据库，加载到内存（下次保存时会自动加密）
 #[export_name = "verify_password_v2"]
 pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
+    eprintln!("verify_password_v2: 被调用");
     let password = match CStr::from_ptr(password).to_str() {
         Ok(s) => s,
         Err(_) => return FfiErrorCode::InvalidPassword as c_int,
@@ -2568,6 +2586,70 @@ pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
         Some(s) => s,
         None => return FfiErrorCode::GenericError as c_int,
     };
+
+    // 检查当前状态
+    let has_memory_conn = state.memory_conn.is_some();
+    let has_master_key = state.master_key.is_some();
+    eprintln!("verify_password_v2: 当前状态 - memory_conn: {}, master_key: {}", has_memory_conn, has_master_key);
+
+    // 如果已经解锁（有 master_key 和 memory_conn），只验证密码而不重新加载数据库
+    if has_master_key && has_memory_conn {
+        eprintln!("verify_password_v2: 应用已解锁，仅验证密码");
+
+        // 从内存数据库获取 salt 来验证密码
+        let memory_conn = state.memory_conn.as_ref().unwrap();
+        let salt_hex: String = match memory_conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_salt"],
+            |row| row.get(0),
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("verify_password_v2: 无法获取盐值: {}", e);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        };
+
+        let salt = match hex::decode(&salt_hex) {
+            Ok(s) if s.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&s);
+                arr
+            }
+            _ => {
+                eprintln!("verify_password_v2: 盐值格式错误");
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        };
+
+        // 使用相同的 salt 派生密钥
+        let key_vec = match derive_key(password, &salt) {
+            Ok(k) => k.to_vec(),
+            Err(_) => return FfiErrorCode::CryptoError as c_int,
+        };
+
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&key_vec);
+
+        // 验证密钥哈希
+        let stored_key_hash: Option<String> = memory_conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_key_hash"],
+            |row| row.get(0),
+        ).ok();
+
+        if let Some(stored) = stored_key_hash {
+            let key_hash = Sha256::digest(&key);
+            let key_hash_hex = hex::encode(&key_hash);
+            if key_hash_hex != stored {
+                eprintln!("verify_password_v2: 密码验证失败：密钥哈希不匹配");
+                return FfiErrorCode::InvalidPassword as c_int;
+            }
+        }
+
+        eprintln!("verify_password_v2: 密码验证成功，保持现有内存数据库");
+        return FfiErrorCode::Success as c_int;
+    }
 
     let db_path = state.db_path.clone();
 
@@ -2925,6 +3007,22 @@ pub unsafe extern "C" fn save_database() -> c_int {
         None => {
             eprintln!("保存失败：内存数据库不存在");
             return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    // 检查当前内存数据库中的资产数量
+    let _asset_count: i64 = match memory_conn.query_row(
+        "SELECT COUNT(*) FROM assets",
+        [],
+        |row| row.get(0),
+    ) {
+        Ok(count) => {
+            eprintln!("save_database: 准备保存，当前内存数据库中有 {} 条资产记录", count);
+            count
+        }
+        Err(e) => {
+            eprintln!("save_database: 无法查询资产数量: {}", e);
+            0
         }
     };
 

@@ -160,8 +160,10 @@ class FinancialProvider with ChangeNotifier {
   Future<bool> _loadAssets() async {
     try {
       final jsonStr = await _ffi.getAssetsOnly();
+      debugPrint('_loadAssets: 收到数据，长度: ${jsonStr.length}');
       if (jsonStr.isEmpty) {
         _assets = [];
+        debugPrint('_loadAssets: 数据为空，返回空数组');
         return true;
       }
 
@@ -171,9 +173,10 @@ class FinancialProvider with ChangeNotifier {
         return Asset.fromJson(map);
       }).toList();
 
+      debugPrint('_loadAssets: 成功加载 ${_assets.length} 个资产');
       return true;
     } catch (e) {
-      debugPrint('加载资产失败: $e');
+      debugPrint('_loadAssets: 加载资产失败: $e');
       _assets = [];
       return false;
     }

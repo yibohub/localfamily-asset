@@ -64,6 +64,14 @@ pub fn is_encrypted_db<P: AsRef<Path>>(path: P) -> DbResult<bool> {
 ///
 /// 使用 SQL dump 和重建的方式来序列化内存数据库
 pub fn serialize_db(conn: &Connection) -> DbResult<Vec<u8>> {
+    // 在序列化之前检查 assets 表的记录数
+    let count_before: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM assets",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+    eprintln!("serialize_db: 序列化前检查，assets 表中有 {} 条记录", count_before);
+
     let temp_dir = std::env::temp_dir();
     let temp_path = temp_dir.join(format!("localfamily_serialize_{}.db", std::process::id()));
 
@@ -79,6 +87,14 @@ pub fn serialize_db(conn: &Connection) -> DbResult<Vec<u8>> {
     // 读取临时文件内容
     let db_bytes = std::fs::read(&temp_path)
         .map_err(|e| DbError::DatabaseError(format!("无法读取临时文件: {}", e)))?;
+
+    // 验证临时文件是否包含 SQLite 魔数
+    if db_bytes.len() >= 16 {
+        let header = &db_bytes[..16];
+        eprintln!("serialize_db: 临时文件头部: {:?}", header);
+    }
+
+    eprintln!("serialize_db: 序列化完成，数据大小: {} 字节", db_bytes.len());
 
     // 删除临时文件
     let _ = std::fs::remove_file(&temp_path);
@@ -98,6 +114,8 @@ pub fn deserialize_to_memory(bytes: &[u8]) -> DbResult<Connection> {
     std::fs::write(&temp_path, bytes)
         .map_err(|e| DbError::DatabaseError(format!("无法写入临时文件: {}", e)))?;
 
+    eprintln!("deserialize_to_memory: 写入临时文件，大小: {} 字节", bytes.len());
+
     // 创建内存数据库
     let mut memory_conn = Connection::open_in_memory()
         .map_err(|e| DbError::DatabaseError(format!("无法创建内存数据库: {}", e)))?;
@@ -113,6 +131,15 @@ pub fn deserialize_to_memory(bytes: &[u8]) -> DbResult<Connection> {
 
     // 删除临时文件
     let _ = std::fs::remove_file(&temp_path);
+
+    // 验证数据是否正确加载
+    let count: i64 = memory_conn.query_row(
+        "SELECT COUNT(*) FROM assets",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    eprintln!("deserialize_to_memory: 恢复完成，assets 表中有 {} 条记录", count);
 
     Ok(memory_conn)
 }
@@ -183,6 +210,8 @@ pub fn load_encrypted_db<P: AsRef<Path>>(
     let file_data = std::fs::read(path)
         .map_err(|e| DbError::DatabaseError(format!("读取加密文件失败: {}", e)))?;
 
+    eprintln!("load_encrypted_db: 读取文件成功，大小: {} 字节", file_data.len());
+
     // 解析文件头
     if file_data.len() < 8 + 1 + 32 {
         return Err(DbError::DatabaseError("加密文件格式错误：文件太短".to_string()));
@@ -202,9 +231,13 @@ pub fn load_encrypted_db<P: AsRef<Path>>(
     // 提取加密数据
     let encrypted = &file_data[41..];
 
+    eprintln!("load_encrypted_db: 开始解密，加密数据大小: {} 字节", encrypted.len());
+
     // 直接使用主密钥解密数据
     let decrypted = decrypt_data(key, encrypted)
         .map_err(|e| DbError::DatabaseError(format!("解密失败: {}", e)))?;
+
+    eprintln!("load_encrypted_db: 解密成功，解密后数据大小: {} 字节", decrypted.len());
 
     // 反序列化到内存数据库
     deserialize_to_memory(&decrypted)
