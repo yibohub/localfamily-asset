@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 import '../core/ffi_bridge.dart';
 
 /// 认证状态枚举
@@ -16,6 +17,7 @@ class AuthProvider with ChangeNotifier {
   String? _passwordHint;
   final FfiBridge _ffi = FfiBridge();
   String? _dbPath;
+  Timer? _autoSaveTimer; // 自动保存定时器
 
   AuthStatus get status => _status;
   String? get passwordHint => _passwordHint;
@@ -58,6 +60,7 @@ class AuthProvider with ChangeNotifier {
       if (success) {
         _passwordHint = hint;
         _status = AuthStatus.unlocked;
+        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -74,6 +77,7 @@ class AuthProvider with ChangeNotifier {
       final success = await _ffi.verifyPassword(password);
       if (success) {
         _status = AuthStatus.unlocked;
+        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -90,6 +94,7 @@ class AuthProvider with ChangeNotifier {
       final success = await _ffi.verifyWithMnemonic(mnemonic);
       if (success) {
         _status = AuthStatus.unlocked;
+        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -161,6 +166,9 @@ class AuthProvider with ChangeNotifier {
   /// 5. 重置应用状态
   Future<void> reset() async {
     try {
+      // 停止自动保存定时器
+      _stopAutoSave();
+
       // 步骤1-2: Rust 端清空数据并清除密钥
       final rustResetSuccess = await _ffi.resetApp();
       if (!rustResetSuccess) {
@@ -194,6 +202,61 @@ class AuthProvider with ChangeNotifier {
       debugPrint('应用已重置');
     } catch (e) {
       debugPrint('重置应用失败: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    // 停止自动保存定时器
+    _stopAutoSave();
+    // 清理应用并保存数据
+    _ffi.cleanupApp(save: true);
+    super.dispose();
+  }
+
+  /// 启动自动保存定时器（每 5 分钟）
+  void _startAutoSave() {
+    _stopAutoSave(); // 先停止现有的定时器
+    _autoSaveTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => _autoSave(),
+    );
+    debugPrint('自动保存定时器已启动（每 5 分钟）');
+  }
+
+  /// 停止自动保存定时器
+  void _stopAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+  }
+
+  /// 自动保存数据
+  Future<void> _autoSave() async {
+    try {
+      final success = await _ffi.saveDatabase();
+      if (success) {
+        debugPrint('自动保存成功');
+      } else {
+        debugPrint('自动保存失败');
+      }
+    } catch (e) {
+      debugPrint('自动保存异常: $e');
+    }
+  }
+
+  /// 手动保存数据
+  Future<bool> manualSave() async {
+    try {
+      final success = await _ffi.saveDatabase();
+      if (success) {
+        debugPrint('手动保存成功');
+      } else {
+        debugPrint('手动保存失败');
+      }
+      return success;
+    } catch (e) {
+      debugPrint('手动保存异常: $e');
+      return false;
     }
   }
 }

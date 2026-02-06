@@ -115,7 +115,7 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
 
     // 创建索引
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type)",
+        "CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(asset_type)",
         [],
     ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 

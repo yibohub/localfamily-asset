@@ -14,6 +14,7 @@ use sha2::{Sha256, Digest};
 
 use crate::crypto::{derive_key, generate_salt, mnemonic_to_key};
 use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
+use crate::db::{is_encrypted_db, save_encrypted_db, load_encrypted_db, load_plaintext_db};
 use rusqlite::Connection;
 
 /// 文件日志
@@ -42,7 +43,9 @@ static APP_STATE: Lazy<std::sync::Mutex<Option<AppState>>> =
 /// 应用状态
 struct AppState {
     db_path: String,
-    master_key: Option<Vec<u8>>,
+    master_key: Option<[u8; 32]>,  // 固定大小数组用于加密
+    memory_conn: Option<Connection>, // 长生命周期内存连接
+    is_dirty: bool,                 // 脏标记（数据是否有变更）
 }
 
 /// FFI 错误码
@@ -92,6 +95,8 @@ pub unsafe extern "C" fn init_app(db_path: *const c_char) -> c_int {
     *state = Some(AppState {
         db_path: db_path.clone(),
         master_key: None,
+        memory_conn: None,
+        is_dirty: false,
     });
 
     // 打开数据库并执行迁移（如果需要）
@@ -139,10 +144,14 @@ pub unsafe extern "C" fn setup_password(
 
     // 生成盐值并派生密钥
     let salt = generate_salt();
-    let key = match derive_key(password, &salt) {
+    let key_vec = match derive_key(password, &salt) {
         Ok(k) => k.to_vec(),
         Err(_) => return FfiErrorCode::CryptoError as c_int,
     };
+
+    // 将 Vec<u8> 转换为 [u8; 32]
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_vec);
 
     // 初始化数据库
     let _conn = match open_db(&state.db_path) {
@@ -234,10 +243,14 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
     };
 
     // 派生密钥并验证
-    let key = match derive_key(password, &salt) {
+    let key_vec = match derive_key(password, &salt) {
         Ok(k) => k.to_vec(),
         Err(_) => return FfiErrorCode::CryptoError as c_int,
     };
+
+    // 转换为固定大小数组
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_vec);
 
     // 计算密钥哈希
     let key_hash = Sha256::digest(&key);
@@ -285,13 +298,17 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
     };
 
     // 使用助记词生成密钥
-    let key = match mnemonic_to_key(mnemonic_str) {
+    let key_vec = match mnemonic_to_key(mnemonic_str) {
         Ok(k) => k.to_vec(),
         Err(e) => {
             write_log(&format!("助记词派生密钥失败: {}", e));
             return FfiErrorCode::CryptoError as c_int;
         }
     };
+
+    // 转换为固定大小数组
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_vec);
 
     // 打开数据库获取存储的密钥哈希
     let conn = match open_db(&state.db_path) {
@@ -2455,7 +2472,13 @@ pub unsafe extern "C" fn reset_app() -> c_int {
         }
     }
 
-    // 步骤3: 清除 AppState（释放数据库连接）
+    // 步骤3: 清除内存连接和脏标记
+    if let Some(ref mut s) = state.as_mut() {
+        s.memory_conn = None;
+        s.is_dirty = false;
+    }
+
+    // 步骤4: 清除 AppState（释放数据库连接）
     *state = None;
 
     eprintln!("应用已重置，所有敏感数据已从内存和数据库清除");
@@ -2500,4 +2523,393 @@ pub unsafe extern "C" fn delete_liability(id: *const c_char) -> c_int {
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
+}
+
+// ============================================================
+// V2 API: 文件级加密支持
+// ============================================================
+
+/// 初始化应用 V2（支持加密检测）
+///
+/// 此函数会：
+/// 1. 检测数据库文件是否存在以及是否已加密
+/// 2. 如果是新数据库，返回初始化状态
+/// 3. 如果是加密数据库，需要调用 verify_password_v2 解锁
+/// 4. 如果是明文数据库，会自动迁移到加密格式
+#[export_name = "init_app_v2"]
+pub unsafe extern "C" fn init_app_v2(db_path: *const c_char) -> c_int {
+    let db_path = match CStr::from_ptr(db_path).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    *state = Some(AppState {
+        db_path: db_path.clone(),
+        master_key: None,
+        memory_conn: None,
+        is_dirty: false,
+    });
+
+    // 检测文件是否存在
+    if !std::path::Path::new(&db_path).exists() {
+        // 新数据库，需要设置密码
+        eprintln!("新数据库，需要设置密码");
+        return FfiErrorCode::Success as c_int;
+    }
+
+    // 检测是否为加密数据库
+    match is_encrypted_db(&db_path) {
+        Ok(is_encrypted) => {
+            if is_encrypted {
+                eprintln!("检测到加密数据库");
+            } else {
+                eprintln!("检测到明文数据库，将在首次解锁后迁移到加密格式");
+            }
+            FfiErrorCode::Success as c_int
+        }
+        Err(e) => {
+            eprintln!("检测数据库类型失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
+    }
+}
+
+/// 验证密码 V2（支持加密数据库）
+///
+/// 此函数会：
+/// 1. 验证密码
+/// 2. 如果是加密数据库，解密到内存
+/// 3. 如果是明文数据库，加载到内存（下次保存时会自动加密）
+#[export_name = "verify_password_v2"]
+pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
+    let password = match CStr::from_ptr(password).to_str() {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let db_path = state.db_path.clone();
+
+    // 检测是否为新数据库（文件不存在）
+    let is_new_db = !std::path::Path::new(&db_path).exists();
+
+    if is_new_db {
+        // 新数据库，直接派生密钥
+        let salt = generate_salt();
+        let key_vec = match derive_key(password, &salt) {
+            Ok(k) => k.to_vec(),
+            Err(_) => return FfiErrorCode::CryptoError as c_int,
+        };
+
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&key_vec);
+
+        // 创建新的内存数据库
+        let memory_conn = match Connection::open_in_memory() {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("创建内存数据库失败: {}", e);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        };
+
+        // 初始化数据库结构
+        match crate::db::init_db(&memory_conn) {
+            Ok(_) => eprintln!("内存数据库初始化成功"),
+            Err(e) => {
+                eprintln!("初始化内存数据库失败: {}", e);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        }
+
+        // 保存盐值到 settings 表
+        let salt_hex = hex::encode(&salt);
+        if let Err(e) = memory_conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            ["password_salt", &salt_hex],
+        ) {
+            eprintln!("保存盐值失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+
+        // 保存密码提示（如果有）
+        // 注意：这里需要从 state 获取密码提示，但目前没有存储
+        // 这部分需要由 Dart 端在设置密码时调用其他接口
+
+        state.master_key = Some(key);
+        state.memory_conn = Some(memory_conn);
+        state.is_dirty = true; // 新数据库需要保存
+
+        eprintln!("新数据库创建成功");
+        return FfiErrorCode::Success as c_int;
+    }
+
+    // 现有数据库，检测加密格式
+    let is_encrypted = match is_encrypted_db(&db_path) {
+        Ok(is_enc) => is_enc,
+        Err(e) => {
+            eprintln!("检测数据库类型失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    // 如果是明文数据库，需要先获取 salt 来验证密码
+    if !is_encrypted {
+        // 打开明文数据库获取 salt
+        let conn = match open_db(&db_path) {
+            Ok(c) => c,
+            Err(_) => return FfiErrorCode::DatabaseError as c_int,
+        };
+
+        // 获取存储的盐值
+        let salt_hex: String = match conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_salt"],
+            |row| row.get(0),
+        ) {
+            Ok(s) => s,
+            Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+        };
+
+        // 获取存储的密钥哈希
+        let stored_key_hash: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_key_hash"],
+            |row| row.get(0),
+        ).ok();
+
+        let salt = match hex::decode(&salt_hex) {
+            Ok(s) if s.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&s);
+                arr
+            }
+            _ => return FfiErrorCode::InvalidPassword as c_int,
+        };
+
+        // 派生密钥并验证
+        let key_vec = match derive_key(password, &salt) {
+            Ok(k) => k.to_vec(),
+            Err(_) => return FfiErrorCode::CryptoError as c_int,
+        };
+
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&key_vec);
+
+        // 计算密钥哈希
+        let key_hash = Sha256::digest(&key);
+        let key_hash_hex = hex::encode(&key_hash);
+
+        match stored_key_hash {
+            Some(stored) => {
+                if key_hash_hex != stored {
+                    eprintln!("密码验证失败：密钥哈希不匹配");
+                    return FfiErrorCode::InvalidPassword as c_int;
+                }
+            }
+            None => {
+                // 旧版本数据，自动写入哈希
+                eprintln!("检测到旧版本数据库，自动写入密钥哈希");
+                if let Err(e) = conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                    ["password_key_hash", &key_hash_hex],
+                ) {
+                    eprintln!("写入密钥哈希失败: {}", e);
+                    return FfiErrorCode::DatabaseError as c_int;
+                }
+            }
+        }
+
+        // 密码正确，加载明文数据库到内存
+        let memory_conn = match load_plaintext_db(&db_path) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("加载明文数据库失败: {}", e);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+        };
+
+        state.master_key = Some(key);
+        state.memory_conn = Some(memory_conn);
+        state.is_dirty = true; // 明文数据库需要迁移保存
+
+        eprintln!("明文数据库已加载，将在下次保存时迁移到加密格式");
+        return FfiErrorCode::Success as c_int;
+    }
+
+    // 加密数据库：需要使用加密文件的 salt
+    // 读取加密文件获取 salt
+    let file_data = match std::fs::read(&db_path) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("读取加密文件失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    if file_data.len() < 8 + 1 + 32 {
+        eprintln!("加密文件格式错误：文件太短");
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    // 检查魔数
+    if &file_data[..8] != crate::db::encrypted::ENCRYPTED_MAGIC {
+        eprintln!("加密文件格式错误：魔数不匹配");
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    // 提取文件中的 salt
+    let file_salt = &file_data[9..41];
+    let mut salt = [0u8; 32];
+    salt.copy_from_slice(file_salt);
+
+    // 使用文件中的 salt 派生密钥
+    let key_vec = match derive_key(password, &salt) {
+        Ok(k) => k.to_vec(),
+        Err(_) => return FfiErrorCode::CryptoError as c_int,
+    };
+
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_vec);
+
+    // 尝试解密数据库
+    let memory_conn = match load_encrypted_db(&db_path, &key) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("解密数据库失败: {}", e);
+            return FfiErrorCode::InvalidPassword as c_int;
+        }
+    };
+
+    // 从内存数据库中获取 stored_key_hash 来验证
+    let stored_key_hash: Option<String> = memory_conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_key_hash"],
+        |row| row.get(0),
+    ).ok();
+
+    // 计算密钥哈希验证
+    let key_hash = Sha256::digest(&key);
+    let key_hash_hex = hex::encode(&key_hash);
+
+    if let Some(stored) = stored_key_hash {
+        if key_hash_hex != stored {
+            eprintln!("密码验证失败：密钥哈希不匹配");
+            return FfiErrorCode::InvalidPassword as c_int;
+        }
+    } else {
+        // 首次验证，写入哈希
+        if let Err(e) = memory_conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            ["password_key_hash", &key_hash_hex],
+        ) {
+            eprintln!("写入密钥哈希失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    }
+
+    state.master_key = Some(key);
+    state.memory_conn = Some(memory_conn);
+    state.is_dirty = false;
+
+    eprintln!("加密数据库已解密并加载到内存");
+    FfiErrorCode::Success as c_int
+}
+
+/// 保存加密数据库到磁盘
+///
+/// 将当前内存数据库加密后保存到磁盘
+#[export_name = "save_database"]
+pub unsafe extern "C" fn save_database() -> c_int {
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 检查是否已解锁
+    let key = match state.master_key {
+        Some(k) => k,
+        None => {
+            eprintln!("保存失败：应用未解锁");
+            return FfiErrorCode::GenericError as c_int;
+        }
+    };
+
+    // 检查是否有内存连接
+    let memory_conn = match state.memory_conn.as_ref() {
+        Some(c) => c,
+        None => {
+            eprintln!("保存失败：内存数据库不存在");
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    // 保存加密数据库
+    match save_encrypted_db(memory_conn, &state.db_path, &key) {
+        Ok(_) => {
+            state.is_dirty = false;
+            eprintln!("数据库已加密保存");
+            FfiErrorCode::Success as c_int
+        }
+        Err(e) => {
+            eprintln!("保存加密数据库失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
+    }
+}
+
+/// 清理应用（退出时调用）
+///
+/// 此函数会：
+/// 1. 如果 save=true，保存加密数据库到磁盘
+/// 2. 清除内存中的敏感数据
+/// 3. 关闭内存数据库连接
+#[export_name = "cleanup_app"]
+pub unsafe extern "C" fn cleanup_app(save: c_int) -> c_int {
+    let should_save = save != 0;
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::Success as c_int, // 已经清理过了
+    };
+
+    // 保存数据（如果需要）
+    if should_save && state.is_dirty {
+        if let Some(key) = state.master_key {
+            if let Some(memory_conn) = state.memory_conn.as_ref() {
+                match save_encrypted_db(memory_conn, &state.db_path, &key) {
+                    Ok(_) => {
+                        state.is_dirty = false;
+                        eprintln!("退出前已保存数据库");
+                    }
+                    Err(e) => {
+                        eprintln!("保存数据库失败: {}", e);
+                        // 继续清理，不返回错误
+                    }
+                }
+            }
+        }
+    }
+
+    // 清除主密钥（用零覆盖）
+    if let Some(mut key) = state.master_key.take() {
+        for byte in key.iter_mut() {
+            *byte = 0;
+        }
+    }
+
+    // 关闭内存连接
+    state.memory_conn = None;
+    state.is_dirty = false;
+
+    eprintln!("应用已清理，所有敏感数据已从内存清除");
+    FfiErrorCode::Success as c_int
 }

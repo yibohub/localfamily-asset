@@ -140,6 +140,12 @@ class FfiBridge {
   // 重置函数
   late final int Function() _resetApp;
 
+  // V2 加密数据库相关函数
+  late final int Function(ffi.Pointer<ffi.Char>) _initAppV2;
+  late final int Function(ffi.Pointer<ffi.Char>) _verifyPasswordV2;
+  late final int Function() _saveDatabase;
+  late final int Function(int) _cleanupApp;
+
   FfiBridge._internal() {
     _loadLibrary();
     _loadFunctions();
@@ -405,6 +411,23 @@ class FfiBridge {
 
     _resetApp = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function()>>('reset_app')
+        .asFunction();
+
+    // V2 加密数据库函数
+    _initAppV2 = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('init_app_v2')
+        .asFunction();
+
+    _verifyPasswordV2 = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_password_v2')
+        .asFunction();
+
+    _saveDatabase = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function()>>('save_database')
+        .asFunction();
+
+    _cleanupApp = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Int32)>>('cleanup_app')
         .asFunction();
   }
 
@@ -1197,6 +1220,90 @@ class FfiBridge {
       return result == FfiErrorCode.success;
     } catch (e) {
       debugPrint('resetApp 异常: $e');
+      return false;
+    }
+  }
+
+  // ============================================================
+  // V2 API: 文件级加密支持
+  // ============================================================
+
+  /// 初始化应用 V2（支持加密检测）
+  ///
+  /// 此函数会：
+  /// 1. 检测数据库文件是否存在以及是否已加密
+  /// 2. 如果是新数据库，返回初始化状态
+  /// 3. 如果是加密数据库，需要调用 verifyPasswordV2 解锁
+  /// 4. 如果是明文数据库，会自动迁移到加密格式
+  Future<bool> initAppV2(String dbPath) async {
+    final pathPtr = dbPath.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _initAppV2(pathPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('initAppV2 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('initAppV2 异常: $e');
+      return false;
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
+  /// 验证密码 V2（支持加密数据库）
+  ///
+  /// 此函数会：
+  /// 1. 验证密码
+  /// 2. 如果是加密数据库，解密到内存
+  /// 3. 如果是明文数据库，加载到内存（下次保存时会自动加密）
+  Future<bool> verifyPasswordV2(String password) async {
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _verifyPasswordV2(passwordPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('verifyPasswordV2 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('verifyPasswordV2 异常: $e');
+      return false;
+    } finally {
+      malloc.free(passwordPtr);
+    }
+  }
+
+  /// 保存加密数据库到磁盘
+  ///
+  /// 将当前内存数据库加密后保存到磁盘
+  Future<bool> saveDatabase() async {
+    try {
+      final result = _saveDatabase();
+      if (result != FfiErrorCode.success) {
+        debugPrint('saveDatabase 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('saveDatabase 异常: $e');
+      return false;
+    }
+  }
+
+  /// 清理应用（退出时调用）
+  ///
+  /// 此函数会：
+  /// 1. 如果 save=true，保存加密数据库到磁盘
+  /// 2. 清除内存中的敏感数据
+  /// 3. 关闭内存数据库连接
+  Future<bool> cleanupApp({bool save = true}) async {
+    try {
+      final result = _cleanupApp(save ? 1 : 0);
+      if (result != FfiErrorCode.success) {
+        debugPrint('cleanupApp 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('cleanupApp 异常: $e');
       return false;
     }
   }
