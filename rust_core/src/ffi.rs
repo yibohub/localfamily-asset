@@ -75,6 +75,27 @@ fn open_db(db_path: &str) -> DbResult<Connection> {
         .map_err(|e| DbError::DatabaseError(e.to_string()))
 }
 
+/// 在内存或磁盘数据库上执行操作（V2 兼容）
+///
+/// 此函数用于支持 V2 加密模式，优先使用内存数据库。
+/// 如果内存数据库不存在，则回退到磁盘数据库（兼容旧 API）。
+fn with_db_connection<F, R>(
+    state: &AppState,
+    f: F,
+) -> DbResult<R>
+where
+    F: FnOnce(&Connection) -> DbResult<R>,
+{
+    // 优先使用内存数据库连接（V2 加密模式）
+    if let Some(ref conn) = state.memory_conn {
+        return f(conn);
+    }
+
+    // 回退到磁盘数据库（旧模式）
+    let conn = open_db(&state.db_path)?;
+    f(&conn)
+}
+
 /// 安全释放 C 字符串
 #[no_mangle]
 pub unsafe extern "C" fn free_string(s: *mut c_char) {
@@ -208,30 +229,28 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    // 打开数据库获取盐值和密钥哈希
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
+    // 获取存储的盐值和密钥哈希
+    let (salt_hex, stored_key_hash) = match with_db_connection(&state, |conn| -> DbResult<(String, Option<String>)> {
+        let salt_hex: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_salt"],
+            |row| row.get(0),
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        // 获取存储的密钥哈希
+        // 兼容旧数据库：如果不存在 password_key_hash，则是旧版本数据
+        // 第一次成功验证后会自动写入哈希值
+        let stored_key_hash: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_key_hash"],
+            |row| row.get(0),
+        ).ok();
+
+        Ok((salt_hex, stored_key_hash))
+    }) {
+        Ok(result) => result,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
-
-    // 获取存储的盐值
-    let salt_hex: String = match conn.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        ["password_salt"],
-        |row| row.get(0),
-    ) {
-        Ok(s) => s,
-        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
-    };
-
-    // 获取存储的密钥哈希
-    // 兼容旧数据库：如果不存在 password_key_hash，则是旧版本数据
-    // 第一次成功验证后会自动写入哈希值
-    let stored_key_hash: Option<String> = conn.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        ["password_key_hash"],
-        |row| row.get(0),
-    ).ok();
 
     let salt = match hex::decode(&salt_hex) {
         Ok(s) if s.len() == 32 => {
@@ -267,10 +286,14 @@ pub unsafe extern "C" fn verify_password(password: *const c_char) -> c_int {
         None => {
             // 旧版本数据：没有密钥哈希，自动写入（兼容迁移）
             eprintln!("检测到旧版本数据库，自动写入密钥哈希");
-            if let Err(e) = conn.execute(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-                ["password_key_hash", &key_hash_hex],
-            ) {
+            let result = with_db_connection(&state, |conn| -> DbResult<()> {
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                    ["password_key_hash", &key_hash_hex],
+                ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+                Ok(())
+            });
+            if let Err(e) = result {
                 eprintln!("写入密钥哈希失败: {}", e);
                 return FfiErrorCode::DatabaseError as c_int;
             }
@@ -310,22 +333,18 @@ pub unsafe extern "C" fn verify_with_mnemonic(mnemonic: *const c_char) -> c_int 
     let mut key = [0u8; 32];
     key.copy_from_slice(&key_vec);
 
-    // 打开数据库获取存储的密钥哈希
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 计算助记词派生的密钥哈希
     let key_hash = Sha256::digest(&key);
     let key_hash_hex = hex::encode(&key_hash);
 
-    // 从数据库获取存储的助记词密钥哈希
-    let stored_mnemonic_hash: String = match conn.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        ["mnemonic_key_hash"],
-        |row| row.get(0),
-    ) {
+    // 使用辅助函数从数据库获取存储的助记词密钥哈希（支持内存数据库）
+    let stored_mnemonic_hash: String = match with_db_connection(state, |conn| {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["mnemonic_key_hash"],
+            |row| row.get(0),
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))
+    }) {
         Ok(hash) => hash,
         Err(e) => {
             write_log(&format!("获取助记词密钥哈希失败: {}", e));
@@ -354,18 +373,14 @@ pub unsafe extern "C" fn get_password_hint() -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    // 打开数据库获取密码提示
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    // 从数据库获取密码提示
-    let hint: Option<String> = conn.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        ["password_hint"],
-        |row| row.get(0),
-    ).ok();
+    // 使用辅助函数从数据库获取密码提示（支持内存数据库）
+    let hint: Option<String> = with_db_connection(state, |conn| {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["password_hint"],
+            |row| row.get(0),
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))
+    }).ok();
 
     match hint {
         Some(h) => string_to_c_char(h),
@@ -396,44 +411,35 @@ pub unsafe extern "C" fn save_mnemonic(mnemonic: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    // 打开数据库保存助记词
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
+    // 使用辅助函数保存助记词（支持内存数据库）
+    let result = with_db_connection(state, |conn| -> DbResult<()> {
+        // 保存助记词到 settings 表（用于用户查看）
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            ["recovery_mnemonic", &mnemonic],
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
-    // 保存助记词到 settings 表（用于用户查看）
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-        ["recovery_mnemonic", &mnemonic],
-    ) {
-        write_log(&format!("保存助记词失败: {}", e));
-        return FfiErrorCode::DatabaseError as c_int;
+        // 从助记词派生密钥并计算哈希（用于验证）
+        let mnemonic_key = mnemonic_to_key(mnemonic)
+            .map_err(|e| DbError::DatabaseError(format!("助记词派生密钥失败: {}", e)))?;
+
+        let mnemonic_key_hash = Sha256::digest(&mnemonic_key);
+        let mnemonic_key_hash_hex = hex::encode(&mnemonic_key_hash);
+
+        // 保存助记词密钥哈希
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            ["mnemonic_key_hash", &mnemonic_key_hash_hex],
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        write_log(&format!("助记词密钥哈希已保存: {}", &mnemonic_key_hash_hex[..8]));
+        Ok(())
+    });
+
+    match result {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
-
-    // 从助记词派生密钥并计算哈希（用于验证）
-    let mnemonic_key = match mnemonic_to_key(mnemonic) {
-        Ok(k) => k.to_vec(),
-        Err(e) => {
-            write_log(&format!("助记词派生密钥失败: {}", e));
-            return FfiErrorCode::CryptoError as c_int;
-        }
-    };
-
-    let mnemonic_key_hash = Sha256::digest(&mnemonic_key);
-    let mnemonic_key_hash_hex = hex::encode(&mnemonic_key_hash);
-
-    // 保存助记词密钥哈希
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-        ["mnemonic_key_hash", &mnemonic_key_hash_hex],
-    ) {
-        write_log(&format!("保存助记词密钥哈希失败: {}", e));
-        return FfiErrorCode::DatabaseError as c_int;
-    }
-
-    write_log(&format!("助记词密钥哈希已保存: {}", &mnemonic_key_hash_hex[..8]));
-    FfiErrorCode::Success as c_int
 }
 
 /// 获取资产类型枚举值（仅处理资产类型，0-4）
@@ -507,11 +513,6 @@ pub unsafe extern "C" fn add_asset(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     let asset = Asset::new(asset_type_str, name, amount);
     let asset = Asset {
         currency,
@@ -521,15 +522,19 @@ pub unsafe extern "C" fn add_asset(
         ..asset
     };
 
-    let asset_id = match AssetRepository::create(&conn, &asset) {
+    let _asset_id = match with_db_connection(&state, |conn| -> DbResult<String> {
+        let id = AssetRepository::create(conn, &asset)?;
+
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Created)
+            .with_created_snapshot(&asset);
+        let _ = AssetChangeRepository::create(conn, &change);
+
+        Ok(id)
+    }) {
         Ok(id) => id,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
-
-    // 记录审计日志
-    let change = AssetChange::new(asset_id.clone(), ChangeType::Created)
-        .with_created_snapshot(&asset);
-    let _ = AssetChangeRepository::create(&conn, &change);
 
     FfiErrorCode::Success as c_int
 }
@@ -543,12 +548,9 @@ pub unsafe extern "C" fn get_all_assets() -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let assets = match AssetRepository::list(&conn) {
+    let assets = match with_db_connection(&state, |conn| -> DbResult<Vec<Asset>> {
+        AssetRepository::list(conn)
+    }) {
         Ok(a) => a,
         Err(_) => return ptr::null_mut(),
     };
@@ -623,13 +625,10 @@ pub unsafe extern "C" fn update_asset(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有资产
-    let existing = match AssetRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Asset> {
+        AssetRepository::get(conn, &id)
+    }) {
         Ok(a) => a,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
@@ -698,23 +697,25 @@ pub unsafe extern "C" fn update_asset(
         updated_at: existing.updated_at,
     };
 
-    match AssetRepository::update(&conn, &asset) {
-        Ok(_) => {
-            // 记录审计日志
-            let changed_field = if changed_fields.is_empty() {
-                None
-            } else if changed_fields.len() == 1 {
-                Some(changed_fields[0].to_string())
-            } else {
-                Some(changed_fields.join(", "))
-            };
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        AssetRepository::update(conn, &asset)?;
 
-            let change = AssetChange::new(id_clone, ChangeType::Updated)
-                .with_updated_snapshots(&existing, &asset, changed_field);
-            let _ = AssetChangeRepository::create(&conn, &change);
+        // 记录审计日志
+        let changed_field = if changed_fields.is_empty() {
+            None
+        } else if changed_fields.len() == 1 {
+            Some(changed_fields[0].to_string())
+        } else {
+            Some(changed_fields.join(", "))
+        };
 
-            FfiErrorCode::Success as c_int
-        },
+        let change = AssetChange::new(id_clone, ChangeType::Updated)
+            .with_updated_snapshots(&existing, &asset, changed_field);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
 }
@@ -733,27 +734,26 @@ pub unsafe extern "C" fn delete_asset(id: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有资产用于审计日志
-    let existing = match AssetRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Asset> {
+        AssetRepository::get(conn, &id)
+    }) {
         Ok(a) => a,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
-    match AssetRepository::delete(&conn, &id) {
-        Ok(_) => {
-            // 记录审计日志
-            let change = AssetChange::new(id, ChangeType::Deleted)
-                .with_deleted_snapshot(&existing);
-            let _ = AssetChangeRepository::create(&conn, &change);
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        AssetRepository::delete(conn, &id)?;
 
-            FfiErrorCode::Success as c_int
-        },
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Deleted)
+            .with_deleted_snapshot(&existing);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
@@ -874,12 +874,9 @@ pub unsafe extern "C" fn get_asset_changes() -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let changes = match AssetChangeRepository::list_all(&conn, Some(1000)) {
+    let changes = match with_db_connection(&state, |conn| -> DbResult<Vec<AssetChange>> {
+        AssetChangeRepository::list_all(conn, Some(1000))
+    }) {
         Ok(c) => c,
         Err(_) => return ptr::null_mut(),
     };
@@ -904,12 +901,9 @@ pub unsafe extern "C" fn get_asset_changes_by_asset_id(asset_id: *const c_char) 
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let changes = match AssetChangeRepository::list_by_asset(&conn, &asset_id) {
+    let changes = match with_db_connection(&state, |conn| -> DbResult<Vec<AssetChange>> {
+        AssetChangeRepository::list_by_asset(conn, &asset_id)
+    }) {
         Ok(c) => c,
         Err(_) => return ptr::null_mut(),
     };
@@ -946,18 +940,15 @@ pub unsafe extern "C" fn search_assets_by_name(
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
     // 解析类型过滤器 JSON数组 - 现在是字符串数组而不是整数数组
     let type_ids: Vec<String> = match serde_json::from_str(type_filter_json) {
         Ok(v) => v,
         Err(_) => return ptr::null_mut(),
     };
 
-    match AssetRepository::search_by_name(&conn, name_pattern, &type_ids) {
+    match with_db_connection(&state, |conn| -> DbResult<Vec<Asset>> {
+        AssetRepository::search_by_name(conn, name_pattern, &type_ids)
+    }) {
         Ok(assets) => match serde_json::to_string(&assets) {
             Ok(json) => string_to_c_char(json),
             Err(_) => ptr::null_mut(),
@@ -994,12 +985,9 @@ pub unsafe extern "C" fn create_custom_asset_type(
         None => return string_to_c_char("{\"error\":\"Not initialized\"}".to_string()),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return string_to_c_char("{\"error\":\"Database error\"}".to_string()),
-    };
-
-    match CustomTypeRepository::create(&conn, &custom_type) {
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        CustomTypeRepository::create(conn, &custom_type)
+    }) {
         Ok(_) => string_to_c_char(json!({"id": custom_type.id, "success": true}).to_string()),
         Err(e) => string_to_c_char(json!({"error": format!("{}", e)}).to_string()),
     }
@@ -1014,12 +1002,9 @@ pub unsafe extern "C" fn get_custom_asset_types() -> *mut c_char {
         None => return string_to_c_char("[]".to_string()),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return string_to_c_char("[]".to_string()),
-    };
-
-    match CustomTypeRepository::get_all(&conn) {
+    match with_db_connection(&state, |conn| -> DbResult<Vec<CustomAssetType>> {
+        CustomTypeRepository::get_all(conn)
+    }) {
         Ok(types) => string_to_c_char(serde_json::to_string(&types).unwrap_or_else(|_| "[]".to_string())),
         Err(_) => string_to_c_char("[]".to_string()),
     }
@@ -1039,12 +1024,9 @@ pub unsafe extern "C" fn delete_custom_asset_type(id: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
-    match CustomTypeRepository::delete(&conn, id) {
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        CustomTypeRepository::delete(conn, id)
+    }) {
         Ok(_) => FfiErrorCode::Success as c_int,
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
@@ -1065,12 +1047,9 @@ pub unsafe extern "C" fn is_custom_type_in_use(id: *const c_char) -> c_int {
         None => return -1,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    match CustomTypeRepository::is_in_use(&conn, id) {
+    match with_db_connection(&state, |conn| -> DbResult<bool> {
+        CustomTypeRepository::is_in_use(conn, id)
+    }) {
         Ok(true) => 1,
         Ok(false) => 0,
         Err(_) => -1,
@@ -1182,11 +1161,6 @@ pub unsafe extern "C" fn add_asset_with_type(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     let asset = Asset::new(asset_type.clone(), name, amount);
     let asset = Asset {
         currency,
@@ -1202,30 +1176,34 @@ pub unsafe extern "C" fn add_asset_with_type(
     write_log(&format!("创建 Asset 对象: buy_price = {:?}, current_price = {:?}\n", asset.buy_price, asset.current_price));
     write_log(&format!("资产 ID = {}, 名称 = {}\n", asset.id, asset.name));
 
-    let asset_id = match AssetRepository::create(&conn, &asset) {
+    let _asset_id = match with_db_connection(&state, |conn| -> DbResult<String> {
+        let id = AssetRepository::create(conn, &asset)?;
+
+        write_log(&format!("数据库插入成功，资产 ID = {}\n", id));
+
+        // 立即读取验证
+        match AssetRepository::get(conn, &id) {
+            Ok(read_asset) => {
+                write_log(&format!("验证读取: buy_price = {:?}, current_price = {:?}\n", read_asset.buy_price, read_asset.current_price));
+            },
+            Err(e) => {
+                write_log(&format!("验证读取失败: {}\n", e));
+            }
+        }
+
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Created)
+            .with_created_snapshot(&asset);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(id)
+    }) {
         Ok(id) => id,
         Err(e) => {
             write_log(&format!("数据库插入失败: {}\n", e));
             return FfiErrorCode::DatabaseError as c_int;
         }
     };
-
-    write_log(&format!("数据库插入成功，资产 ID = {}\n", asset_id));
-
-    // 立即读取验证
-    match AssetRepository::get(&conn, &asset_id) {
-        Ok(read_asset) => {
-            write_log(&format!("验证读取: buy_price = {:?}, current_price = {:?}\n", read_asset.buy_price, read_asset.current_price));
-        },
-        Err(e) => {
-            write_log(&format!("验证读取失败: {}\n", e));
-        }
-    }
-
-    // 记录审计日志
-    let change = AssetChange::new(asset_id.clone(), ChangeType::Created)
-        .with_created_snapshot(&asset);
-    let _ = AssetChangeRepository::create(&conn, &change);
 
     write_log("========== add_asset_with_type 结束 ==========\n");
 
@@ -1330,13 +1308,10 @@ pub unsafe extern "C" fn update_asset_with_type(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有资产
-    let existing = match AssetRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Asset> {
+        AssetRepository::get(conn, &id)
+    }) {
         Ok(a) => a,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
@@ -1406,23 +1381,25 @@ pub unsafe extern "C" fn update_asset_with_type(
         updated_at: existing.updated_at,
     };
 
-    match AssetRepository::update(&conn, &asset) {
-        Ok(_) => {
-            // 记录审计日志
-            let changed_field = if changed_fields.is_empty() {
-                None
-            } else if changed_fields.len() == 1 {
-                Some(changed_fields[0].to_string())
-            } else {
-                Some(changed_fields.join(", "))
-            };
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        AssetRepository::update(conn, &asset)?;
 
-            let change = AssetChange::new(id_clone, ChangeType::Updated)
-                .with_updated_snapshots(&existing, &asset, changed_field);
-            let _ = AssetChangeRepository::create(&conn, &change);
+        // 记录审计日志
+        let changed_field = if changed_fields.is_empty() {
+            None
+        } else if changed_fields.len() == 1 {
+            Some(changed_fields[0].to_string())
+        } else {
+            Some(changed_fields.join(", "))
+        };
 
-            FfiErrorCode::Success as c_int
-        },
+        let change = AssetChange::new(id_clone, ChangeType::Updated)
+            .with_updated_snapshots(&existing, &asset, changed_field);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
 }
@@ -1491,11 +1468,6 @@ pub unsafe extern "C" fn add_asset_with_extra_fields(
     let state = match state.as_ref() {
         Some(s) => s,
         None => return FfiErrorCode::GenericError as c_int,
-    };
-
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
     // 创建基础资产对象
@@ -1606,15 +1578,19 @@ pub unsafe extern "C" fn add_asset_with_extra_fields(
         }
     }
 
-    let asset_id = match AssetRepository::create(&conn, &asset) {
+    let asset_id = match with_db_connection(&state, |conn| {
+        AssetRepository::create(conn, &asset)
+    }) {
         Ok(id) => id,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
     // 记录审计日志
-    let change = AssetChange::new(asset_id, ChangeType::Created)
+    let change = AssetChange::new(asset_id.clone(), ChangeType::Created)
         .with_created_snapshot(&asset);
-    let _ = AssetChangeRepository::create(&conn, &change);
+    let _ = with_db_connection(&state, |conn| {
+        AssetChangeRepository::create(conn, &change)
+    });
 
     FfiErrorCode::Success as c_int
 }
@@ -1642,22 +1618,34 @@ pub unsafe extern "C" fn get_assets_only() -> *mut c_char {
     let state = APP_STATE.lock().unwrap();
     let state = match state.as_ref() {
         Some(s) => s,
-        None => return ptr::null_mut(),
+        None => {
+            eprintln!("get_assets_only: state 为空");
+            return ptr::null_mut(),
+        }
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let assets = match AssetRepository::list(&conn) {
-        Ok(a) => a,
-        Err(_) => return ptr::null_mut(),
+    let assets = match with_db_connection(&state, |conn| -> DbResult<Vec<Asset>> {
+        AssetRepository::list(conn)
+    }) {
+        Ok(a) => {
+            eprintln!("get_assets_only: 成功获取 {} 个资产", a.len());
+            a
+        },
+        Err(e) => {
+            eprintln!("get_assets_only: 获取资产失败: {}", e);
+            return ptr::null_mut();
+        }
     };
 
     match serde_json::to_string(&assets) {
-        Ok(json) => string_to_c_char(json),
-        Err(_) => ptr::null_mut(),
+        Ok(json) => {
+            eprintln!("get_assets_only: JSON 序列化成功，长度: {}", json.len());
+            string_to_c_char(json)
+        },
+        Err(e) => {
+            eprintln!("get_assets_only: JSON 序列化失败: {}", e);
+            ptr::null_mut()
+        },
     }
 }
 
@@ -1670,12 +1658,9 @@ pub unsafe extern "C" fn get_liabilities_only() -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let liabilities = match LiabilityRepository::list(&conn) {
+    let liabilities = match with_db_connection(&state, |conn| -> DbResult<Vec<Liability>> {
+        LiabilityRepository::list(conn)
+    }) {
         Ok(l) => l,
         Err(_) => return ptr::null_mut(),
     };
@@ -1700,12 +1685,9 @@ pub unsafe extern "C" fn get_asset_by_id(id: *const c_char) -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match AssetRepository::get(&conn, &id) {
+    match with_db_connection(&state, |conn| -> DbResult<Asset> {
+        AssetRepository::get(conn, &id)
+    }) {
         Ok(asset) => match serde_json::to_string(&asset) {
             Ok(json) => string_to_c_char(json),
             Err(_) => ptr::null_mut(),
@@ -1787,13 +1769,10 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有资产
-    let existing = match AssetRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Asset> {
+        AssetRepository::get(conn, &id)
+    }) {
         Ok(a) => a,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
@@ -1955,29 +1934,32 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
         }
     }
 
-    match AssetRepository::update(&conn, &asset) {
-        Ok(_) => {
-            // 在解析扩展字段后，检查扩展字段的变化
-            if existing.account != asset.account { changed_fields.push("账户"); }
-            if existing.buy_price != asset.buy_price { changed_fields.push("买入价"); }
-            if existing.current_price != asset.current_price { changed_fields.push("现价"); }
-            if existing.tags != asset.tags { changed_fields.push("标签"); }
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        AssetRepository::update(conn, &asset)?;
 
-            let changed_field = if changed_fields.is_empty() {
-                None
-            } else if changed_fields.len() == 1 {
-                Some(changed_fields[0].to_string())
-            } else {
-                Some(changed_fields.join(", "))
-            };
+        // 在解析扩展字段后，检查扩展字段的变化
+        let mut extended_changed_fields = changed_fields.clone();
+        if existing.account != asset.account { extended_changed_fields.push("账户"); }
+        if existing.buy_price != asset.buy_price { extended_changed_fields.push("买入价"); }
+        if existing.current_price != asset.current_price { extended_changed_fields.push("现价"); }
+        if existing.tags != asset.tags { extended_changed_fields.push("标签"); }
 
-            // 记录审计日志
-            let change = AssetChange::new(asset.id.clone(), ChangeType::Updated)
-                .with_updated_snapshots(&existing, &asset, changed_field);
-            let _ = AssetChangeRepository::create(&conn, &change);
+        let changed_field = if extended_changed_fields.is_empty() {
+            None
+        } else if extended_changed_fields.len() == 1 {
+            Some(extended_changed_fields[0].to_string())
+        } else {
+            Some(extended_changed_fields.join(", "))
+        };
 
-            FfiErrorCode::Success as c_int
-        }
+        // 记录审计日志
+        let change = AssetChange::new(asset.id.clone(), ChangeType::Updated)
+            .with_updated_snapshots(&existing, &asset, changed_field);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(e) => {
             eprintln!("更新资产失败: {}", e);
             FfiErrorCode::DatabaseError as c_int
@@ -1998,12 +1980,9 @@ pub unsafe extern "C" fn get_all_liabilities() -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let liabilities = match LiabilityRepository::list(&conn) {
+    let liabilities = match with_db_connection(&state, |conn| -> DbResult<Vec<Liability>> {
+        LiabilityRepository::list(conn)
+    }) {
         Ok(l) => l,
         Err(_) => return ptr::null_mut(),
     };
@@ -2078,11 +2057,6 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
     let state = match state.as_ref() {
         Some(s) => s,
         None => return FfiErrorCode::GenericError as c_int,
-    };
-
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
     // 解析扩展字段
@@ -2173,15 +2147,17 @@ pub unsafe extern "C" fn add_liability_with_extra_fields(
         }
     }
 
-    match LiabilityRepository::create(&conn, &liability) {
-        Ok(id) => {
-            // 记录审计日志
-            let change = AssetChange::new(id.clone(), ChangeType::Created)
-                .with_created_snapshot_for_liability(&liability);
-            let _ = AssetChangeRepository::create(&conn, &change);
+    match with_db_connection(&state, |conn| -> DbResult<String> {
+        let id = LiabilityRepository::create(conn, &liability)?;
 
-            FfiErrorCode::Success as c_int
-        }
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Created)
+            .with_created_snapshot_for_liability(&liability);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(id)
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(e) => {
             eprintln!("创建负债失败: {}", e);
             FfiErrorCode::DatabaseError as c_int
@@ -2261,13 +2237,10 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有负债
-    let existing = match LiabilityRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Liability> {
+        LiabilityRepository::get(conn, &id)
+    }) {
         Ok(l) => l,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
@@ -2408,29 +2381,32 @@ pub unsafe extern "C" fn update_liability_with_extra_fields(
         }
     }
 
-    match LiabilityRepository::update(&conn, &liability) {
-        Ok(_) => {
-            // 在解析扩展字段后，检查扩展字段的变化
-            if existing.lender != liability.lender { changed_fields.push("债权人"); }
-            if existing.interest_rate != liability.interest_rate { changed_fields.push("利率"); }
-            if existing.due_date != liability.due_date { changed_fields.push("到期日"); }
-            if existing.repayment_method != liability.repayment_method { changed_fields.push("还款方式"); }
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        LiabilityRepository::update(conn, &liability)?;
 
-            let changed_field = if changed_fields.is_empty() {
-                None
-            } else if changed_fields.len() == 1 {
-                Some(changed_fields[0].to_string())
-            } else {
-                Some(changed_fields.join(", "))
-            };
+        // 在解析扩展字段后，检查扩展字段的变化
+        let mut extended_changed_fields = changed_fields.clone();
+        if existing.lender != liability.lender { extended_changed_fields.push("债权人"); }
+        if existing.interest_rate != liability.interest_rate { extended_changed_fields.push("利率"); }
+        if existing.due_date != liability.due_date { extended_changed_fields.push("到期日"); }
+        if existing.repayment_method != liability.repayment_method { extended_changed_fields.push("还款方式"); }
 
-            // 记录审计日志
-            let change = AssetChange::new(id, ChangeType::Updated)
-                .with_updated_snapshots_for_liability(&existing, &liability, changed_field);
-            let _ = AssetChangeRepository::create(&conn, &change);
+        let changed_field = if extended_changed_fields.is_empty() {
+            None
+        } else if extended_changed_fields.len() == 1 {
+            Some(extended_changed_fields[0].to_string())
+        } else {
+            Some(extended_changed_fields.join(", "))
+        };
 
-            FfiErrorCode::Success as c_int
-        }
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Updated)
+            .with_updated_snapshots_for_liability(&existing, &liability, changed_field);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(e) => {
             eprintln!("更新负债失败: {}", e);
             FfiErrorCode::DatabaseError as c_int
@@ -2499,27 +2475,26 @@ pub unsafe extern "C" fn delete_liability(id: *const c_char) -> c_int {
         None => return FfiErrorCode::GenericError as c_int,
     };
 
-    let conn = match open_db(&state.db_path) {
-        Ok(c) => c,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
     // 先获取现有负债用于审计日志
-    let existing = match LiabilityRepository::get(&conn, &id) {
+    let existing = match with_db_connection(&state, |conn| -> DbResult<Liability> {
+        LiabilityRepository::get(conn, &id)
+    }) {
         Ok(l) => l,
         Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
         Err(_) => return FfiErrorCode::DatabaseError as c_int,
     };
 
-    match LiabilityRepository::delete(&conn, &id) {
-        Ok(_) => {
-            // 记录审计日志
-            let change = AssetChange::new(id, ChangeType::Deleted)
-                .with_deleted_snapshot_for_liability(&existing);
-            let _ = AssetChangeRepository::create(&conn, &change);
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        LiabilityRepository::delete(conn, &id)?;
 
-            FfiErrorCode::Success as c_int
-        }
+        // 记录审计日志
+        let change = AssetChange::new(id.clone(), ChangeType::Deleted)
+            .with_deleted_snapshot_for_liability(&existing);
+        AssetChangeRepository::create(conn, &change)?;
+
+        Ok(())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
         Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
         Err(_) => FfiErrorCode::DatabaseError as c_int,
     }
@@ -2822,6 +2797,108 @@ pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
     FfiErrorCode::Success as c_int
 }
 
+/// 设置主密码 V2（加密数据库模式）
+///
+/// 此函数用于首次设置密码，会：
+/// 1. 派生密钥
+/// 2. 创建内存数据库
+/// 3. 初始化表结构
+/// 4. 保存盐值和密码提示
+///
+/// 注意：调用此函数后，需要调用 save_database() 将加密数据库保存到磁盘
+#[export_name = "setup_password_v2"]
+pub unsafe extern "C" fn setup_password_v2(
+    password: *const c_char,
+    hint: *const c_char,
+) -> c_int {
+    let password = match CStr::from_ptr(password).to_str() {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::InvalidPassword as c_int,
+    };
+
+    let hint_str = if hint.is_null() {
+        None
+    } else {
+        match CStr::from_ptr(hint).to_str() {
+            Ok(s) => Some(s.to_string()),
+            Err(_) => return FfiErrorCode::GenericError as c_int,
+        }
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 生成盐值并派生密钥
+    let salt = generate_salt();
+    let key_vec = match derive_key(password, &salt) {
+        Ok(k) => k.to_vec(),
+        Err(_) => return FfiErrorCode::CryptoError as c_int,
+    };
+
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_vec);
+
+    // 创建新的内存数据库
+    let memory_conn = match Connection::open_in_memory() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("创建内存数据库失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    // 初始化数据库结构
+    match crate::db::init_db(&memory_conn) {
+        Ok(_) => eprintln!("内存数据库初始化成功"),
+        Err(e) => {
+            eprintln!("初始化内存数据库失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    }
+
+    // 保存盐值到 settings 表
+    let salt_hex = hex::encode(&salt);
+    if let Err(e) = memory_conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["password_salt", &salt_hex],
+    ) {
+        eprintln!("保存盐值失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    // 保存密钥哈希（用于后续验证密码）
+    let key_hash = Sha256::digest(&key);
+    let key_hash_hex = hex::encode(&key_hash);
+    if let Err(e) = memory_conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        ["password_key_hash", &key_hash_hex],
+    ) {
+        eprintln!("保存密钥哈希失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+
+    // 保存密码提示（如果有）
+    if let Some(hint) = hint_str {
+        if let Err(e) = memory_conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            ["password_hint", &hint],
+        ) {
+            eprintln!("保存密码提示失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    }
+
+    state.master_key = Some(key);
+    state.memory_conn = Some(memory_conn);
+    state.is_dirty = true; // 新数据库需要保存
+
+    eprintln!("新数据库创建成功（V2 加密模式）");
+    FfiErrorCode::Success as c_int
+}
+
 /// 保存加密数据库到磁盘
 ///
 /// 将当前内存数据库加密后保存到磁盘
@@ -2851,8 +2928,33 @@ pub unsafe extern "C" fn save_database() -> c_int {
         }
     };
 
-    // 保存加密数据库
-    match save_encrypted_db(memory_conn, &state.db_path, &key) {
+    // 从内存数据库获取盐值
+    let salt_hex: String = match memory_conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        ["password_salt"],
+        |row| row.get(0),
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("保存失败：无法获取盐值: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    let salt = match hex::decode(&salt_hex) {
+        Ok(s) if s.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&s);
+            arr
+        }
+        _ => {
+            eprintln!("保存失败：盐值格式错误");
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+
+    // 保存加密数据库（使用内存数据库中的盐值）
+    match save_encrypted_db(memory_conn, &state.db_path, &key, &salt) {
         Ok(_) => {
             state.is_dirty = false;
             eprintln!("数据库已加密保存");
@@ -2882,10 +2984,30 @@ pub unsafe extern "C" fn cleanup_app(save: c_int) -> c_int {
     };
 
     // 保存数据（如果需要）
-    if should_save && state.is_dirty {
+    // 注意：即使 is_dirty 为 false，如果内存数据库存在也需要保存（用于迁移明文数据库）
+    if should_save && state.memory_conn.is_some() {
         if let Some(key) = state.master_key {
             if let Some(memory_conn) = state.memory_conn.as_ref() {
-                match save_encrypted_db(memory_conn, &state.db_path, &key) {
+                // 从内存数据库获取盐值
+                let result: Result<(), DbError> = (|| {
+                    let salt_hex: String = memory_conn.query_row(
+                        "SELECT value FROM settings WHERE key = ?1",
+                        ["password_salt"],
+                        |row| row.get(0),
+                    ).map_err(|e| DbError::DatabaseError(format!("无法获取盐值: {}", e)))?;
+
+                    let salt = hex::decode(&salt_hex)
+                        .map_err(|e| DbError::DatabaseError(format!("盐值解码失败: {}", e)))?;
+                    if salt.len() != 32 {
+                        return Err(DbError::DatabaseError("盐值长度错误".to_string()));
+                    }
+                    let mut salt_arr = [0u8; 32];
+                    salt_arr.copy_from_slice(&salt);
+
+                    save_encrypted_db(memory_conn, &state.db_path, &key, &salt_arr)
+                })();
+
+                match result {
                     Ok(_) => {
                         state.is_dirty = false;
                         eprintln!("退出前已保存数据库");

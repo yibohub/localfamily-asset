@@ -143,6 +143,7 @@ class FfiBridge {
   // V2 加密数据库相关函数
   late final int Function(ffi.Pointer<ffi.Char>) _initAppV2;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPasswordV2;
+  late final int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _setupPasswordV2;
   late final int Function() _saveDatabase;
   late final int Function(int) _cleanupApp;
 
@@ -420,6 +421,10 @@ class FfiBridge {
 
     _verifyPasswordV2 = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('verify_password_v2')
+        .asFunction();
+
+    _setupPasswordV2 = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>>('setup_password_v2')
         .asFunction();
 
     _saveDatabase = _dylib
@@ -1270,6 +1275,35 @@ class FfiBridge {
       return false;
     } finally {
       malloc.free(passwordPtr);
+    }
+  }
+
+  /// 设置主密码 V2（加密数据库模式）
+  ///
+  /// 此函数用于首次设置密码，会：
+  /// 1. 派生密钥
+  /// 2. 创建内存数据库
+  /// 3. 初始化表结构
+  /// 4. 保存盐值和密码提示
+  ///
+  /// 注意：调用此函数后，需要调用 saveDatabase() 将加密数据库保存到磁盘
+  Future<bool> setupPasswordV2(String password, {String? hint}) async {
+    final passwordPtr = password.toNativeUtf8().cast<ffi.Char>();
+    final hintPtr = hint?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    try {
+      final result = _setupPasswordV2(passwordPtr, hintPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('setupPasswordV2 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('setupPasswordV2 异常: $e');
+      return false;
+    } finally {
+      malloc.free(passwordPtr);
+      if (hint != null) {
+        malloc.free(hintPtr);
+      }
     }
   }
 

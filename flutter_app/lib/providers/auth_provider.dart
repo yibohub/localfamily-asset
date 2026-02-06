@@ -32,8 +32,8 @@ class AuthProvider with ChangeNotifier {
       final appDir = await getApplicationDocumentsDirectory();
       _dbPath = '${appDir.path}/localfamily_asset.db';
 
-      // 初始化 Rust Core
-      await _ffi.initApp(_dbPath!);
+      // 初始化 Rust Core（V2 加密模式）
+      await _ffi.initAppV2(_dbPath!);
 
       // 检查数据库文件是否存在，判断是否需要设置密码
       final dbFile = File(_dbPath!);
@@ -56,8 +56,10 @@ class AuthProvider with ChangeNotifier {
   /// 设置初始密码
   Future<bool> setupPassword(String password, {String? hint}) async {
     try {
-      final success = await _ffi.setupPassword(password, hint: hint);
+      final success = await _ffi.setupPasswordV2(password, hint: hint);
       if (success) {
+        // 立即保存加密数据库到磁盘
+        await _ffi.saveDatabase();
         _passwordHint = hint;
         _status = AuthStatus.unlocked;
         _startAutoSave(); // 启动自动保存
@@ -74,7 +76,7 @@ class AuthProvider with ChangeNotifier {
   /// 解锁应用
   Future<bool> unlock(String password) async {
     try {
-      final success = await _ffi.verifyPassword(password);
+      final success = await _ffi.verifyPasswordV2(password);
       if (success) {
         _status = AuthStatus.unlocked;
         _startAutoSave(); // 启动自动保存
@@ -117,13 +119,17 @@ class AuthProvider with ChangeNotifier {
   Future<bool> changePassword(String oldPassword, String newPassword) async {
     try {
       // 先验证旧密码
-      final verified = await _ffi.verifyPassword(oldPassword);
+      final verified = await _ffi.verifyPasswordV2(oldPassword);
       if (!verified) {
         return false;
       }
 
       // 设置新密码
-      final success = await _ffi.setupPassword(newPassword);
+      final success = await _ffi.setupPasswordV2(newPassword);
+      if (success) {
+        // 立即保存加密数据库
+        await _ffi.saveDatabase();
+      }
       return success;
     } catch (e) {
       debugPrint('修改密码失败: $e');
@@ -144,8 +150,10 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
-      final success = await _ffi.setupPassword(newPassword, hint: hint);
+      final success = await _ffi.setupPasswordV2(newPassword, hint: hint);
       if (success) {
+        // 立即保存加密数据库
+        await _ffi.saveDatabase();
         _passwordHint = hint;
         notifyListeners();
       }
@@ -177,7 +185,7 @@ class AuthProvider with ChangeNotifier {
 
       // 步骤3: 重新初始化 Rust 端（AppState 被清空后需要重新初始化）
       if (_dbPath != null) {
-        await _ffi.initApp(_dbPath!);
+        await _ffi.initAppV2(_dbPath!);
       }
 
       // 步骤4: 尝试删除数据库文件（即使失败，数据也已被清空）

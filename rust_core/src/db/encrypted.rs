@@ -135,14 +135,12 @@ pub fn save_encrypted_db<P: AsRef<Path>>(
     conn: &Connection,
     path: P,
     key: &[u8; 32],
+    salt: &[u8; 32],
 ) -> DbResult<()> {
     // 序列化数据库
     let db_bytes = serialize_db(conn)?;
 
-    // 生成新的随机盐值（每次保存都使用新盐值）
-    let salt = crate::crypto::generate_salt();
-
-    // 直接使用主密钥加密数据库字节
+    // 使用提供的盐值和主密钥加密数据库字节
     let encrypted = encrypt_data(key, &db_bytes)
         .map_err(|e| DbError::DatabaseError(format!("加密失败: {}", e)))?;
 
@@ -150,18 +148,24 @@ pub fn save_encrypted_db<P: AsRef<Path>>(
     let mut file_data = Vec::new();
     file_data.extend_from_slice(ENCRYPTED_MAGIC);
     file_data.push(ENCRYPTED_VERSION);
-    file_data.extend_from_slice(&salt);
+    file_data.extend_from_slice(salt);
     file_data.extend_from_slice(&encrypted);
 
     // 写入文件
     let path = path.as_ref();
 
-    // 先写入临时文件，然后原子性重命名
+    // Windows 平台：先删除目标文件（如果存在），避免 rename 失败
+    if path.exists() {
+        // 尝试删除目标文件，忽略不存在的错误
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 写入临时文件
     let temp_path = path.with_extension("tmp");
     std::fs::write(&temp_path, &file_data)
         .map_err(|e| DbError::DatabaseError(format!("写入加密文件失败: {}", e)))?;
 
-    // 原子性重命名
+    // 原子性重命名（此时目标文件已被删除）
     std::fs::rename(&temp_path, path)
         .map_err(|e| DbError::DatabaseError(format!("重命名加密文件失败: {}", e)))?;
 
