@@ -336,6 +336,8 @@ class FinancialProvider with ChangeNotifier {
       );
 
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await _loadLiabilities();
       }
 
