@@ -2581,8 +2581,15 @@ pub unsafe extern "C" fn init_app_v2(db_path: *const c_char) -> c_int {
             FfiErrorCode::Success as c_int
         }
         Err(e) => {
-            eprintln!("检测数据库类型失败: {}", e);
-            FfiErrorCode::DatabaseError as c_int
+            // 文件存在但损坏或无法识别（比如文件太小）
+            // 删除损坏的文件，作为新数据库处理
+            eprintln!("检测数据库类型失败: {}，删除损坏的文件", e);
+            if let Err(remove_err) = std::fs::remove_file(&db_path) {
+                eprintln!("删除损坏文件失败: {}", remove_err);
+                return FfiErrorCode::DatabaseError as c_int;
+            }
+            eprintln!("损坏文件已删除，作为新数据库处理");
+            FfiErrorCode::Success as c_int
         }
     }
 }
