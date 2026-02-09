@@ -160,7 +160,7 @@ class FinancialProvider with ChangeNotifier {
   Future<bool> _loadAssets() async {
     try {
       final jsonStr = await _ffi.getAssetsOnly();
-      debugPrint('_loadAssets: 收到数据，长度: ${jsonStr.length}');
+      debugPrint('_loadAssets: 收到 JSON 数据 (${jsonStr.length} 字符): ${jsonStr.isEmpty ? "<空>" : jsonStr}');
       if (jsonStr.isEmpty) {
         _assets = [];
         debugPrint('_loadAssets: 数据为空，返回空数组');
