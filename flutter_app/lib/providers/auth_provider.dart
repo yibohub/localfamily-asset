@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:async';
 import '../core/ffi_bridge.dart';
 
 /// 认证状态枚举
@@ -17,7 +16,6 @@ class AuthProvider with ChangeNotifier {
   String? _passwordHint;
   final FfiBridge _ffi = FfiBridge();
   String? _dbPath;
-  Timer? _autoSaveTimer; // 自动保存定时器
 
   AuthStatus get status => _status;
   String? get passwordHint => _passwordHint;
@@ -62,7 +60,6 @@ class AuthProvider with ChangeNotifier {
         await _ffi.saveDatabase();
         _passwordHint = hint;
         _status = AuthStatus.unlocked;
-        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -79,7 +76,6 @@ class AuthProvider with ChangeNotifier {
       final success = await _ffi.verifyPasswordV2(password);
       if (success) {
         _status = AuthStatus.unlocked;
-        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -96,7 +92,6 @@ class AuthProvider with ChangeNotifier {
       final success = await _ffi.verifyWithMnemonic(mnemonic);
       if (success) {
         _status = AuthStatus.unlocked;
-        _startAutoSave(); // 启动自动保存
         notifyListeners();
         return true;
       }
@@ -167,42 +162,40 @@ class AuthProvider with ChangeNotifier {
   /// 重置应用（删除所有数据）
   ///
   /// 安全流程：
-  /// 1. Rust 端先清空数据库中的所有数据（防止文件删除失败）
-  /// 2. Rust 端清除内存中的主密钥
-  /// 3. 重新初始化 Rust 端（因为 AppState 被清空）
-  /// 4. Dart 端尝试删除数据库文件（锦上添花）
-  /// 5. 重置应用状态
+  /// 1. Dart 端先删除加密数据库文件（必须在清空内存之前）
+  /// 2. Rust 端清除内存中的主密钥和状态
+  /// 3. 重新初始化 Rust 端（创建新的内存数据库）
+  /// 4. 重置应用状态
   Future<void> reset() async {
     try {
-      // 停止自动保存定时器
-      _stopAutoSave();
-
-      // 步骤1-2: Rust 端清空数据并清除密钥
-      final rustResetSuccess = await _ffi.resetApp();
-      if (!rustResetSuccess) {
-        debugPrint('警告：Rust 端重置失败，可能存在内存泄漏');
-      }
-
-      // 步骤3: 重新初始化 Rust 端（AppState 被清空后需要重新初始化）
-      if (_dbPath != null) {
-        await _ffi.initAppV2(_dbPath!);
-      }
-
-      // 步骤4: 尝试删除数据库文件（即使失败，数据也已被清空）
+      // 步骤1: 先删除加密数据库文件（必须在 resetApp 之前）
+      // 否则 initAppV2 会检测到旧文件但无密钥解密，导致重置失败
       if (_dbPath != null) {
         final dbFile = File(_dbPath!);
         if (await dbFile.exists()) {
           try {
             await dbFile.delete();
-            debugPrint('数据库文件已删除');
+            debugPrint('加密数据库文件已删除');
           } catch (e) {
-            // 文件删除失败不是致命错误，因为数据已被清空
-            debugPrint('数据库文件无法删除（可能被占用），但数据已被清空');
+            debugPrint('删除数据库文件失败: $e');
+            // 文件删除失败是致命错误，因为会导致重置后状态不一致
+            rethrow;
           }
         }
       }
 
-      // 步骤5: 重置状态
+      // 步骤2: Rust 端清空内存中的敏感数据
+      final rustResetSuccess = await _ffi.resetApp();
+      if (!rustResetSuccess) {
+        debugPrint('警告：Rust 端重置失败，可能存在内存泄漏');
+      }
+
+      // 步骤3: 重新初始化 Rust 端（创建新的内存数据库）
+      if (_dbPath != null) {
+        await _ffi.initAppV2(_dbPath!);
+      }
+
+      // 步骤4: 重置应用状态
       _status = AuthStatus.setup;
       _passwordHint = null;
       notifyListeners();
@@ -210,46 +203,15 @@ class AuthProvider with ChangeNotifier {
       debugPrint('应用已重置');
     } catch (e) {
       debugPrint('重置应用失败: $e');
+      rethrow;
     }
   }
 
   @override
   void dispose() {
-    // 停止自动保存定时器
-    _stopAutoSave();
     // 清理应用并保存数据
     _ffi.cleanupApp(save: true);
     super.dispose();
-  }
-
-  /// 启动自动保存定时器（每 30 秒）
-  void _startAutoSave() {
-    _stopAutoSave(); // 先停止现有的定时器
-    _autoSaveTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _autoSave(),
-    );
-    debugPrint('自动保存定时器已启动（每 30 秒）');
-  }
-
-  /// 停止自动保存定时器
-  void _stopAutoSave() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = null;
-  }
-
-  /// 自动保存数据
-  Future<void> _autoSave() async {
-    try {
-      final success = await _ffi.saveDatabase();
-      if (success) {
-        debugPrint('自动保存成功');
-      } else {
-        debugPrint('自动保存失败');
-      }
-    } catch (e) {
-      debugPrint('自动保存异常: $e');
-    }
   }
 
   /// 手动保存数据

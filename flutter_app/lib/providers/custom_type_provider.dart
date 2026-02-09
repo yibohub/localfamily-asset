@@ -51,6 +51,8 @@ class CustomTypeProvider with ChangeNotifier {
       );
 
       if (result['success'] == true) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await loadCustomTypes();
         return result['id'] as String?;
       }
@@ -67,6 +69,8 @@ class CustomTypeProvider with ChangeNotifier {
     try {
       final success = await _ffi.deleteCustomAssetType(id);
       if (success) {
+        // 立即保存数据库到磁盘
+        await _ffi.saveDatabase();
         await loadCustomTypes();
       }
       return success;
