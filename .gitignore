@@ -128,8 +128,6 @@ secrets.json
 # Android
 flutter_app/android/.gradle/
 flutter_app/android/captures/
-flutter_app/android/gradlew
-flutter_app/android/gradlew.bat
 flutter_app/android/local.properties
 flutter_app/android/**/GeneratedPluginRegistrant.java
 flutter_app/android/key.properties
