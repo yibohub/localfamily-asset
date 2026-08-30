@@ -29,9 +29,6 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 # 助记词 (BIP39)
 bip39 = "2.0"
 
-# FFI
-flutter_rust_bridge = "2.0"
-
 # 错误处理
 anyhow = "1.0"
 thiserror = "1.0"
