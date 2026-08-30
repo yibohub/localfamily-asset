@@ -253,6 +253,18 @@ jobs:
           cp rust_core/target/release/localfamily_asset_core.dll flutter_app/build/windows/x64/runner/Release/
           echo "Copied localfamily_asset_core.dll to Flutter build output"
 
+      # 打包 Windows 发布压缩包（exe 依赖同目录 DLL 与 data 资源，必须整目录分发）
+      - name: Package Windows build
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path flutter_app/build/windows/x64/runner/Release/* -DestinationPath localfamily-asset-windows-x64.zip -Force
+
+      # 打包 Linux 发布压缩包
+      - name: Package Linux build
+        if: matrix.target == 'linux'
+        shell: bash
+        run: tar -czf localfamily-asset-linux-x64.tar.gz -C flutter_app/build/linux/x64/release/bundle .
+
       # 列出构建产物（调试用）
       - name: List build outputs
         shell: bash
@@ -285,15 +297,14 @@ jobs:
           draft: false
           prerelease: true
           files: |
-            flutter_app/build/windows/x64/runner/Release/*.exe
-            flutter_app/build/windows/x64/runner/Release/*.dll
-            flutter_app/build/linux/*/release/bundle/*.tar.gz
+            localfamily-asset-windows-x64.zip
+            localfamily-asset-linux-x64.tar.gz
             flutter_app/build/app/outputs/apk/**/*.apk
             flutter_app/build/app/outputs/bundle/release/**/*.aab
           generate_release_notes: true
           body: |
             ## 下载
-            - **Windows**: localfamily_asset.exe
+            - **Windows**: localfamily-asset-windows-x64.zip（解压后运行 localfamily_asset.exe）
             - **Linux**: localfamily-asset-linux-x64.tar.gz
             - **Android APK**: localfamily-asset.apk
             - **Android App Bundle**: localfamily-asset.aab
