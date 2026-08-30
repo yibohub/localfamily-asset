@@ -65,13 +65,13 @@
 
 原则：成本递增、按序执行；对外曝光只做一次，留给最完整形态。
 
-### Phase 0 — 真正开源 ❌ 未开始（预计 1 周内可完成，零成本）
+### Phase 0 — 真正开源 ⏳ 进行中（2026-08-30 已完成主体）
 
-- [ ] 清理 git 历史中的 `rust_core/target/` 构建产物（`git filter-repo` 或重建历史）
-- [ ] 推送 GitHub 公开仓库
-- [ ] 发 GitHub Release，附 Windows 安装包
+- [x] 清理 git 历史中的 `rust_core/target/` 构建产物（git filter-repo，223MB → 4.7MB，141 提交全部保留）
+- [x] 推送 GitHub 公开仓库（2026-08-30 翻转为 public，匿名克隆验证通过）
+- [x] 发布前最终检查：git 历史中无真实资产数据、密钥等敏感文件
+- [ ] 发 GitHub Release，附 Windows 安装包（需打 `v*` tag 触发 CI 构建；按约定仅在用户明确要求时执行）
 - [ ] README 补截图/演示 GIF（建议，自荐帖要用）
-- [ ] 发布前最终检查：git 历史中无真实资产数据、密钥等敏感文件
 
 **完成标准**：公网可匿名访问仓库与 Release。
 
