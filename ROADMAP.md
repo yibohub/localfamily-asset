@@ -23,7 +23,7 @@
 **已知技术债**（影响后续排期的事实）
 
 1. 新增内置类型需 4 文件枚举联动（顺序敏感，易错）
-2. `lib/core/rust_ffi.dart` 遗留死代码，可删除
+2. ~~`lib/core/rust_ffi.dart` 遗留死代码，可删除~~ ✅ 2026-09-02 已删除
 3. `ffi.rs` 中 v1 明文 API（`init_app` 等）与 v2 加密 API 并存，v1 待清理
 4. 无集成测试；Flutter 侧仅 `widget_test.dart`
 5. 动态库复制未进构建系统（CMake 不处理，CI 手动复制）
@@ -78,10 +78,10 @@
 ### Phase 1 — Android 收尾 ⏳ 门槛：每周可稳定投入数小时（预计 2-6 周）
 
 - [x] CI 产出的 APK 真机安装验证（Rust `.so` 加载、FFI 调用、加密流程）——2026-09-02 模拟器验证通过（发现并修复：CI 此前未将 Rust `.so` 打进 APK、缺少 x86_64 ABI；现 APK 含 arm64-v8a/armeabi-v7a/x86_64 三 ABI，初始化+加密落盘+解锁+Demo 数据全流程正常）
-- [ ] 桌面专属代码平台门控（`window_manager`、自定义标题栏）
+- [x] 桌面专属代码平台门控（2026-09-02：window_manager 调用已在 main.dart 门控且为唯一入口；删除未使用桌面组件 window_title_bar.dart；导出路径移动端改落应用目录；asset_provider 日志去硬编码 Windows 路径）
 - [ ] 移动端 UI 适配（导航/表单/列表小屏过一遍）
 - [ ] 签名配置，酷安 + GitHub Release 分发
-- [ ] 顺手清理技术债 #2（删除 `rust_ffi.dart`）
+- [x] 顺手清理技术债 #2（删除 `rust_ffi.dart`）——2026-09-02 已删除
 
 **完成标准**：陌生用户能从 Release 下载 APK，完成初始化并成功记录一条资产。
 
