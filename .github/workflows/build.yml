@@ -265,6 +265,15 @@ jobs:
         shell: bash
         run: tar -czf localfamily-asset-linux-x64.tar.gz -C flutter_app/build/linux/x64/release/bundle .
 
+      # 复制 Android 发布包到工作区根目录（upload-artifact 以各文件最小公共目录为根打包，
+      # 若直接引用深路径，解压后 APK/AAB 会嵌套在 dist/apk/release/ 下，Release 的 dist/* 匹配不到）
+      - name: Package Android build
+        if: matrix.target == 'android'
+        shell: bash
+        run: |
+          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk localfamily-asset-android.apk
+          cp flutter_app/build/app/outputs/bundle/release/app-release.aab localfamily-asset-android.aab
+
       # 列出构建产物（调试用）
       - name: List build outputs
         shell: bash
@@ -297,8 +306,8 @@ jobs:
           path: |
             localfamily-asset-windows-x64.zip
             localfamily-asset-linux-x64.tar.gz
-            flutter_app/build/app/outputs/apk/release/*.apk
-            flutter_app/build/app/outputs/bundle/release/*.aab
+            localfamily-asset-android.apk
+            localfamily-asset-android.aab
           retention-days: 7
           if-no-files-found: warn
 
@@ -329,5 +338,5 @@ jobs:
             ## 下载
             - **Windows**: localfamily-asset-windows-x64.zip（解压后运行 localfamily_asset.exe）
             - **Linux**: localfamily-asset-linux-x64.tar.gz
-            - **Android APK**: localfamily_asset apk 文件
-            - **Android App Bundle**: .aab 文件（用于应用商店上传）
+            - **Android APK**: localfamily-asset-android.apk
+            - **Android App Bundle**: localfamily-asset-android.aab（用于应用商店上传）
