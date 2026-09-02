@@ -77,7 +77,7 @@
 
 ### Phase 1 — Android 收尾 ⏳ 门槛：每周可稳定投入数小时（预计 2-6 周）
 
-- [ ] CI 产出的 APK 真机安装验证（Rust `.so` 加载、FFI 调用、加密流程）
+- [x] CI 产出的 APK 真机安装验证（Rust `.so` 加载、FFI 调用、加密流程）——2026-09-02 模拟器验证通过（发现并修复：CI 此前未将 Rust `.so` 打进 APK、缺少 x86_64 ABI；现 APK 含 arm64-v8a/armeabi-v7a/x86_64 三 ABI，初始化+加密落盘+解锁+Demo 数据全流程正常）
 - [ ] 桌面专属代码平台门控（`window_manager`、自定义标题栏）
 - [ ] 移动端 UI 适配（导航/表单/列表小屏过一遍）
 - [ ] 签名配置，酷安 + GitHub Release 分发
