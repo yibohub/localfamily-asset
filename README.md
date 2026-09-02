@@ -4,6 +4,18 @@
 
 **隐财**是一款隐私优先的家庭资产登记管理工具，采用本地加密存储，所有数据只保存在你的设备上。
 
+## 界面预览
+
+| 初始设置（密码 + BIP39 助记词） | 资产总览 |
+|:---:|:---:|
+| ![初始设置](docs/screenshots/setup.png) | ![资产总览](docs/screenshots/main.png) |
+
+| 负债管理 | 设置 |
+|:---:|:---:|
+| ![负债管理](docs/screenshots/liabilities.png) | ![设置](docs/screenshots/settings.png) |
+
+> 截图为演示数据（巴菲特组合 Demo 模式）。
+
 ---
 
 ## ⚠️ 产品说明
