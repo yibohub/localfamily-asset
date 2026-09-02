@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 
 import '../models/asset.dart';
 import '../providers/auth_provider.dart';
 import '../providers/asset_provider.dart';
 import '../providers/custom_type_provider.dart';
 import '../core/ffi_bridge.dart';
+import '../core/file_dialogs.dart';
 import '../widgets/asset_summary_card.dart';
 import '../widgets/asset_list_item.dart';
 import '../widgets/add_asset_dialog.dart';
@@ -320,12 +319,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final password = await _promptForPassword(context, '请输入密码以确认导出');
     if (password == null) return;
 
-    // 2. 选择保存位置
-    final outputPath = await FilePicker.platform.saveFile(
-      dialogTitle: '选择导出文件保存位置',
-      fileName: 'localfamily_asset_backup.zip',
-      type: FileType.any,
-    );
+    // 2. 选择保存位置（桌面弹窗 / 移动端落应用目录）
+    final outputPath = await pickExportPath();
 
     if (outputPath == null || outputPath.isEmpty) {
       return;

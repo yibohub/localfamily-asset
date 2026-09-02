@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../core/ffi_bridge.dart';
+import '../../core/file_dialogs.dart';
 import '../auth/lock_screen.dart';
 import '../asset_history_screen.dart';
 import 'assets_tab_screen.dart';
@@ -248,12 +249,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     final password = await _promptForPassword(context, '请输入密码以确认导出');
     if (password == null) return;
 
-    // 2. 选择保存位置
-    final outputPath = await FilePicker.platform.saveFile(
-      dialogTitle: '选择导出文件保存位置',
-      fileName: 'localfamily_asset_backup.zip',
-      type: FileType.any,
-    );
+    // 2. 选择保存位置（桌面弹窗 / 移动端落应用目录）
+    final outputPath = await pickExportPath();
 
     if (outputPath == null || outputPath.isEmpty) {
       return;

@@ -8,10 +8,15 @@ import '../models/custom_asset_type.dart';
 import '../models/portfolio_summary.dart';
 import '../core/ffi_bridge.dart';
 
-/// 文件日志
+/// 文件日志（仅桌面端可用；移动端忽略——避免硬编码 Windows 路径）
 Future<void> _logToFile(String message) async {
+  if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) return;
   try {
-    final file = File('C:\\Users\\86131\\Documents\\localfamily_asset_dart.log');
+    final home = Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        '.';
+    final file = File(
+        '$home${Platform.pathSeparator}Documents${Platform.pathSeparator}localfamily_asset_dart.log');
     final sink = file.openWrite(mode: FileMode.append);
     final timestamp = DateTime.now().toIso8601String();
     sink.writeln('[$timestamp] $message');
