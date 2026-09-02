@@ -231,9 +231,9 @@ jobs:
           mkdir -p flutter_app/android/app/src/main/jniLibs/arm64-v8a
           mkdir -p flutter_app/android/app/src/main/jniLibs/armeabi-v7a
           mkdir -p flutter_app/android/app/src/main/jniLibs/x86_64
-          cp rust-core/rust-core-android-arm64/release/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/arm64-v8a/ || echo "arm64 not found"
-          cp rust-core/rust-core-android-armv7/release/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/armeabi-v7a/ || echo "armv7 not found"
-          cp rust-core/rust-core-android-x64/release/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/x86_64/ || echo "x86_64 not found"
+          cp rust-core/rust-core-android-arm64/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/arm64-v8a/ || echo "arm64 not found"
+          cp rust-core/rust-core-android-armv7/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/armeabi-v7a/ || echo "armv7 not found"
+          cp rust-core/rust-core-android-x64/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/x86_64/ || echo "x86_64 not found"
 
       # 获取依赖
       - name: Get Flutter dependencies
