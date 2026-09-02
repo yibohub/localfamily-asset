@@ -70,7 +70,7 @@
 - [x] 清理 git 历史中的 `rust_core/target/` 构建产物（git filter-repo，223MB → 4.7MB，141 提交全部保留）
 - [x] 推送 GitHub 公开仓库（2026-08-30 翻转为 public，匿名克隆验证通过）
 - [x] 发布前最终检查：git 历史中无真实资产数据、密钥等敏感文件
-- [ ] 发 GitHub Release，附 Windows 安装包（需打 `v*` tag 触发 CI 构建；按约定仅在用户明确要求时执行）
+- [x] 发 GitHub Release，附 Windows 安装包（2026-09-02 v0.2.1 发布，含 Windows/Linux/Android 全平台产物）
 - [ ] README 补截图/演示 GIF（建议，自荐帖要用）
 
 **完成标准**：公网可匿名访问仓库与 Release。
