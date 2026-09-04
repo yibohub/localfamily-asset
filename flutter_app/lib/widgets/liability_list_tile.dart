@@ -180,6 +180,8 @@ class LiabilityListTile extends StatelessWidget {
 
     return Text(
       parts.join(' · '),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Colors.grey[600],
           ),

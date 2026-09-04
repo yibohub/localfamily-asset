@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// 隐财 (Yincai) 应用主题配置
@@ -85,7 +86,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: 'Microsoft YaHei', // Windows 中文字体
+      fontFamily: defaultTargetPlatform == TargetPlatform.windows
+          ? 'Microsoft YaHei' // Windows 中文字体
+          : null, // 其他平台用系统默认中文字体
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
@@ -206,7 +209,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      fontFamily: 'Microsoft YaHei', // Windows 中文字体
+      fontFamily: defaultTargetPlatform == TargetPlatform.windows
+          ? 'Microsoft YaHei' // Windows 中文字体
+          : null, // 其他平台用系统默认中文字体
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,

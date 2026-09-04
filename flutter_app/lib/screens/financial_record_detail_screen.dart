@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
-import '../widgets/financial_record_form.dart' show RecordType;
 import 'financial_record_form_screen.dart';
 import 'asset_history_screen.dart';
 
@@ -23,10 +22,12 @@ class FinancialRecordDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<FinancialRecordDetailScreen> createState() => _FinancialRecordDetailScreenState();
+  State<FinancialRecordDetailScreen> createState() =>
+      _FinancialRecordDetailScreenState();
 }
 
-class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScreen> {
+class _FinancialRecordDetailScreenState
+    extends State<FinancialRecordDetailScreen> {
   dynamic _record; // Asset? or Liability?
 
   @override
@@ -42,7 +43,8 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
         if (widget.recordType == RecordType.asset) {
           _record = provider.assets.firstWhere((a) => a.id == widget.recordId);
         } else {
-          _record = provider.liabilities.firstWhere((l) => l.id == widget.recordId);
+          _record =
+              provider.liabilities.firstWhere((l) => l.id == widget.recordId);
         }
       } catch (e) {
         // 记录未找到，可能刚刚被删除或列表未刷新
@@ -95,7 +97,10 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
               const SizedBox(height: 8),
               Text(
                 '该记录可能已被删除',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
               FilledButton(
@@ -237,7 +242,9 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
                   ),
             ),
             // 投资类盈亏信息
-            if (isAsset && _record.isInvestment && _record.profitLossPercent != null) ...[
+            if (isAsset &&
+                _record.isInvestment &&
+                _record.profitLossPercent != null) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -248,23 +255,33 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
                   Text(
                     '${_record.profitLossPercent!.toStringAsFixed(2)}%',
                     style: TextStyle(
-                      color: _record.profitLossPercent! >= 0 ? Colors.green : Colors.red,
+                      color: _record.profitLossPercent! >= 0
+                          ? Colors.green
+                          : Colors.red,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '(${_record.profitLossAmount != null ? _formatAmount(_record.profitLossAmount!, '') : ''})',
-                    style: TextStyle(
-                      color: _record.profitLossAmount != null && _record.profitLossAmount! >= 0 ? Colors.green : Colors.red,
-                      fontSize: 12,
+                  Flexible(
+                    child: Text(
+                      '(${_record.profitLossAmount != null ? _formatAmount(_record.profitLossAmount!, '') : ''})',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _record.profitLossAmount != null &&
+                                _record.profitLossAmount! >= 0
+                            ? Colors.green
+                            : Colors.red,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
             // 信用卡使用率
-            if (!isAsset && _record.isCreditCard && _record.creditUtilization != null) ...[
+            if (!isAsset &&
+                _record.isCreditCard &&
+                _record.creditUtilization != null) ...[
               const SizedBox(height: 8),
               Text(
                 '使用率: ${_record.creditUtilization!.toStringAsFixed(1)}%',
@@ -289,7 +306,8 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
-          _buildInfoTile(context, isAsset ? '资产类型' : '负债类型', _getTypeDisplayName()),
+          _buildInfoTile(
+              context, isAsset ? '资产类型' : '负债类型', _getTypeDisplayName()),
           _buildInfoTile(context, '货币', _record.currency),
           _buildInfoTile(context, '发生日期', _formatDate(_record.occurrenceDate)),
           const SizedBox(height: 8),
@@ -317,9 +335,11 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (_record.quantity != null)
             _buildInfoTile(context, '数量', _record.quantity.toString()),
           if (_record.buyPrice != null)
-            _buildInfoTile(context, '买入价', '¥${_record.buyPrice!.toStringAsFixed(2)}'),
+            _buildInfoTile(
+                context, '买入价', '¥${_record.buyPrice!.toStringAsFixed(2)}'),
           if (_record.currentPrice != null)
-            _buildInfoTile(context, '现价', '¥${_record.currentPrice!.toStringAsFixed(2)}'),
+            _buildInfoTile(
+                context, '现价', '¥${_record.currentPrice!.toStringAsFixed(2)}'),
           if (_record.account != null)
             _buildInfoTile(context, '证券账户/平台', _record.account!),
           if (_record.tags != null && _record.tags!.isNotEmpty)
@@ -345,9 +365,11 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (_record.address != null)
             _buildInfoTile(context, '地址', _record.address!),
           if (_record.buildingArea != null)
-            _buildInfoTile(context, '建筑面积', '${_record.buildingArea!.toStringAsFixed(2)} ㎡'),
+            _buildInfoTile(context, '建筑面积',
+                '${_record.buildingArea!.toStringAsFixed(2)} ㎡'),
           if (_record.livingArea != null)
-            _buildInfoTile(context, '使用面积', '${_record.livingArea!.toStringAsFixed(2)} ㎡'),
+            _buildInfoTile(
+                context, '使用面积', '${_record.livingArea!.toStringAsFixed(2)} ㎡'),
           if (_record.propertyType != null)
             _buildInfoTile(context, '房屋类型', _record.propertyType!),
           if (_record.rooms != null)
@@ -387,7 +409,8 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (_record.maturityDate != null)
             _buildInfoTile(context, '到期日期', _formatDate(_record.maturityDate!)),
           if (_record.depositInterestRate != null)
-            _buildInfoTile(context, '利率', '${_record.depositInterestRate!.toStringAsFixed(2)}%'),
+            _buildInfoTile(context, '利率',
+                '${_record.depositInterestRate!.toStringAsFixed(2)}%'),
           const SizedBox(height: 8),
         ],
       ),
@@ -417,7 +440,8 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (_record.beneficiary != null)
             _buildInfoTile(context, '受益人', _record.beneficiary!),
           if (_record.coverageAmount != null)
-            _buildInfoTile(context, '保额', _formatAmount(_record.coverageAmount!, '')),
+            _buildInfoTile(
+                context, '保额', _formatAmount(_record.coverageAmount!, '')),
           if (_record.premium != null)
             _buildInfoTile(context, '保费', _formatAmount(_record.premium!, '')),
           if (_record.premiumPeriod != null)
@@ -448,9 +472,11 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (_record.lender != null)
             _buildInfoTile(context, '债权人/机构', liability.lender!),
           if (_record.interestRate != null)
-            _buildInfoTile(context, '年利率', '${_record.interestRate!.toStringAsFixed(2)}%'),
+            _buildInfoTile(
+                context, '年利率', '${_record.interestRate!.toStringAsFixed(2)}%'),
           if (liability.repaymentMethod != null)
-            _buildInfoTile(context, '还款方式', liability.repaymentMethod!.displayName),
+            _buildInfoTile(
+                context, '还款方式', liability.repaymentMethod!.displayName),
           if (_record.dueDate != null)
             _buildInfoTile(context, '到期日', _formatDate(_record.dueDate!)),
           if (liability.loanTerm != null)
@@ -483,14 +509,18 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (liability.paymentDueDate != null)
             _buildInfoTile(context, '还款日', '${liability.paymentDueDate!.day}号'),
           if (liability.creditLimit != null) ...[
-            _buildInfoTile(context, '信用额度', _formatAmount(liability.creditLimit!, '')),
+            _buildInfoTile(
+                context, '信用额度', _formatAmount(liability.creditLimit!, '')),
             if (_record.availableCredit != null)
-              _buildInfoTile(context, '可用额度', _formatAmount(_record.availableCredit!, '')),
+              _buildInfoTile(
+                  context, '可用额度', _formatAmount(_record.availableCredit!, '')),
           ],
           if (liability.cashLimit != null)
-            _buildInfoTile(context, '取现额度', _formatAmount(liability.cashLimit!, '')),
+            _buildInfoTile(
+                context, '取现额度', _formatAmount(liability.cashLimit!, '')),
           if (liability.annualFee != null)
-            _buildInfoTile(context, '年费', _formatAmount(liability.annualFee!, '')),
+            _buildInfoTile(
+                context, '年费', _formatAmount(liability.annualFee!, '')),
           if (liability.issuer != null)
             _buildInfoTile(context, '发卡行', liability.issuer!),
           const SizedBox(height: 8),
@@ -517,9 +547,11 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (liability.propertyAddress != null)
             _buildInfoTile(context, '房产地址', liability.propertyAddress!),
           if (liability.originalLoanAmount != null)
-            _buildInfoTile(context, '原始贷款金额', _formatAmount(liability.originalLoanAmount!, '')),
+            _buildInfoTile(context, '原始贷款金额',
+                _formatAmount(liability.originalLoanAmount!, '')),
           if (liability.remainingPrincipal != null)
-            _buildInfoTile(context, '剩余本金', _formatAmount(liability.remainingPrincipal!, '')),
+            _buildInfoTile(context, '剩余本金',
+                _formatAmount(liability.remainingPrincipal!, '')),
           if (liability.loanType != null)
             _buildInfoTile(context, '贷款类型', liability.loanType!),
           const SizedBox(height: 8),
@@ -573,7 +605,8 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
           if (liability.purpose != null)
             _buildInfoTile(context, '借款用途', liability.purpose!),
           if (liability.hasInterest != null)
-            _buildInfoTile(context, '是否有利息', liability.hasInterest == true ? '是' : '否'),
+            _buildInfoTile(
+                context, '是否有利息', liability.hasInterest == true ? '是' : '否'),
           if (liability.repaymentPlan != null)
             _buildInfoTile(context, '还款计划', liability.repaymentPlan!),
           const SizedBox(height: 8),
@@ -625,17 +658,23 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
           ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ],
       ),
@@ -753,7 +792,9 @@ class _FinancialRecordDetailScreenState extends State<FinancialRecordDetailScree
       if (success && context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已删除${widget.recordType == RecordType.asset ? '资产' : '负债'}')),
+          SnackBar(
+              content: Text(
+                  '已删除${widget.recordType == RecordType.asset ? '资产' : '负债'}')),
         );
       }
     }

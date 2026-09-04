@@ -9,8 +9,7 @@ class CreateCustomTypeDialog extends StatefulWidget {
   const CreateCustomTypeDialog({super.key, required this.isLiability});
 
   @override
-  State<CreateCustomTypeDialog> createState() =>
-      _CreateCustomTypeDialogState();
+  State<CreateCustomTypeDialog> createState() => _CreateCustomTypeDialogState();
 }
 
 class _CreateCustomTypeDialogState extends State<CreateCustomTypeDialog> {
@@ -28,28 +27,28 @@ class _CreateCustomTypeDialogState extends State<CreateCustomTypeDialog> {
 
   // 资产类型图标
   static const _assetIcons = [
-    'account_balance_wallet',  // 钱包
-    'account_balance',          // 银行
-    'attach_money',            // 现金
-    'home',                    // 房产
-    'trending_up',             // 股票
-    'pie_chart',               // 基金
-    'verified_user',           // 保险
-    'diamond',                 // 珠宝
-    'payments',                // 款项
+    'account_balance_wallet', // 钱包
+    'account_balance', // 银行
+    'attach_money', // 现金
+    'home', // 房产
+    'trending_up', // 股票
+    'pie_chart', // 基金
+    'verified_user', // 保险
+    'diamond', // 珠宝
+    'payments', // 款项
   ];
 
   // 负债类型图标
   static const _liabilityIcons = [
-    'handshake',               // 借款
-    'credit_card',             // 信用卡
-    'home_work',               // 房贷
-    'directions_car',          // 车贷
-    'person',                  // 个人借贷
-    'account_balance',         // 银行贷款
-    'request_quote',           // 分期付款
-    'gavel',                   // 欠款
-    'money_off',               // 债务
+    'handshake', // 借款
+    'credit_card', // 信用卡
+    'home_work', // 房贷
+    'directions_car', // 车贷
+    'person', // 个人借贷
+    'account_balance', // 银行贷款
+    'request_quote', // 分期付款
+    'gavel', // 欠款
+    'money_off', // 债务
   ];
 
   static const _iconLabels = {
@@ -90,93 +89,101 @@ class _CreateCustomTypeDialogState extends State<CreateCustomTypeDialog> {
     return Dialog(
       child: SizedBox(
         width: 350,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text('添加自定义${widget.isLiability ? "负债" : "资产"}类型'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: '类型名称',
-                        hintText: widget.isLiability ? '如：私人借款' : '如：理财产品',
-                      ),
-                      validator: (v) {
-                        if (v?.trim().isEmpty ?? true) {
-                          return '请输入名称';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '选择图标',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _getAvailableIcons().map((icon) {
-                        return InkWell(
-                          onTap: () => setState(() => _selectedIcon = icon),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: _selectedIcon == icon
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.grey,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              children: [
-                                Icon(_getIcon(icon)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _iconLabels[icon] ?? icon,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isSaving ? null : _submit,
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('创建'),
+        child: Padding(
+          // 键盘弹出时抬升对话框，避免输入框被遮挡
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('添加自定义${widget.isLiability ? "负债" : "资产"}类型'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ),
-              ),
-            ],
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: '类型名称',
+                            hintText: widget.isLiability ? '如：私人借款' : '如：理财产品',
+                          ),
+                          validator: (v) {
+                            if (v?.trim().isEmpty ?? true) {
+                              return '请输入名称';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          '选择图标',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _getAvailableIcons().map((icon) {
+                            return InkWell(
+                              onTap: () => setState(() => _selectedIcon = icon),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: _selectedIcon == icon
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(_getIcon(icon)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _iconLabels[icon] ?? icon,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _isSaving ? null : _submit,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('创建'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

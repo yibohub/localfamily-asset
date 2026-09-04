@@ -11,31 +11,37 @@ import 'asset.dart' as legacy; // 导入旧的 Asset 模型以支持 UI 兼容�
 
 /// 资产类型枚举
 enum AssetType {
-  property,  // 房产（非投资类）
-  deposit,   // 存款（非投资类）
-  stock,     // 股票（投资类）
-  fund,      // 基金（投资类）
+  property, // 房产（非投资类）
+  deposit, // 存款（非投资类）
+  stock, // 股票（投资类）
+  fund, // 基金（投资类）
   insurance, // 保单（非投资类）
 }
 
 /// 负债类型枚举
 enum LiabilityType {
-  debt,         // 通用负债
-  mortgage,     // 房贷
-  carLoan,      // 车贷
-  creditCard,   // 信用卡
+  debt, // 通用负债
+  mortgage, // 房贷
+  carLoan, // 车贷
+  creditCard, // 信用卡
   personalLoan, // 个人贷款
-  privateLoan,  // 私人借款
+  privateLoan, // 私人借款
 }
 
 /// 还款方式
 enum RepaymentMethod {
   equalPrincipalAndInterest, // 等额本息
-  equalPrincipal,            // 等额本金
-  bulletPayment,             // 到期还本付息
-  monthlyInterest,           // 按月付息到期还本
-  custom,                    // 自定义
+  equalPrincipal, // 等额本金
+  bulletPayment, // 到期还本付息
+  monthlyInterest, // 按月付息到期还本
+  custom, // 自定义
 }
+
+/// 金融记录大类：资产 / 负债
+enum RecordType { asset, liability }
+
+/// 表单模式：新增 / 编辑
+enum FormMode { add, edit }
 
 /// ============================================================
 /// 资产类型扩展
@@ -461,43 +467,43 @@ abstract class FinancialRecord {
 
 class Asset extends FinancialRecord {
   final AssetType type;
-  final String? account;      // 账户/平台
+  final String? account; // 账户/平台
   final List<String>? tags;
 
   // 投资类资产专属字段
-  final double? buyPrice;     // 买入价（投资类）
+  final double? buyPrice; // 买入价（投资类）
   final double? currentPrice; // 现价（投资类）
-  final String? code;         // 代码（股票代码、基金代码）
-  final String? exchange;     // 交易所
-  final int? quantity;        // 数量（通过 amount 和 currentPrice 计算）
+  final String? code; // 代码（股票代码、基金代码）
+  final String? exchange; // 交易所
+  final int? quantity; // 数量（通过 amount 和 currentPrice 计算）
 
   // 房产专属字段（Property）
-  final String? address;           // 地址
-  final double? buildingArea;      // 建筑面积（㎡）
-  final double? livingArea;        // 使用面积（㎡）
-  final String? propertyType;      // 房屋类型：住宅/商业/别墅/公寓等
-  final int? rooms;                // 房间数（几室几厅）
-  final String? floor;             // 楼层（如：12/32）
-  final int? buildYear;            // 建成年份
-  final String? ownershipType;     // 产权性质：商品房/经适房/公房等
-  final String? deedNumber;        // 不动产证号
+  final String? address; // 地址
+  final double? buildingArea; // 建筑面积（㎡）
+  final double? livingArea; // 使用面积（㎡）
+  final String? propertyType; // 房屋类型：住宅/商业/别墅/公寓等
+  final int? rooms; // 房间数（几室几厅）
+  final String? floor; // 楼层（如：12/32）
+  final int? buildYear; // 建成年份
+  final String? ownershipType; // 产权性质：商品房/经适房/公房等
+  final String? deedNumber; // 不动产证号
 
   // 存款专属字段（Deposit）
-  final String? depositAccountType;   // 账户类型：活期/定期
-  final int? depositPeriod;            // 存期（月）
-  final DateTime? maturityDate;        // 到期日期
-  final double? depositInterestRate;   // 利率（%）
+  final String? depositAccountType; // 账户类型：活期/定期
+  final int? depositPeriod; // 存期（月）
+  final DateTime? maturityDate; // 到期日期
+  final double? depositInterestRate; // 利率（%）
 
   // 保单专属字段（Insurance）
-  final String? policyNumber;      // 保单号
-  final String? insuranceType;     // 保险类型：寿险/重疾/医疗/意外
-  final String? insured;           // 被保人
-  final String? beneficiary;       // 受益人
-  final double? coverageAmount;    // 保额
-  final double? premium;           // 保费（年/月）
-  final String? premiumPeriod;     // 缴费期限：终身/10年/20年等
-  final String? coveragePeriod;    // 保险期限：终身/1年/至70岁等
-  final String? insurer;           // 保险公司
+  final String? policyNumber; // 保单号
+  final String? insuranceType; // 保险类型：寿险/重疾/医疗/意外
+  final String? insured; // 被保人
+  final String? beneficiary; // 受益人
+  final double? coverageAmount; // 保额
+  final double? premium; // 保费（年/月）
+  final String? premiumPeriod; // 缴费期限：终身/10年/20年等
+  final String? coveragePeriod; // 保险期限：终身/1年/至70岁等
+  final String? insurer; // 保险公司
 
   Asset({
     required String id,
@@ -557,7 +563,10 @@ class Asset extends FinancialRecord {
 
   /// 计算盈亏百分比
   double? get profitLossPercent {
-    if (!isInvestment || buyPrice == null || currentPrice == null || buyPrice! == 0) {
+    if (!isInvestment ||
+        buyPrice == null ||
+        currentPrice == null ||
+        buyPrice! == 0) {
       return null;
     }
     return (currentPrice! - buyPrice!) / buyPrice! * 100;
@@ -652,9 +661,8 @@ class Asset extends FinancialRecord {
           ? (json['current_price'] as num).toDouble()
           : null,
       note: json['note'] as String?,
-      tags: json['tags'] != null
-          ? List<String>.from(json['tags'] as List)
-          : null,
+      tags:
+          json['tags'] != null ? List<String>.from(json['tags'] as List) : null,
       // 投资类字段
       code: json['code'] as String?,
       exchange: json['exchange'] as String?,
@@ -690,9 +698,8 @@ class Asset extends FinancialRecord {
       coverageAmount: json['coverage_amount'] != null
           ? (json['coverage_amount'] as num).toDouble()
           : null,
-      premium: json['premium'] != null
-          ? (json['premium'] as num).toDouble()
-          : null,
+      premium:
+          json['premium'] != null ? (json['premium'] as num).toDouble() : null,
       premiumPeriod: json['premium_period'] as String?,
       coveragePeriod: json['coverage_period'] as String?,
       insurer: json['insurer'] as String?,
@@ -805,36 +812,36 @@ class Liability extends FinancialRecord {
   final LiabilityType type;
 
   // 通用负债字段
-  final DateTime? dueDate;         // 还债期限/到期日
-  final double? interestRate;      // 年利率 (%)
+  final DateTime? dueDate; // 还债期限/到期日
+  final double? interestRate; // 年利率 (%)
   final RepaymentMethod? repaymentMethod; // 还款方式
-  final String? lender;            // 债权人/机构
+  final String? lender; // 债权人/机构
 
   // 信用卡专属字段
-  final DateTime? billingDate;     // 账单日
-  final DateTime? paymentDueDate;  // 还款日
-  final double? creditLimit;       // 信用额度
-  final String? lastFourDigits;    // 卡号后四位
-  final double? cashLimit;         // 取现额度
-  final double? annualFee;         // 年费
-  final String? issuer;            // 发卡行
-  final int? loanTerm;             // 贷款期限（月）
+  final DateTime? billingDate; // 账单日
+  final DateTime? paymentDueDate; // 还款日
+  final double? creditLimit; // 信用额度
+  final String? lastFourDigits; // 卡号后四位
+  final double? cashLimit; // 取现额度
+  final double? annualFee; // 年费
+  final String? issuer; // 发卡行
+  final int? loanTerm; // 贷款期限（月）
 
   // 房贷专属字段
-  final String? propertyAddress;   // 房产地址
+  final String? propertyAddress; // 房产地址
   final double? originalLoanAmount; // 原始贷款金额
-  final double? remainingPrincipal;  // 剩余本金
-  final String? loanType;          // 贷款类型
+  final double? remainingPrincipal; // 剩余本金
+  final String? loanType; // 贷款类型
 
   // 车贷专属字段
-  final String? vehicleBrand;      // 车辆品牌
-  final String? vehicleModel;      // 车型
-  final String? licensePlate;      // 车牌号
+  final String? vehicleBrand; // 车辆品牌
+  final String? vehicleModel; // 车型
+  final String? licensePlate; // 车牌号
 
   // 个人/私人借款专属字段
-  final String? purpose;           // 借款用途
-  final bool? hasInterest;         // 是否有利息
-  final String? repaymentPlan;     // 还款计划描述
+  final String? purpose; // 借款用途
+  final bool? hasInterest; // 是否有利息
+  final String? repaymentPlan; // 还款计划描述
 
   Liability({
     required String id,
@@ -965,7 +972,8 @@ class Liability extends FinancialRecord {
           ? (json['interest_rate'] as num).toDouble()
           : null,
       repaymentMethod: json['repayment_method'] != null
-          ? RepaymentMethodExtension.fromString(json['repayment_method'] as String)
+          ? RepaymentMethodExtension.fromString(
+              json['repayment_method'] as String)
           : null,
       lender: json['lender'] as String?,
       loanTerm: json['loan_term'] as int?,
@@ -1109,7 +1117,7 @@ class PortfolioSummary {
 
   // 投资类资产统计
   final double totalInvestments;
-  final double? totalInvestmentCost;    // 总成本
+  final double? totalInvestmentCost; // 总成本
   final double? totalInvestmentProfitLoss; // 总盈亏金额
 
   PortfolioSummary({

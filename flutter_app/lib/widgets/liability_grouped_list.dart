@@ -4,7 +4,6 @@ import '../models/financial_models.dart';
 import '../utils/currency_utils.dart';
 import 'liability_list_tile.dart';
 import '../screens/financial_record_detail_screen.dart';
-import '../widgets/financial_record_form.dart';
 
 /// 规范化负债名称用于分组（去除所有可能导致无法匹配的差异）
 String _normalizeGroupName(String name) {
@@ -131,7 +130,8 @@ class _LiabilityGroupCard extends StatelessWidget {
                 ),
               ),
               Text(
-                CurrencyUtils.formatAmount(_totalAmount, liabilities.first.currency),
+                CurrencyUtils.formatAmount(
+                    _totalAmount, liabilities.first.currency),
                 style: TextStyle(
                   color: Colors.red[400],
                   fontWeight: FontWeight.bold,

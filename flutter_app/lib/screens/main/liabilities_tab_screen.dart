@@ -8,7 +8,6 @@ import '../../utils/currency_utils.dart';
 import '../../widgets/liability_grouped_list.dart';
 import '../../widgets/liability_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
-import '../../widgets/financial_record_form.dart';
 import '../financial_record_form_screen.dart';
 
 /// 负债标签页 - 显示所有负债
@@ -47,7 +46,8 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _LiabilitiesSummaryCard(total: provider.totalLiabilities),
+                  child:
+                      _LiabilitiesSummaryCard(total: provider.totalLiabilities),
                 ),
               ),
 
@@ -57,13 +57,15 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
                   builtInTypes: LiabilityType.values
                       .where((t) => t != LiabilityType.debt)
                       .toList(),
-                  customTypes: context.read<CustomTypeProvider>().liabilityCustomTypes,
+                  customTypes:
+                      context.read<CustomTypeProvider>().liabilityCustomTypes,
                   selectedTypeId: provider.liabilityTypeFilterId,
                   onTypeSelected: (id) {
                     provider.setLiabilityTypeFilterById(id);
                     // 同时保存到 Provider，以便添加时使用
                     if (id != null) {
-                      final liabilityType = LiabilityTypeExtension.fromString(id);
+                      final liabilityType =
+                          LiabilityTypeExtension.fromString(id);
                       if (liabilityType != null) {
                         provider.setLastSelectedLiabilityType(liabilityType);
                       }
@@ -77,14 +79,16 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               // 负债列表标题
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
                   child: Row(
                     children: [
                       Text(
                         '负债列表 (${liabilities.length})',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -95,7 +99,9 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
               liabilities.isEmpty
                   ? SliverFillRemaining(
                       child: provider.liabilityTypeFilterId != null
-                          ? _EmptyFilterState(onClear: () => provider.clearLiabilityTypeFilter())
+                          ? _EmptyFilterState(
+                              onClear: () =>
+                                  provider.clearLiabilityTypeFilter())
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
@@ -119,7 +125,8 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
     final provider = context.read<FinancialProvider>();
     LiabilityType? initialLiabilityType;
     if (provider.liabilityTypeFilterId != null) {
-      initialLiabilityType = LiabilityTypeExtension.fromString(provider.liabilityTypeFilterId!);
+      initialLiabilityType =
+          LiabilityTypeExtension.fromString(provider.liabilityTypeFilterId!);
     }
     if (initialLiabilityType == null) {
       initialLiabilityType = provider.lastSelectedLiabilityType;
@@ -214,7 +221,8 @@ class _EmptyFilterState extends StatelessWidget {
         children: [
           Icon(Icons.filter_list_off, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('该类型下暂无负债', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text('该类型下暂无负债',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           const SizedBox(height: 24),
           FilledButton.tonalIcon(
             onPressed: onClear,
@@ -239,9 +247,11 @@ class _EmptyListState extends StatelessWidget {
         children: [
           Icon(Icons.credit_card_off, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('还没有负债记录', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text('还没有负债记录',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text('点击右下角按钮添加', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          Text('点击右下角按钮添加',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500])),
         ],
       ),
     );

@@ -38,11 +38,14 @@ class SmartFinancialRecordNameInput extends StatefulWidget {
   });
 
   @override
-  State<SmartFinancialRecordNameInput> createState() => _SmartFinancialRecordNameInputState();
+  State<SmartFinancialRecordNameInput> createState() =>
+      _SmartFinancialRecordNameInputState();
 }
 
-class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordNameInput> {
-  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
+class _SmartFinancialRecordNameInputState
+    extends State<SmartFinancialRecordNameInput> {
+  final Debouncer _debouncer =
+      Debouncer(delay: const Duration(milliseconds: 300));
   final List<Object> _suggestions = []; // 混合 Asset 和 Liability
   final FocusNode _focusNode = FocusNode();
   bool _isSearching = false;
@@ -88,7 +91,9 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
       // 根据类型过滤器决定搜索资产还是负债
       if (widget.assetTypeFilter != null) {
         // 搜索资产
-        provider.searchAssetsByName(query, types: widget.assetTypeFilter).then((_) {
+        provider
+            .searchAssetsByName(query, types: widget.assetTypeFilter)
+            .then((_) {
           if (mounted) {
             setState(() {
               _suggestions.clear();
@@ -99,7 +104,9 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
         });
       } else if (widget.liabilityTypeFilter != null) {
         // 搜索负债
-        provider.searchLiabilitiesByName(query, types: widget.liabilityTypeFilter).then((_) {
+        provider
+            .searchLiabilitiesByName(query, types: widget.liabilityTypeFilter)
+            .then((_) {
           if (mounted) {
             setState(() {
               _suggestions.clear();
@@ -133,12 +140,12 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
     });
 
     if (record is Asset) {
-      widget.nameController.text = record.name.trim();  // 去除首尾空格
+      widget.nameController.text = record.name.trim(); // 去除首尾空格
       if (widget.subAccountController != null) {
         widget.subAccountController!.text = record.account ?? '';
       }
     } else if (record is Liability) {
-      widget.nameController.text = record.name.trim();  // 去除首尾空格
+      widget.nameController.text = record.name.trim(); // 去除首尾空格
       if (widget.subAccountController != null) {
         // 负债用债权人字段
         widget.subAccountController!.text = record.lender ?? '';
@@ -233,11 +240,11 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
             hintText: widget.hintText ?? '输入名称进行搜索',
             border: const OutlineInputBorder(),
             suffixIcon: _isSearching
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Padding(
-                      padding: EdgeInsets.all(12.0),
+                ? const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
@@ -292,9 +299,7 @@ class _SmartFinancialRecordNameInputState extends State<SmartFinancialRecordName
                     trailing: Text(
                       _getAmount(record).toStringAsFixed(2),
                       style: TextStyle(
-                        color: _isLiability(record)
-                            ? Colors.red
-                            : Colors.green,
+                        color: _isLiability(record) ? Colors.red : Colors.green,
                       ),
                     ),
                     onTap: () => _selectSuggestion(record),

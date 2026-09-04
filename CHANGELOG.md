@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### Added
+- **移动端 UI 适配（Phase 1）**：金额/价格/面积/利率等 15 处数字输入改用带小数点的数字键盘；长表单底部新增全宽保存按钮（无需滚回顶部）；修改密码、助记词恢复、设置新密码、创建自定义类型等对话框增加键盘避让与滚动容器，键盘弹出不再遮挡输入框
+
+### Fixed
+- 修复智能名称输入框搜索时加载指示器的布局约束错误（20×20 盒内嵌 12px 内边距产生负约束）
+- 资产/负债详情页、列表分组卡、总览统计行的文本行增加弹性约束与溢出省略，消除小屏长文本 RenderFlex overflow 风险
+- 锁屏页面支持滚动（小屏/横屏不再垂直溢出），内容少时保持垂直居中
+- `Microsoft YaHei` 字体仅在 Windows 生效，移动端使用系统默认中文字体
+
+### Removed
+- 删除约 5,200 行不可达的旧界面代码（home_screen、financial_list_screen、asset_list_screen、asset_form_screen、asset_detail_screen 及 7 个关联组件），`RecordType`/`FormMode` 枚举迁移至 `models/financial_models.dart`
+
 ## [0.2.1] - 2026-08-30
 
 ### Fixed

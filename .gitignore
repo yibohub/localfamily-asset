@@ -279,3 +279,4 @@ flutter_app/test_dll.dart
 
 # Windows 空设备文件
 nul
+.zcode/

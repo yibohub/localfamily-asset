@@ -219,11 +219,15 @@ class _SetupScreenState extends State<SetupScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.lightbulb_outline, color: Colors.amber[700]),
+                            Icon(Icons.lightbulb_outline,
+                                color: Colors.amber[700]),
                             const SizedBox(width: 8),
                             Text(
                               '体验 Demo 模式',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     color: Colors.amber[700],
                                   ),
                             ),
@@ -232,9 +236,10 @@ class _SetupScreenState extends State<SetupScreen> {
                         const SizedBox(height: 8),
                         Text(
                           '选择预设的演示数据快速体验应用功能',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
@@ -335,18 +340,27 @@ class _SetupScreenState extends State<SetupScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.security, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '助记词备份',
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          color: AppTheme.primaryColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.security,
+                                        color: AppTheme.primaryColor),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        '助记词备份',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              color: AppTheme.primaryColor,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               TextButton.icon(
                                 onPressed: () => _copyMnemonic(),
@@ -362,9 +376,10 @@ class _SetupScreenState extends State<SetupScreen> {
                           Text(
                             '请务必抄写并保存以下12个单词的助记词。'
                             '如果您忘记密码，可以使用助记词恢复访问。',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[700],
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[700],
+                                    ),
                           ),
                           const SizedBox(height: 12),
                           Container(
@@ -372,20 +387,25 @@ class _SetupScreenState extends State<SetupScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                  color: AppTheme.primaryColor
+                                      .withValues(alpha: 0.3)),
                             ),
                             child: _generatedMnemonic == null
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator())
                                 : Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
-                                    children: _buildMnemonicWords(_generatedMnemonic!),
+                                    children: _buildMnemonicWords(
+                                        _generatedMnemonic!),
                                   ),
                           ),
                           const SizedBox(height: 12),
                           CheckboxListTile(
                             value: _mnemonicConfirmed,
-                            onChanged: (value) => setState(() => _mnemonicConfirmed = value ?? false),
+                            onChanged: (value) => setState(
+                                () => _mnemonicConfirmed = value ?? false),
                             title: const Text('我已安全保存助记词'),
                             subtitle: const Text('勾选表示您已将助记词记录到安全的地方'),
                             contentPadding: EdgeInsets.zero,
@@ -424,7 +444,9 @@ class _SetupScreenState extends State<SetupScreen> {
       onSelected: (_) => setState(() => _selectedDemo = value),
       avatar: isSelected
           ? const Icon(Icons.check_circle, size: 18)
-          : Icon(value == null ? Icons.add_circle_outline : Icons.person_outline, size: 18),
+          : Icon(
+              value == null ? Icons.add_circle_outline : Icons.person_outline,
+              size: 18),
       selectedColor: value == null ? Colors.grey : Colors.amber,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
@@ -442,7 +464,8 @@ class _SetupScreenState extends State<SetupScreen> {
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+          border:
+              Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
         ),
         child: Text.rich(
           TextSpan(

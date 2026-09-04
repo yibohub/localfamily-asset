@@ -36,7 +36,8 @@ class OverviewTabScreen extends StatelessWidget {
               if (assets.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
                     child: _AssetBreakdownSection(
                       assets: assets,
                       total: summary.totalAssets,
@@ -48,7 +49,8 @@ class OverviewTabScreen extends StatelessWidget {
               if (liabilities.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
                     child: _LiabilityBreakdownSection(
                       liabilities: liabilities,
                       total: summary.totalLiabilities,
@@ -100,7 +102,9 @@ class _OverviewSummaryCard extends StatelessWidget {
             _SummaryRow(
               label: '净资产',
               amount: summary.netAssets,
-              color: summary.netAssets >= 0 ? Colors.green[400]! : Colors.red[400]!,
+              color: summary.netAssets >= 0
+                  ? Colors.green[400]!
+                  : Colors.red[400]!,
               icon: Icons.savings,
               isBold: true,
             ),
@@ -132,20 +136,25 @@ class _SummaryRow extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+        Expanded(
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        const SizedBox(width: 16),
         Text(
           CurrencyUtils.formatAmount(amount, 'CNY'),
           style: theme.textTheme.titleLarge?.copyWith(
@@ -229,18 +238,23 @@ class _AssetBreakdownItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(type.icon, size: 16, color: type.color),
-                  const SizedBox(width: 8),
-                  Text(
-                    type.displayName,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(type.icon, size: 16, color: type.color),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        type.displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               Text(
                 CurrencyUtils.formatAmount(amount, 'CNY'),
                 style: theme.textTheme.bodyMedium,
@@ -286,7 +300,8 @@ class _LiabilityBreakdownSection extends StatelessWidget {
     // 按类型分组
     final typeGroups = <LiabilityType, double>{};
     for (final liability in liabilities) {
-      typeGroups[liability.type] = (typeGroups[liability.type] ?? 0.0) + liability.amount;
+      typeGroups[liability.type] =
+          (typeGroups[liability.type] ?? 0.0) + liability.amount;
     }
 
     return Card(
@@ -340,18 +355,23 @@ class _LiabilityBreakdownItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(type.icon, size: 16, color: type.color),
-                  const SizedBox(width: 8),
-                  Text(
-                    type.displayName,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(type.icon, size: 16, color: type.color),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        type.displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               Text(
                 CurrencyUtils.formatAmount(amount, 'CNY'),
                 style: theme.textTheme.bodyMedium?.copyWith(

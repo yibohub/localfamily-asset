@@ -8,7 +8,6 @@ import '../../providers/custom_type_provider.dart';
 import '../../utils/currency_utils.dart';
 import '../../widgets/asset_type_filter_bar.dart';
 import '../../widgets/custom_type_manage_dialog.dart';
-import '../../widgets/financial_record_form.dart';
 import '../financial_record_form_screen.dart';
 import '../financial_record_detail_screen.dart';
 
@@ -45,7 +44,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
   }
 
   /// 获取筛选后的资产列表
-  List<Asset> _getFilteredAssets(FinancialProvider provider, CustomTypeProvider customTypeProvider) {
+  List<Asset> _getFilteredAssets(
+      FinancialProvider provider, CustomTypeProvider customTypeProvider) {
     final assets = provider.assets;
     if (_selectedTypeId == null) {
       return assets;
@@ -79,7 +79,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
   Widget build(BuildContext context) {
     return Consumer2<FinancialProvider, CustomTypeProvider>(
       builder: (context, financialProvider, customTypeProvider, child) {
-        final filteredAssets = _getFilteredAssets(financialProvider, customTypeProvider);
+        final filteredAssets =
+            _getFilteredAssets(financialProvider, customTypeProvider);
 
         if (financialProvider.isLoading) {
           return const Center(child: CircularProgressIndicator());
@@ -117,14 +118,16 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
               // 资产列表标题
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
                   child: Row(
                     children: [
                       Text(
                         '资产列表 (${filteredAssets.length})',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -135,7 +138,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
               filteredAssets.isEmpty
                   ? SliverFillRemaining(
                       child: _selectedTypeId != null
-                          ? _EmptyFilterState(onClear: () => _setTypeFilter(null))
+                          ? _EmptyFilterState(
+                              onClear: () => _setTypeFilter(null))
                           : const _EmptyListState(),
                     )
                   : SliverFillRemaining(
@@ -173,7 +177,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
       initialAssetType = AssetTypeExtension.fromString(_selectedTypeId!);
     }
     if (initialAssetType == null) {
-      initialAssetType = context.read<FinancialProvider>().lastSelectedAssetType;
+      initialAssetType =
+          context.read<FinancialProvider>().lastSelectedAssetType;
     }
 
     Navigator.push(
@@ -288,6 +293,8 @@ class _AssetListItem extends StatelessWidget {
 
     return Text(
       parts.join(' · '),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Colors.grey[600],
           ),
@@ -357,7 +364,8 @@ class _EmptyFilterState extends StatelessWidget {
         children: [
           Icon(Icons.filter_list_off, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('该类型下暂无资产', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text('该类型下暂无资产',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           const SizedBox(height: 24),
           FilledButton.tonalIcon(
             onPressed: onClear,
@@ -380,11 +388,14 @@ class _EmptyListState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey[400]),
+          Icon(Icons.account_balance_wallet_outlined,
+              size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('还没有资产记录', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text('还没有资产记录',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text('点击右下角按钮添加', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          Text('点击右下角按钮添加',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500])),
         ],
       ),
     );
@@ -412,8 +423,10 @@ class _AssetGroupedList extends StatelessWidget {
     // 转换为列表并按总金额排序
     final sortedGroups = grouped.entries.toList()
       ..sort((a, b) {
-        final totalA = a.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
-        final totalB = b.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
+        final totalA =
+            a.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
+        final totalB =
+            b.value.fold<double>(0.0, (sum, asset) => sum + asset.amount);
         return totalB.compareTo(totalA);
       });
 
@@ -477,7 +490,8 @@ class _AssetGroupListItem extends StatelessWidget {
       child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: assets.first.type.color.withOpacity(0.1),
-          child: Icon(assets.first.type.icon, color: assets.first.type.color, size: 20),
+          child: Icon(assets.first.type.icon,
+              color: assets.first.type.color, size: 20),
         ),
         title: Text(
           _displayName,
@@ -490,11 +504,14 @@ class _AssetGroupListItem extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(width: 8),
-            Text(
-              '合计 ${CurrencyUtils.formatAmount(_totalAmount, 'CNY')}',
-              style: const TextStyle(
-                color: Colors.blue,
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Text(
+                '合计 ${CurrencyUtils.formatAmount(_totalAmount, 'CNY')}',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -594,6 +611,8 @@ class _AssetSubListItem extends StatelessWidget {
 
     return Text(
       parts.join(' · '),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Colors.grey[600],
           ),

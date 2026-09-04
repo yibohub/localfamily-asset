@@ -10,7 +10,6 @@ import 'package:uuid/uuid.dart';
 
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
-import '../widgets/financial_record_form.dart' show RecordType, FormMode;
 import '../widgets/smart_financial_record_name_input.dart';
 
 /// 金融记录表单页面（全屏）
@@ -29,7 +28,8 @@ class FinancialRecordFormScreen extends StatefulWidget {
   });
 
   @override
-  State<FinancialRecordFormScreen> createState() => _FinancialRecordFormScreenState();
+  State<FinancialRecordFormScreen> createState() =>
+      _FinancialRecordFormScreenState();
 }
 
 class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
@@ -127,11 +127,11 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
 
     // 使用传入的初始类型，如果没有则使用 Provider 中保存的最后选择，最后使用默认值
     _selectedAssetType = widget.initialAssetType ??
-                        provider.lastSelectedAssetType ??
-                        AssetType.deposit;
+        provider.lastSelectedAssetType ??
+        AssetType.deposit;
     _selectedLiabilityType = widget.initialLiabilityType ??
-                            provider.lastSelectedLiabilityType ??
-                            LiabilityType.debt;
+        provider.lastSelectedLiabilityType ??
+        LiabilityType.debt;
     _occurrenceDate = DateTime.now();
 
     // 如果是编辑模式，加载数据
@@ -228,7 +228,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       // 存款字段
       _depositAccountTypeController.text = asset.depositAccountType ?? '';
       _depositPeriodController.text = asset.depositPeriod?.toString() ?? '';
-      _depositInterestRateController.text = asset.depositInterestRate?.toString() ?? '';
+      _depositInterestRateController.text =
+          asset.depositInterestRate?.toString() ?? '';
       _maturityDate = asset.maturityDate;
 
       // 保单字段
@@ -270,8 +271,10 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
 
       // 房贷字段
       _propertyAddressController.text = liability.propertyAddress ?? '';
-      _originalLoanAmountController.text = liability.originalLoanAmount?.toString() ?? '';
-      _remainingPrincipalController.text = liability.remainingPrincipal?.toString() ?? '';
+      _originalLoanAmountController.text =
+          liability.originalLoanAmount?.toString() ?? '';
+      _remainingPrincipalController.text =
+          liability.remainingPrincipal?.toString() ?? '';
       _loanTypeController.text = liability.loanType ?? '';
 
       // 车贷字段
@@ -311,7 +314,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         type: _selectedAssetType!,
         amount: double.parse(_amountController.text),
         currency: _currencyController.text,
-        account: _accountController.text.isEmpty ? null : _accountController.text,
+        account:
+            _accountController.text.isEmpty ? null : _accountController.text,
         occurrenceDate: _occurrenceDate ?? DateTime.now(),
         buyPrice: _buyPriceController.text.isEmpty
             ? null
@@ -320,44 +324,74 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
             ? null
             : double.tryParse(_currentPriceController.text),
         code: _codeController.text.isEmpty ? null : _codeController.text,
-        exchange: _exchangeController.text.isEmpty ? null : _exchangeController.text,
-        quantity: _quantityController.text.isEmpty ? null : int.tryParse(_quantityController.text),
+        exchange:
+            _exchangeController.text.isEmpty ? null : _exchangeController.text,
+        quantity: _quantityController.text.isEmpty
+            ? null
+            : int.tryParse(_quantityController.text),
         note: _noteController.text.isEmpty ? null : _noteController.text,
         // 房产字段
-        address: _addressController.text.isEmpty ? null : _addressController.text,
+        address:
+            _addressController.text.isEmpty ? null : _addressController.text,
         buildingArea: _buildingAreaController.text.isEmpty
             ? null
             : double.tryParse(_buildingAreaController.text),
         livingArea: _livingAreaController.text.isEmpty
             ? null
             : double.tryParse(_livingAreaController.text),
-        propertyType: _propertyTypeController.text.isEmpty ? null : _propertyTypeController.text,
-        rooms: _roomsController.text.isEmpty ? null : int.tryParse(_roomsController.text),
+        propertyType: _propertyTypeController.text.isEmpty
+            ? null
+            : _propertyTypeController.text,
+        rooms: _roomsController.text.isEmpty
+            ? null
+            : int.tryParse(_roomsController.text),
         floor: _floorController.text.isEmpty ? null : _floorController.text,
-        buildYear: _buildYearController.text.isEmpty ? null : int.tryParse(_buildYearController.text),
-        ownershipType: _ownershipTypeController.text.isEmpty ? null : _ownershipTypeController.text,
-        deedNumber: _deedNumberController.text.isEmpty ? null : _deedNumberController.text,
+        buildYear: _buildYearController.text.isEmpty
+            ? null
+            : int.tryParse(_buildYearController.text),
+        ownershipType: _ownershipTypeController.text.isEmpty
+            ? null
+            : _ownershipTypeController.text,
+        deedNumber: _deedNumberController.text.isEmpty
+            ? null
+            : _deedNumberController.text,
         // 存款字段
         depositAccountType: _depositAccountTypeController.text.isEmpty
             ? null
             : _depositAccountTypeController.text,
-        depositPeriod: _depositPeriodController.text.isEmpty ? null : int.tryParse(_depositPeriodController.text),
+        depositPeriod: _depositPeriodController.text.isEmpty
+            ? null
+            : int.tryParse(_depositPeriodController.text),
         maturityDate: _maturityDate,
         depositInterestRate: _depositInterestRateController.text.isEmpty
             ? null
             : double.tryParse(_depositInterestRateController.text),
         // 保单字段
-        policyNumber: _policyNumberController.text.isEmpty ? null : _policyNumberController.text,
-        insuranceType: _insuranceTypeController.text.isEmpty ? null : _insuranceTypeController.text,
-        insured: _insuredController.text.isEmpty ? null : _insuredController.text,
-        beneficiary: _beneficiaryController.text.isEmpty ? null : _beneficiaryController.text,
+        policyNumber: _policyNumberController.text.isEmpty
+            ? null
+            : _policyNumberController.text,
+        insuranceType: _insuranceTypeController.text.isEmpty
+            ? null
+            : _insuranceTypeController.text,
+        insured:
+            _insuredController.text.isEmpty ? null : _insuredController.text,
+        beneficiary: _beneficiaryController.text.isEmpty
+            ? null
+            : _beneficiaryController.text,
         coverageAmount: _coverageAmountController.text.isEmpty
             ? null
             : double.tryParse(_coverageAmountController.text),
-        premium: _premiumController.text.isEmpty ? null : double.tryParse(_premiumController.text),
-        premiumPeriod: _premiumPeriodController.text.isEmpty ? null : _premiumPeriodController.text,
-        coveragePeriod: _coveragePeriodController.text.isEmpty ? null : _coveragePeriodController.text,
-        insurer: _insurerController.text.isEmpty ? null : _insurerController.text,
+        premium: _premiumController.text.isEmpty
+            ? null
+            : double.tryParse(_premiumController.text),
+        premiumPeriod: _premiumPeriodController.text.isEmpty
+            ? null
+            : _premiumPeriodController.text,
+        coveragePeriod: _coveragePeriodController.text.isEmpty
+            ? null
+            : _coveragePeriodController.text,
+        insurer:
+            _insurerController.text.isEmpty ? null : _insurerController.text,
         createdAt: widget.record?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -365,7 +399,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       success = widget.record == null
           ? await provider.addAsset(asset)
           : await provider.updateAsset(asset);
-    } else if (_selectedRecordType == RecordType.liability && _selectedLiabilityType != null) {
+    } else if (_selectedRecordType == RecordType.liability &&
+        _selectedLiabilityType != null) {
       final liability = Liability(
         id: widget.record?.id ?? const Uuid().v4(),
         name: _nameController.text,
@@ -385,7 +420,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         creditLimit: _creditLimitController.text.isEmpty
             ? null
             : double.tryParse(_creditLimitController.text),
-        lastFourDigits: _lastFourDigitsController.text.isEmpty ? null : _lastFourDigitsController.text,
+        lastFourDigits: _lastFourDigitsController.text.isEmpty
+            ? null
+            : _lastFourDigitsController.text,
         cashLimit: _cashLimitController.text.isEmpty
             ? null
             : double.tryParse(_cashLimitController.text),
@@ -393,24 +430,38 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
             ? null
             : double.tryParse(_annualFeeController.text),
         issuer: _issuerController.text.isEmpty ? null : _issuerController.text,
-        loanTerm: _loanTermController.text.isEmpty ? null : int.tryParse(_loanTermController.text),
+        loanTerm: _loanTermController.text.isEmpty
+            ? null
+            : int.tryParse(_loanTermController.text),
         // 房贷字段
-        propertyAddress: _propertyAddressController.text.isEmpty ? null : _propertyAddressController.text,
+        propertyAddress: _propertyAddressController.text.isEmpty
+            ? null
+            : _propertyAddressController.text,
         originalLoanAmount: _originalLoanAmountController.text.isEmpty
             ? null
             : double.tryParse(_originalLoanAmountController.text),
         remainingPrincipal: _remainingPrincipalController.text.isEmpty
             ? null
             : double.tryParse(_remainingPrincipalController.text),
-        loanType: _loanTypeController.text.isEmpty ? null : _loanTypeController.text,
+        loanType:
+            _loanTypeController.text.isEmpty ? null : _loanTypeController.text,
         // 车贷字段
-        vehicleBrand: _vehicleBrandController.text.isEmpty ? null : _vehicleBrandController.text,
-        vehicleModel: _vehicleModelController.text.isEmpty ? null : _vehicleModelController.text,
-        licensePlate: _licensePlateController.text.isEmpty ? null : _licensePlateController.text,
+        vehicleBrand: _vehicleBrandController.text.isEmpty
+            ? null
+            : _vehicleBrandController.text,
+        vehicleModel: _vehicleModelController.text.isEmpty
+            ? null
+            : _vehicleModelController.text,
+        licensePlate: _licensePlateController.text.isEmpty
+            ? null
+            : _licensePlateController.text,
         // 个人/私人借款字段
-        purpose: _purposeController.text.isEmpty ? null : _purposeController.text,
+        purpose:
+            _purposeController.text.isEmpty ? null : _purposeController.text,
         hasInterest: _hasInterest,
-        repaymentPlan: _repaymentPlanController.text.isEmpty ? null : _repaymentPlanController.text,
+        repaymentPlan: _repaymentPlanController.text.isEmpty
+            ? null
+            : _repaymentPlanController.text,
         note: _noteController.text.isEmpty ? null : _noteController.text,
         createdAt: widget.record?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
@@ -429,7 +480,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         final itemType = _selectedRecordType == RecordType.asset ? '资产' : '负债';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_mode == FormMode.add ? '$itemType已添加' : '$itemType已更新'),
+            content:
+                Text(_mode == FormMode.add ? '$itemType已添加' : '$itemType已更新'),
           ),
         );
       }
@@ -440,7 +492,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     }
   }
 
-  Future<void> _pickDate(DateTime? initialDate, Function(DateTime) onPicked) async {
+  Future<void> _pickDate(
+      DateTime? initialDate, Function(DateTime) onPicked) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate ?? DateTime.now(),
@@ -492,6 +545,16 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               _buildAssetFields(context),
             if (_selectedRecordType == RecordType.liability)
               _buildLiabilityFields(context),
+            // 底部保存按钮：长表单滚动到底部后无需返回顶部
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _handleSave,
+                child: const Text('保存'),
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -525,10 +588,12 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         SmartFinancialRecordNameInput(
           nameController: _nameController,
           subAccountController: _accountController,
-          assetTypeFilter: _selectedRecordType == RecordType.asset && _selectedAssetType != null
+          assetTypeFilter: _selectedRecordType == RecordType.asset &&
+                  _selectedAssetType != null
               ? [_selectedAssetType!]
               : null,
-          liabilityTypeFilter: _selectedRecordType == RecordType.liability && _selectedLiabilityType != null
+          liabilityTypeFilter: _selectedRecordType == RecordType.liability &&
+                  _selectedLiabilityType != null
               ? [_selectedLiabilityType!]
               : null,
           labelText: '$typeLabel名称',
@@ -545,7 +610,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
             border: const OutlineInputBorder(),
             prefixText: '¥',
           ),
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return '请输入金额';
@@ -560,7 +625,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         const SizedBox(height: 16),
         // 发生日期
         InkWell(
-          onTap: () => _pickDate(_occurrenceDate, (date) => _occurrenceDate = date),
+          onTap: () =>
+              _pickDate(_occurrenceDate, (date) => _occurrenceDate = date),
           child: InputDecorator(
             decoration: const InputDecoration(
               labelText: '发生日期',
@@ -628,7 +694,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           onSelected: (_) {
             setState(() => _selectedLiabilityType = type);
             // 保存选择到 Provider
-            context.read<FinancialProvider>().setLastSelectedLiabilityType(type);
+            context
+                .read<FinancialProvider>()
+                .setLastSelectedLiabilityType(type);
           },
           avatar: Icon(
             type.icon,
@@ -691,7 +759,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               hintText: '例如：1000',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -701,7 +769,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -711,7 +779,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ],
       );
@@ -742,7 +810,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               labelText: '建筑面积（㎡）',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -751,7 +819,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               labelText: '使用面积（㎡）',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -858,7 +926,8 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           ),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () => _pickDate(_maturityDate, (date) => _maturityDate = date),
+            onTap: () =>
+                _pickDate(_maturityDate, (date) => _maturityDate = date),
             child: InputDecorator(
               decoration: const InputDecoration(
                 labelText: '到期日期',
@@ -880,7 +949,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               hintText: '例如：3.5',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ],
       );
@@ -946,7 +1015,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -956,7 +1025,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1033,7 +1102,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1053,7 +1122,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1063,7 +1132,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           InkWell(
@@ -1075,15 +1144,14 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
                 suffixIcon: Icon(Icons.calendar_today),
               ),
               child: Text(
-                _billingDate == null
-                    ? '请选择账单日'
-                    : '${_billingDate!.day}号',
+                _billingDate == null ? '请选择账单日' : '${_billingDate!.day}号',
               ),
             ),
           ),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () => _pickDate(_paymentDueDate, (date) => _paymentDueDate = date),
+            onTap: () =>
+                _pickDate(_paymentDueDate, (date) => _paymentDueDate = date),
             child: InputDecorator(
               decoration: const InputDecoration(
                 labelText: '还款日',
@@ -1091,9 +1159,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
                 suffixIcon: Icon(Icons.calendar_today),
               ),
               child: Text(
-                _paymentDueDate == null
-                    ? '请选择还款日'
-                    : '${_paymentDueDate!.day}号',
+                _paymentDueDate == null ? '请选择还款日' : '${_paymentDueDate!.day}号',
               ),
             ),
           ),
@@ -1108,7 +1174,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               hintText: '例如：4.35',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<RepaymentMethod>(
@@ -1177,7 +1243,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1187,7 +1253,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
               border: OutlineInputBorder(),
               prefixText: '¥',
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           TextFormField(

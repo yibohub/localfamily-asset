@@ -163,7 +163,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                 final themeMode = themeProvider.themeMode;
                 final isDark = themeMode == ThemeMode.dark ||
                     (themeMode == ThemeMode.system &&
-                     MediaQuery.of(context).platformBrightness == Brightness.dark);
+                        MediaQuery.of(context).platformBrightness ==
+                            Brightness.dark);
 
                 return ListTile(
                   leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
@@ -412,142 +413,161 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('修改密码'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: oldPasswordController,
-                  obscureText: showOldPassword,
-                  decoration: InputDecoration(
-                    labelText: '当前密码',
-                    hintText: '请输入当前密码（如忘记可留空）',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(showOldPassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => showOldPassword = !showOldPassword),
-                    ),
-                  ),
-                  validator: (value) {
-                    // 允许为空（助记词恢复后使用）
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: newPasswordController,
-                  obscureText: showNewPassword,
-                  decoration: InputDecoration(
-                    labelText: '新密码',
-                    hintText: '请输入新密码',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(showNewPassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => showNewPassword = !showNewPassword),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '请输入新密码';
-                    }
-                    if (value.length < 6) {
-                      return '密码至少需要 6 个字符';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: confirmPasswordController,
-                  obscureText: showConfirmPassword,
-                  decoration: InputDecoration(
-                    labelText: '确认新密码',
-                    hintText: '请再次输入新密码',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(showConfirmPassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => showConfirmPassword = !showConfirmPassword),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '请确认新密码';
-                    }
-                    if (value != newPasswordController.text) {
-                      return '两次输入的密码不一致';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
+        builder: (context, setState) => Padding(
+          // 键盘弹出时抬升对话框，避免输入框被遮挡
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
+          child: AlertDialog(
+            title: const Text('修改密码'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: oldPasswordController,
+                      obscureText: showOldPassword,
+                      decoration: InputDecoration(
+                        labelText: '当前密码',
+                        hintText: '请输入当前密码（如忘记可留空）',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(showOldPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(
+                              () => showOldPassword = !showOldPassword),
+                        ),
+                      ),
+                      validator: (value) {
+                        // 允许为空（助记词恢复后使用）
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: newPasswordController,
+                      obscureText: showNewPassword,
+                      decoration: InputDecoration(
+                        labelText: '新密码',
+                        hintText: '请输入新密码',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(showNewPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(
+                              () => showNewPassword = !showNewPassword),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return '请输入新密码';
+                        }
+                        if (value.length < 6) {
+                          return '密码至少需要 6 个字符';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      obscureText: showConfirmPassword,
+                      decoration: InputDecoration(
+                        labelText: '确认新密码',
+                        hintText: '请再次输入新密码',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(showConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(
+                              () => showConfirmPassword = !showConfirmPassword),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return '请确认新密码';
+                        }
+                        if (value != newPasswordController.text) {
+                          return '两次输入的密码不一致';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
-            TextButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) {
-                  return;
-                }
-
-                final oldPassword = oldPasswordController.text.trim();
-                final newPassword = newPasswordController.text.trim();
-
-                // 显示加载状态
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-
-                try {
-                  final authProvider = context.read<AuthProvider>();
-                  bool success = false;
-
-                  // 如果输入了旧密码，使用 changePassword
-                  if (oldPassword.isNotEmpty) {
-                    success = await authProvider.changePassword(oldPassword, newPassword);
-                  } else {
-                    // 否则使用 resetPassword（助记词恢复后）
-                    success = await authProvider.resetPassword(newPassword);
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) {
+                    return;
                   }
 
-                  if (!context.mounted) return;
-                  Navigator.pop(context); // 关闭加载对话框
-                  Navigator.pop(dialogContext); // 关闭修改密码对话框
+                  final oldPassword = oldPasswordController.text.trim();
+                  final newPassword = newPasswordController.text.trim();
 
-                  if (success) {
+                  // 显示加载状态
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                  );
+
+                  try {
+                    final authProvider = context.read<AuthProvider>();
+                    bool success = false;
+
+                    // 如果输入了旧密码，使用 changePassword
+                    if (oldPassword.isNotEmpty) {
+                      success = await authProvider.changePassword(
+                          oldPassword, newPassword);
+                    } else {
+                      // 否则使用 resetPassword（助记词恢复后）
+                      success = await authProvider.resetPassword(newPassword);
+                    }
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context); // 关闭加载对话框
+                    Navigator.pop(dialogContext); // 关闭修改密码对话框
+
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('密码修改成功')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('密码修改失败，请检查当前密码是否正确'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    Navigator.pop(context); // 关闭加载对话框
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('密码修改成功')),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('密码修改失败，请检查当前密码是否正确'),
+                      SnackBar(
+                        content: Text('密码修改失败: $e'),
                         backgroundColor: Colors.red,
                       ),
                     );
                   }
-                } catch (e) {
-                  if (!context.mounted) return;
-                  Navigator.pop(context); // 关闭加载对话框
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('密码修改失败: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text('确认'),
-            ),
-          ],
+                },
+                child: const Text('确认'),
+              ),
+            ],
+          ),
         ),
       ),
     );

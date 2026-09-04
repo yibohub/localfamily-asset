@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import 'theme.dart';
 import '../screens/splash_screen.dart';
-import '../screens/main/main_navigation_screen.dart';
-import '../screens/auth/lock_screen.dart';
-import '../screens/auth/setup_screen.dart';
 
 /// 隐财应用程序根组件
 class YincaiApp extends StatelessWidget {
@@ -38,24 +34,5 @@ class YincaiApp extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-/// 认证包装器 - 根据认证状态导航
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-
-    switch (authProvider.status) {
-      case AuthStatus.locked:
-        return const LockScreen();
-      case AuthStatus.unlocked:
-        return const MainNavigationScreen();
-      case AuthStatus.setup:
-        return const SetupScreen();
-    }
   }
 }
