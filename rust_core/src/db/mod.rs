@@ -9,6 +9,7 @@ pub mod custom_types;
 pub mod custom_crud;
 pub mod encrypted;
 pub mod snapshot_crud;
+pub mod attachment_storage;
 
 pub use models::{Asset, Liability, AssetHistory, Attachment, AssetType, LiabilityType, AssetChange, ChangeType, NetWorthSnapshot};
 pub use schema::{create_schema, init_db, wipe_db};
@@ -17,6 +18,10 @@ pub use custom_types::CustomAssetType;
 pub use custom_crud::CustomTypeRepository;
 pub use encrypted::{is_encrypted_db, save_encrypted_db, load_encrypted_db, load_plaintext_db};
 pub use snapshot_crud::NetWorthSnapshotRepository;
+pub use attachment_storage::{
+    attachments_dir, get_or_create_attachment_key, save_attachment_file, load_attachment_file,
+    delete_attachment_file,
+};
 
 use rusqlite::Connection;
 

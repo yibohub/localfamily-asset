@@ -57,6 +57,8 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
     ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
     // 资产变更记录表（审计日志）
+    // 注意：审计日志不设外键——删除资产时历史必须保留；
+    // 且"记录资产删除"的审计本身引用已删除的资产，带外键必然插入失败
     conn.execute(
         "CREATE TABLE IF NOT EXISTS asset_changes (
             id TEXT PRIMARY KEY,
@@ -71,8 +73,7 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
             data_snapshot_old TEXT,
             data_snapshot_new TEXT,
             changed_field TEXT,
-            changed_at INTEGER NOT NULL,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+            changed_at INTEGER NOT NULL
         )",
         [],
     ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
@@ -593,6 +594,75 @@ fn migrate_v7_rename_type_to_asset_type(conn: &Connection) -> Result<(), DbError
     Ok(())
 }
 
+fn migrate_v8_drop_asset_changes_fk(conn: &Connection) -> Result<(), DbError> {
+    eprintln!("========== 开始数据库迁移 v8：移除 asset_changes 外键 ==========");
+
+    // 检查当前表是否带外键
+    let create_sql: Option<String> = conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='asset_changes'",
+        [],
+        |row| row.get(0),
+    )
+    .map(Some)
+    .or_else(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => Ok(None),
+        other => Err(DbError::DatabaseError(other.to_string())),
+    })?;
+
+    let Some(create_sql) = create_sql else {
+        eprintln!("跳过迁移 v8：asset_changes 表不存在");
+        return Ok(());
+    };
+
+    if !create_sql.contains("FOREIGN KEY") {
+        eprintln!("跳过迁移 v8：asset_changes 已无外键");
+        return Ok(());
+    }
+
+    // 重建表去除 FK：审计日志需在资产删除后保留，
+    // 且"记录删除"的审计引用已删除资产，带外键插入必然失败
+    let _ = conn.execute("DROP TABLE IF EXISTS asset_changes_new", []);
+
+    conn.execute(
+        "CREATE TABLE asset_changes_new (
+            id TEXT PRIMARY KEY,
+            asset_id TEXT NOT NULL,
+            change_type TEXT NOT NULL,
+            occurrence_date_old TEXT,
+            occurrence_date_new TEXT,
+            amount_old REAL,
+            amount_new REAL,
+            name_old TEXT,
+            name_new TEXT,
+            data_snapshot_old TEXT,
+            data_snapshot_new TEXT,
+            changed_field TEXT,
+            changed_at INTEGER NOT NULL
+        )",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    conn.execute(
+        "INSERT INTO asset_changes_new
+            (id, asset_id, change_type, occurrence_date_old, occurrence_date_new,
+             amount_old, amount_new, name_old, name_new, data_snapshot_old, data_snapshot_new,
+             changed_field, changed_at)
+         SELECT id, asset_id, change_type, occurrence_date_old, occurrence_date_new,
+             amount_old, amount_new, name_old, name_new, data_snapshot_old, data_snapshot_new,
+             changed_field, changed_at
+         FROM asset_changes",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    conn.execute("DROP TABLE asset_changes", [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+    conn.execute("ALTER TABLE asset_changes_new RENAME TO asset_changes", [])
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    eprintln!("========== 完成数据库迁移 v8 ==========");
+    Ok(())
+}
+
 /// 强制检查并添加 buy_price 和 current_price 列
 /// 无论数据库版本如何，都确保这两个列存在
 fn ensure_price_columns_exist(conn: &Connection) -> Result<(), DbError> {
@@ -690,6 +760,11 @@ pub fn init_db(conn: &Connection) -> Result<(), DbError> {
     if version < 7 {
         migrate_v7_rename_type_to_asset_type(conn)?;
         set_schema_version(conn, 7)?;
+    }
+
+    if version < 8 {
+        migrate_v8_drop_asset_changes_fk(conn)?;
+        set_schema_version(conn, 8)?;
     }
 
     // 插入默认设置

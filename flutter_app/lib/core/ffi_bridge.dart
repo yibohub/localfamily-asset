@@ -143,6 +143,20 @@ class FfiBridge {
   late final ffi.Pointer<ffi.Char> Function() _getNetWorthSnapshots;
   late final ffi.Pointer<ffi.Char> Function() _getInvestmentReturns;
 
+  // 附件（加密存储）相关函数；free_string 的真实绑定（附件字符串较大必须释放）
+  late final int Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  ) _addAttachment;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>)
+      _getAttachmentsByAsset;
+  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>)
+      _readAttachmentData;
+  late final int Function(ffi.Pointer<ffi.Char>) _deleteAttachment;
+  late final void Function(ffi.Pointer<ffi.Char>) _freeStringRust;
+
   // V2 加密数据库相关函数
   late final int Function(ffi.Pointer<ffi.Char>) _initAppV2;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPasswordV2;
@@ -452,6 +466,41 @@ class FfiBridge {
     _getInvestmentReturns = _dylib
         .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
             'get_investment_returns')
+        .asFunction();
+
+    // 附件（加密存储）函数
+    _addAttachment = _dylib
+        .lookup<ffi.NativeFunction<
+            ffi.Int32 Function(
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+            )>>('add_attachment')
+        .asFunction();
+
+    _getAttachmentsByAsset = _dylib
+        .lookup<ffi.NativeFunction<
+            ffi.Pointer<ffi.Char> Function(
+                ffi.Pointer<ffi.Char>)>>('get_attachments_by_asset')
+        .asFunction();
+
+    _readAttachmentData = _dylib
+        .lookup<ffi.NativeFunction<
+            ffi.Pointer<ffi.Char> Function(
+                ffi.Pointer<ffi.Char>)>>('read_attachment_data')
+        .asFunction();
+
+    _deleteAttachment = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>(
+            'delete_attachment')
+        .asFunction();
+
+    // free_string 真实绑定：Rust 端 CString::into_raw 需要用它释放；
+    // 附件内容字符串可达数 MB，必须释放（其他旧接口沿用历史 no-op 行为，另行清理）
+    _freeStringRust = _dylib
+        .lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
+            'free_string')
         .asFunction();
   }
 
@@ -1420,6 +1469,104 @@ class FfiBridge {
       return null;
     }
   }
+
+  // ==================== 附件（加密存储） ====================
+
+  /// 添加附件（Rust 端加密落盘并登记元数据），成功返回 true
+  ///
+  /// 单文件解密后上限 20MB（与 Rust 端 ATTACHMENT_MAX_SIZE 一致）
+  Future<bool> addAttachment({
+    required String assetId,
+    required String fileName,
+    String? mimeType,
+    required Uint8List bytes,
+  }) async {
+    final assetIdPtr = assetId.toNativeUtf8().cast<ffi.Char>();
+    final fileNamePtr = fileName.toNativeUtf8().cast<ffi.Char>();
+    final mimePtr =
+        (mimeType ?? '').toNativeUtf8().cast<ffi.Char>();
+    final dataPtr = base64Encode(bytes).toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _addAttachment(assetIdPtr, fileNamePtr, mimePtr, dataPtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('addAttachment 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('addAttachment 异常: $e');
+      return false;
+    } finally {
+      malloc.free(assetIdPtr);
+      malloc.free(fileNamePtr);
+      malloc.free(mimePtr);
+      malloc.free(dataPtr);
+    }
+  }
+
+  /// 获取资产的附件列表（不含文件内容），失败返回空列表
+  Future<List<AttachmentInfo>> getAttachments(String assetId) async {
+    final assetIdPtr = assetId.toNativeUtf8().cast<ffi.Char>();
+    ffi.Pointer<ffi.Char> resultPtr = ffi.nullptr;
+    try {
+      resultPtr = _getAttachmentsByAsset(assetIdPtr);
+      if (resultPtr == ffi.nullptr) {
+        return const [];
+      }
+      final result = resultPtr.cast<Utf8>().toDartString();
+      try {
+        final List<dynamic> list = jsonDecode(result) as List<dynamic>;
+        return list
+            .map((e) => AttachmentInfo.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        debugPrint('getAttachments 解析失败: $e');
+        return const [];
+      }
+    } catch (e) {
+      debugPrint('getAttachments 异常: $e');
+      return const [];
+    } finally {
+      if (resultPtr != ffi.nullptr) _freeStringRust(resultPtr);
+      malloc.free(assetIdPtr);
+    }
+  }
+
+  /// 读取附件内容（Rust 端解密），失败返回 null
+  Future<Uint8List?> readAttachmentData(String attachmentId) async {
+    final idPtr = attachmentId.toNativeUtf8().cast<ffi.Char>();
+    ffi.Pointer<ffi.Char> resultPtr = ffi.nullptr;
+    try {
+      resultPtr = _readAttachmentData(idPtr);
+      if (resultPtr == ffi.nullptr) {
+        return null;
+      }
+      final result = resultPtr.cast<Utf8>().toDartString();
+      return base64Decode(result);
+    } catch (e) {
+      debugPrint('readAttachmentData 异常: $e');
+      return null;
+    } finally {
+      if (resultPtr != ffi.nullptr) _freeStringRust(resultPtr);
+      malloc.free(idPtr);
+    }
+  }
+
+  /// 删除附件（密文文件 + 元数据），成功返回 true
+  Future<bool> deleteAttachment(String attachmentId) async {
+    final idPtr = attachmentId.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _deleteAttachment(idPtr);
+      if (result != FfiErrorCode.success && result != FfiErrorCode.notFound) {
+        debugPrint('deleteAttachment 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('deleteAttachment 异常: $e');
+      return false;
+    } finally {
+      malloc.free(idPtr);
+    }
+  }
 }
 
 /// 投资收益模型（FFI JSON snake_case → Dart camelCase）
@@ -1513,6 +1660,36 @@ class NetWorthSnapshotPoint {
       totalAssets: (json['total_assets'] as num).toDouble(),
       totalLiabilities: (json['total_liabilities'] as num).toDouble(),
       netWorth: (json['net_worth'] as num).toDouble(),
+    );
+  }
+}
+
+/// 附件信息（FFI JSON snake_case → Dart camelCase，不含文件内容）
+class AttachmentInfo {
+  final String id;
+  final String assetId;
+  final String fileName;
+  final int fileSize;
+  final String? mimeType;
+  final int createdAt; // Unix 秒
+
+  const AttachmentInfo({
+    required this.id,
+    required this.assetId,
+    required this.fileName,
+    required this.fileSize,
+    required this.mimeType,
+    required this.createdAt,
+  });
+
+  factory AttachmentInfo.fromJson(Map<String, dynamic> json) {
+    return AttachmentInfo(
+      id: json['id'] as String,
+      assetId: json['assetId'] as String,
+      fileName: json['fileName'] as String,
+      fileSize: json['fileSize'] as int,
+      mimeType: json['mimeType'] as String?,
+      createdAt: json['createdAt'] as int,
     );
   }
 }
