@@ -7,6 +7,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use rusqlite::Connection;
 
@@ -60,6 +61,9 @@ pub fn is_encrypted_db<P: AsRef<Path>>(path: P) -> DbResult<bool> {
     Err(DbError::DatabaseError("无法识别的文件格式".to_string()))
 }
 
+/// 进程内临时文件序号，避免同进程多次调用时文件名冲突
+static TEMP_FILE_SEQ: AtomicU64 = AtomicU64::new(0);
+
 /// 序列化内存数据库到字节
 ///
 /// 使用 SQL dump 和重建的方式来序列化内存数据库
@@ -73,7 +77,8 @@ pub fn serialize_db(conn: &Connection) -> DbResult<Vec<u8>> {
     eprintln!("serialize_db: 序列化前检查，assets 表中有 {} 条记录", count_before);
 
     let temp_dir = std::env::temp_dir();
-    let temp_path = temp_dir.join(format!("localfamily_serialize_{}.db", std::process::id()));
+    let seq = TEMP_FILE_SEQ.fetch_add(1, Ordering::Relaxed);
+    let temp_path = temp_dir.join(format!("localfamily_serialize_{}_{}.db", std::process::id(), seq));
 
     // 首先使用 backup API 将内存数据库备份到文件
     // backup 方法的签名是: backup<P: AsRef<Path>>(name, path, progress)
@@ -108,7 +113,8 @@ pub fn serialize_db(conn: &Connection) -> DbResult<Vec<u8>> {
 pub fn deserialize_to_memory(bytes: &[u8]) -> DbResult<Connection> {
     // 创建临时文件
     let temp_dir = std::env::temp_dir();
-    let temp_path = temp_dir.join(format!("localfamily_load_{}.db", std::process::id()));
+    let seq = TEMP_FILE_SEQ.fetch_add(1, Ordering::Relaxed);
+    let temp_path = temp_dir.join(format!("localfamily_load_{}_{}.db", std::process::id(), seq));
 
     // 写入字节数据到临时文件
     std::fs::write(&temp_path, bytes)
@@ -260,13 +266,19 @@ pub fn load_plaintext_db<P: AsRef<Path>>(path: P) -> DbResult<Connection> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+
+    /// 生成唯一的临时文件路径（进程内序号），避免并行测试互相踩踏
+    static TEST_FILE_SEQ: AtomicU64 = AtomicU64::new(0);
+    fn unique_temp_path(name: &str) -> std::path::PathBuf {
+        let seq = TEST_FILE_SEQ.fetch_add(1, AtomicOrdering::Relaxed);
+        std::env::temp_dir().join(format!("{}_{}_{}.db", name, std::process::id(), seq))
+    }
 
     #[test]
     fn test_is_encrypted_db_magic_detection() {
-        let temp_dir = std::env::temp_dir();
-
         // 测试加密文件检测
-        let encrypted_path = temp_dir.join("test_encrypted.db");
+        let encrypted_path = unique_temp_path("test_encrypted");
         let mut encrypted_data = ENCRYPTED_MAGIC.to_vec();
         encrypted_data.push(0x01);
         encrypted_data.extend_from_slice(&[0u8; 32]);
@@ -276,7 +288,7 @@ mod tests {
         std::fs::remove_file(&encrypted_path).unwrap();
 
         // 测试明文文件检测
-        let plaintext_path = temp_dir.join("test_plaintext.db");
+        let plaintext_path = unique_temp_path("test_plaintext");
         std::fs::write(&plaintext_path, SQLITE_MAGIC).unwrap();
         assert!(!is_encrypted_db(&plaintext_path).unwrap());
         std::fs::remove_file(&plaintext_path).unwrap();
@@ -323,8 +335,7 @@ mod tests {
         ).unwrap();
 
         // 加密保存
-        let temp_dir = std::env::temp_dir();
-        let encrypted_path = temp_dir.join("test_encrypt_roundtrip.db");
+        let encrypted_path = unique_temp_path("test_encrypt_roundtrip");
         let key = [0u8; 32];
         let salt = [9u8; 32];
 
@@ -360,8 +371,7 @@ mod tests {
         ).unwrap();
 
         // 加密保存
-        let temp_dir = std::env::temp_dir();
-        let encrypted_path = temp_dir.join("test_wrong_key.db");
+        let encrypted_path = unique_temp_path("test_wrong_key");
         let key1 = [1u8; 32];
         let salt = [9u8; 32];
 
@@ -380,8 +390,7 @@ mod tests {
     #[test]
     fn test_load_plaintext_db() {
         // 创建一个明文 SQLite 数据库
-        let temp_dir = std::env::temp_dir();
-        let plaintext_path = temp_dir.join("test_plaintext_load.db");
+        let plaintext_path = unique_temp_path("test_plaintext_load");
 
         // 添加当前时间戳
         let now = chrono::Utc::now().timestamp();
