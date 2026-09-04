@@ -139,6 +139,8 @@ class FfiBridge {
 
   // 重置函数
   late final int Function() _resetApp;
+  late final int Function(double, double) _recordNetWorthSnapshot;
+  late final ffi.Pointer<ffi.Char> Function() _getNetWorthSnapshots;
 
   // V2 加密数据库相关函数
   late final int Function(ffi.Pointer<ffi.Char>) _initAppV2;
@@ -433,6 +435,17 @@ class FfiBridge {
 
     _cleanupApp = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Int32)>>('cleanup_app')
+        .asFunction();
+
+    // 净资产快照（财富曲线）
+    _recordNetWorthSnapshot = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Double, ffi.Double)>>(
+            'record_net_worth_snapshot')
+        .asFunction();
+
+    _getNetWorthSnapshots = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+            'get_net_worth_snapshots')
         .asFunction();
   }
 
@@ -1340,5 +1353,72 @@ class FfiBridge {
       debugPrint('cleanupApp 异常: $e');
       return false;
     }
+  }
+
+  // ============================================================
+  // 净资产快照（财富曲线）
+  // ============================================================
+
+  /// 记录/更新当日净值快照（同日覆盖）
+  ///
+  /// [totalAssets]/[totalLiabilities] 由调用方按 UI 显示口径计算。
+  /// 注意：本方法不自动落盘，遵循即时保存策略由调用方随后调 saveDatabase。
+  Future<bool> recordNetWorthSnapshot({
+    required double totalAssets,
+    required double totalLiabilities,
+  }) async {
+    try {
+      final result = _recordNetWorthSnapshot(totalAssets, totalLiabilities);
+      if (result != FfiErrorCode.success) {
+        debugPrint('recordNetWorthSnapshot 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('recordNetWorthSnapshot 异常: $e');
+      return false;
+    }
+  }
+
+  /// 获取全部净值快照（按日期升序），失败返回空列表
+  Future<List<NetWorthSnapshotPoint>> getNetWorthSnapshots() async {
+    final resultPtr = _getNetWorthSnapshots();
+    if (resultPtr == ffi.nullptr) {
+      return const [];
+    }
+    final result = resultPtr.cast<Utf8>().toDartString();
+    // 注意：不需要手动释放，因为 Rust 使用的是静态返回
+    try {
+      final List<dynamic> list = jsonDecode(result) as List<dynamic>;
+      return list
+          .map((e) => NetWorthSnapshotPoint.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('getNetWorthSnapshots 解析失败: $e');
+      return const [];
+    }
+  }
+}
+
+/// 净资产快照数据点（FFI JSON snake_case → Dart camelCase）
+class NetWorthSnapshotPoint {
+  final String date; // YYYY-MM-DD
+  final double totalAssets;
+  final double totalLiabilities;
+  final double netWorth;
+
+  const NetWorthSnapshotPoint({
+    required this.date,
+    required this.totalAssets,
+    required this.totalLiabilities,
+    required this.netWorth,
+  });
+
+  factory NetWorthSnapshotPoint.fromJson(Map<String, dynamic> json) {
+    return NetWorthSnapshotPoint(
+      date: json['date'] as String,
+      totalAssets: (json['total_assets'] as num).toDouble(),
+      totalLiabilities: (json['total_liabilities'] as num).toDouble(),
+      netWorth: (json['net_worth'] as num).toDouble(),
+    );
   }
 }

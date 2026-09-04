@@ -724,3 +724,15 @@ impl Currency {
         }
     }
 }
+
+/// 净资产快照（一天一条，date 为本地日期 YYYY-MM-DD）
+///
+/// 打开应用时由 Dart 端自动记录当日汇总，用于绘制财富曲线趋势图
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetWorthSnapshot {
+    pub date: String,              // YYYY-MM-DD（主键，同日覆盖更新）
+    pub total_assets: f64,
+    pub total_liabilities: f64,
+    pub net_worth: f64,            // total_assets - total_liabilities
+    pub recorded_at: i64,          // 本次记录的 Unix 时间戳
+}

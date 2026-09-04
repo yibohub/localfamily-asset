@@ -13,25 +13,36 @@ use chrono::Local;
 use sha2::{Sha256, Digest};
 
 use crate::crypto::{derive_key, generate_salt, mnemonic_to_key};
-use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository};
+use crate::db::{Asset, AssetRepository, AssetType, Liability, LiabilityRepository, DbError, DbResult, AssetChange, ChangeType, AssetChangeRepository, CustomAssetType, CustomTypeRepository, NetWorthSnapshot, NetWorthSnapshotRepository};
 use crate::db::{is_encrypted_db, save_encrypted_db, load_encrypted_db, load_plaintext_db};
 use rusqlite::Connection;
 
-/// 文件日志
+/// 文件日志（仅 Windows 桌面端写文件；其余平台静默降级为 stderr，
+/// 不能依赖硬编码用户目录——移动端无此路径，写入必然失败）
 fn write_log(msg: &str) {
     use std::io::Write;
     let timestamp = Local::now().to_rfc3339();
     let log_msg = format!("[{}] {}\n", timestamp, msg);
-    let path = r"C:\Users\86131\Documents\localfamily_asset_rust.log";
+    if !cfg!(windows) {
+        eprintln!("{}", log_msg);
+        return;
+    }
+    let Some(home) = std::env::var_os("USERPROFILE") else {
+        eprintln!("{}", log_msg);
+        return;
+    };
+    let path = std::path::Path::new(&home)
+        .join("Documents")
+        .join("localfamily_asset_rust.log");
     match OpenOptions::new()
         .append(true)
         .create(true)
-        .open(path)
+        .open(&path)
         .and_then(|mut file| file.write_all(log_msg.as_bytes()))
     {
         Ok(_) => {},
         Err(e) => {
-            eprintln!("写入日志失败 ({}): {}", path, e);
+            eprintln!("写入日志失败 ({}): {}", path.display(), e);
         }
     }
 }
@@ -3162,4 +3173,76 @@ pub unsafe extern "C" fn cleanup_app(save: c_int) -> c_int {
 
     eprintln!("应用已清理，所有敏感数据已从内存清除");
     FfiErrorCode::Success as c_int
+}
+
+// ============================================================
+// 净资产快照（财富曲线）
+// ============================================================
+
+
+/// 记录/更新当日净值快照
+///
+/// 汇总数值由 Dart 端计算传入（与 UI 显示口径一致），
+/// Rust 端负责落库（同日覆盖）。注意：本函数不自动保存数据库，
+/// 遵循即时保存策略由调用方随后调用 save_database。
+///
+/// # Safety
+/// 由 FFI 调用方保证在已初始化（init_app_v2 + 解锁）后调用
+#[no_mangle]
+pub unsafe extern "C" fn record_net_worth_snapshot(
+    total_assets: c_double,
+    total_liabilities: c_double,
+) -> c_int {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => {
+            eprintln!("record_net_worth_snapshot: state 为空");
+            return FfiErrorCode::GenericError as c_int;
+        }
+    };
+
+    match with_db_connection(&state, |conn| -> DbResult<()> {
+        NetWorthSnapshotRepository::upsert_today(conn, total_assets, total_liabilities).map(|_| ())
+    }) {
+        Ok(_) => FfiErrorCode::Success as c_int,
+        Err(e) => {
+            eprintln!("record_net_worth_snapshot 失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
+    }
+}
+
+/// 获取全部净值快照（按日期升序），JSON 数组，失败返回 NULL
+///
+/// # Safety
+/// 返回的字符串需调用 free_string 释放
+#[no_mangle]
+pub unsafe extern "C" fn get_net_worth_snapshots() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => {
+            eprintln!("get_net_worth_snapshots: state 为空");
+            return ptr::null_mut();
+        }
+    };
+
+    let snapshots = match with_db_connection(&state, |conn| -> DbResult<Vec<NetWorthSnapshot>> {
+        NetWorthSnapshotRepository::list(conn)
+    }) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("get_net_worth_snapshots 失败: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    match serde_json::to_string(&snapshots) {
+        Ok(json) => string_to_c_char(json),
+        Err(e) => {
+            eprintln!("get_net_worth_snapshots 序列化失败: {}", e);
+            ptr::null_mut()
+        }
+    }
 }

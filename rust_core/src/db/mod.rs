@@ -8,13 +8,15 @@ pub mod crud;
 pub mod custom_types;
 pub mod custom_crud;
 pub mod encrypted;
+pub mod snapshot_crud;
 
-pub use models::{Asset, Liability, AssetHistory, Attachment, AssetType, LiabilityType, AssetChange, ChangeType};
+pub use models::{Asset, Liability, AssetHistory, Attachment, AssetType, LiabilityType, AssetChange, ChangeType, NetWorthSnapshot};
 pub use schema::{create_schema, init_db, wipe_db};
 pub use crud::{AssetRepository, LiabilityRepository, HistoryRepository, AttachmentRepository, AssetChangeRepository};
 pub use custom_types::CustomAssetType;
 pub use custom_crud::CustomTypeRepository;
 pub use encrypted::{is_encrypted_db, save_encrypted_db, load_encrypted_db, load_plaintext_db};
+pub use snapshot_crud::NetWorthSnapshotRepository;
 
 use rusqlite::Connection;
 

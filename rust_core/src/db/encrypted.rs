@@ -326,8 +326,9 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let encrypted_path = temp_dir.join("test_encrypt_roundtrip.db");
         let key = [0u8; 32];
+        let salt = [9u8; 32];
 
-        save_encrypted_db(&conn, &encrypted_path, &key).unwrap();
+        save_encrypted_db(&conn, &encrypted_path, &key, &salt).unwrap();
         assert!(encrypted_path.exists());
 
         // 检测为加密文件
@@ -362,8 +363,9 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let encrypted_path = temp_dir.join("test_wrong_key.db");
         let key1 = [1u8; 32];
+        let salt = [9u8; 32];
 
-        save_encrypted_db(&conn, &encrypted_path, &key1).unwrap();
+        save_encrypted_db(&conn, &encrypted_path, &key1, &salt).unwrap();
 
         // 用错误的密钥解密
         let key2 = [2u8; 32];

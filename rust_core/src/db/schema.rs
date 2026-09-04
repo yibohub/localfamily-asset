@@ -113,6 +113,18 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
         [],
     ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
+    // 净资产快照表（一天一条，date 为主键，同日覆盖更新）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS net_worth_snapshots (
+            date TEXT PRIMARY KEY,
+            total_assets REAL NOT NULL,
+            total_liabilities REAL NOT NULL,
+            net_worth REAL NOT NULL,
+            recorded_at INTEGER NOT NULL
+        )",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
     // 创建索引
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(asset_type)",

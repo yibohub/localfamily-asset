@@ -33,6 +33,9 @@ class FinancialProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // 净资产快照序列（按日期升序，用于财富曲线）
+  List<NetWorthSnapshotPoint> _netWorthSnapshots = [];
+
   // Getters
   List<Asset> get assets => _assets;
   List<Liability> get liabilities => _liabilities;
@@ -43,6 +46,9 @@ class FinancialProvider with ChangeNotifier {
   List<Asset> get assetSearchResults => _assetSearchResults;
   List<Liability> get liabilitySearchResults => _liabilitySearchResults;
   bool get isSearching => _isSearching;
+
+  /// 净资产快照序列（按日期升序）
+  List<NetWorthSnapshotPoint> get netWorthSnapshots => _netWorthSnapshots;
 
   /// 获取自定义资产类型（不包括负债）
   List<CustomAssetType> get customAssetTypesOnly {
@@ -132,12 +138,38 @@ class FinancialProvider with ChangeNotifier {
       final success = results.every((r) => r);
       _isLoading = false;
       notifyListeners();
+
+      if (success) {
+        // 数据就绪后记录当日净值快照并刷新序列（静默，不影响主流程）
+        await _recordDailySnapshot();
+      }
+
       return success;
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  /// 记录当日净值快照（同日覆盖）并刷新快照序列
+  ///
+  /// 遵循即时保存策略：记录后立即加密落盘。任何失败都静默处理，
+  /// 不影响应用正常使用。
+  Future<void> _recordDailySnapshot() async {
+    try {
+      final recorded = await _ffi.recordNetWorthSnapshot(
+        totalAssets: totalAssets,
+        totalLiabilities: totalLiabilities,
+      );
+      if (recorded) {
+        await _ffi.saveDatabase();
+      }
+      _netWorthSnapshots = await _ffi.getNetWorthSnapshots();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('记录净值快照失败（忽略）: $e');
     }
   }
 
