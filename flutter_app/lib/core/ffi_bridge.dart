@@ -141,6 +141,7 @@ class FfiBridge {
   late final int Function() _resetApp;
   late final int Function(double, double) _recordNetWorthSnapshot;
   late final ffi.Pointer<ffi.Char> Function() _getNetWorthSnapshots;
+  late final ffi.Pointer<ffi.Char> Function() _getInvestmentReturns;
 
   // V2 加密数据库相关函数
   late final int Function(ffi.Pointer<ffi.Char>) _initAppV2;
@@ -446,6 +447,11 @@ class FfiBridge {
     _getNetWorthSnapshots = _dylib
         .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
             'get_net_worth_snapshots')
+        .asFunction();
+
+    _getInvestmentReturns = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+            'get_investment_returns')
         .asFunction();
   }
 
@@ -1396,6 +1402,94 @@ class FfiBridge {
       debugPrint('getNetWorthSnapshots 解析失败: $e');
       return const [];
     }
+  }
+
+  /// 获取投资收益信息（含组合 XIRR 年化），失败返回 null
+  Future<PortfolioReturns?> getInvestmentReturns() async {
+    final resultPtr = _getInvestmentReturns();
+    if (resultPtr == ffi.nullptr) {
+      return null;
+    }
+    final result = resultPtr.cast<Utf8>().toDartString();
+    // 注意：不需要手动释放，因为 Rust 使用的是静态返回
+    try {
+      return PortfolioReturns.fromJson(
+          jsonDecode(result) as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('getInvestmentReturns 解析失败: $e');
+      return null;
+    }
+  }
+}
+
+/// 投资收益模型（FFI JSON snake_case → Dart camelCase）
+class InvestmentReturnItem {
+  final String assetId;
+  final String name;
+  final String currency;
+  final double cost;
+  final double currentValue;
+  final double profit;
+  final double profitPercent;
+  final int holdingDays;
+  final double? xirr;
+
+  const InvestmentReturnItem({
+    required this.assetId,
+    required this.name,
+    required this.currency,
+    required this.cost,
+    required this.currentValue,
+    required this.profit,
+    required this.profitPercent,
+    required this.holdingDays,
+    required this.xirr,
+  });
+
+  factory InvestmentReturnItem.fromJson(Map<String, dynamic> json) {
+    return InvestmentReturnItem(
+      assetId: json['asset_id'] as String,
+      name: json['name'] as String,
+      currency: json['currency'] as String,
+      cost: (json['cost'] as num).toDouble(),
+      currentValue: (json['current_value'] as num).toDouble(),
+      profit: (json['profit'] as num).toDouble(),
+      profitPercent: (json['profit_percent'] as num).toDouble(),
+      holdingDays: json['holding_days'] as int,
+      xirr: json['xirr'] == null ? null : (json['xirr'] as num).toDouble(),
+    );
+  }
+}
+
+/// 组合投资收益汇总
+class PortfolioReturns {
+  final List<InvestmentReturnItem> items;
+  final double totalCost;
+  final double totalValue;
+  final double totalProfit;
+  final double? portfolioXirr;
+
+  const PortfolioReturns({
+    required this.items,
+    required this.totalCost,
+    required this.totalValue,
+    required this.totalProfit,
+    required this.portfolioXirr,
+  });
+
+  factory PortfolioReturns.fromJson(Map<String, dynamic> json) {
+    return PortfolioReturns(
+      items: (json['items'] as List<dynamic>)
+          .map((e) =>
+              InvestmentReturnItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      totalCost: (json['total_cost'] as num).toDouble(),
+      totalValue: (json['total_value'] as num).toDouble(),
+      totalProfit: (json['total_profit'] as num).toDouble(),
+      portfolioXirr: json['portfolio_xirr'] == null
+          ? null
+          : (json['portfolio_xirr'] as num).toDouble(),
+    );
   }
 }
 

@@ -12,6 +12,7 @@ pub mod crypto;
 pub mod db;
 pub mod export;
 pub mod ffi;
+pub mod returns;
 
 // 重新导出常用类型
 pub use crypto::{
@@ -20,6 +21,8 @@ pub use crypto::{
     derive_key, generate_salt,
     generate_mnemonic, mnemonic_to_seed, validate_mnemonic,
 };
+
+pub use returns::{CashFlow, InvestmentReturn, PortfolioReturns, xirr};
 
 pub use db::{
     DbError, DbResult,

@@ -22,6 +22,7 @@ class OverviewTabScreen extends StatelessWidget {
         final summary = provider.getPortfolioSummary();
         final assets = provider.assets;
         final liabilities = provider.liabilities;
+        final returns = provider.investmentReturns;
 
         return Scaffold(
           body: CustomScrollView(
@@ -44,6 +45,16 @@ class OverviewTabScreen extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // 投资年化（有投资收益数据才显示）
+              if (returns != null && returns.items.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: _InvestmentReturnsCard(returns: returns),
+                  ),
+                ),
 
               // 资产分布
               if (assets.isNotEmpty)
@@ -578,6 +589,135 @@ class _NetWorthTrendCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 投资年化卡片（组合 XIRR + 各投资资产明细）
+class _InvestmentReturnsCard extends StatelessWidget {
+  final PortfolioReturns returns;
+
+  const _InvestmentReturnsCard({required this.returns});
+
+  /// 年化收益率着色：正绿负红
+  static Color _xirrColor(double? xirr) {
+    if (xirr == null) return Colors.grey[500]!;
+    return xirr >= 0 ? Colors.green[400]! : Colors.red[400]!;
+  }
+
+  static String _formatXirr(double? xirr) {
+    if (xirr == null) return '—';
+    final pct = xirr * 100;
+    return '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final xirrColor = _xirrColor(returns.portfolioXirr);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '投资年化',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 组合年化大字
+            Row(
+              children: [
+                Text(
+                  '组合年化 XIRR',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: Colors.grey[600]),
+                ),
+                const Spacer(),
+                Text(
+                  _formatXirr(returns.portfolioXirr),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: xirrColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            _SummaryRow(
+              label: '投入成本',
+              amount: returns.totalCost,
+              color: theme.colorScheme.onSurface,
+              icon: Icons.payments_outlined,
+            ),
+            const SizedBox(height: 8),
+            _SummaryRow(
+              label: '当前市值',
+              amount: returns.totalValue,
+              color: theme.colorScheme.onSurface,
+              icon: Icons.pie_chart_outline,
+            ),
+            const SizedBox(height: 8),
+            _SummaryRow(
+              label: '累计盈亏',
+              amount: returns.totalProfit,
+              color: returns.totalProfit >= 0
+                  ? Colors.green[400]!
+                  : Colors.red[400]!,
+              icon: returns.totalProfit >= 0
+                  ? Icons.trending_up
+                  : Icons.trending_down,
+            ),
+            // 各资产年化明细
+            ...returns.items.map((item) => Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${item.profitPercent >= 0 ? '+' : ''}${item.profitPercent.toStringAsFixed(1)}%',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: item.profit >= 0
+                              ? Colors.green[400]
+                              : Colors.red[400],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 64,
+                        child: Text(
+                          _formatXirr(item.xirr),
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _xirrColor(item.xirr),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 4),
+            Text(
+              'XIRR：考虑每笔买入时点的年化内部收益率',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

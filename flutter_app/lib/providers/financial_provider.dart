@@ -36,6 +36,9 @@ class FinancialProvider with ChangeNotifier {
   // 净资产快照序列（按日期升序，用于财富曲线）
   List<NetWorthSnapshotPoint> _netWorthSnapshots = [];
 
+  // 投资收益（含组合 XIRR），依赖资产数据
+  PortfolioReturns? _investmentReturns;
+
   // Getters
   List<Asset> get assets => _assets;
   List<Liability> get liabilities => _liabilities;
@@ -49,6 +52,9 @@ class FinancialProvider with ChangeNotifier {
 
   /// 净资产快照序列（按日期升序）
   List<NetWorthSnapshotPoint> get netWorthSnapshots => _netWorthSnapshots;
+
+  /// 投资收益汇总（无投资数据时为 null）
+  PortfolioReturns? get investmentReturns => _investmentReturns;
 
   /// 获取自定义资产类型（不包括负债）
   List<CustomAssetType> get customAssetTypesOnly {
@@ -206,11 +212,22 @@ class FinancialProvider with ChangeNotifier {
       }).toList();
 
       debugPrint('_loadAssets: 成功加载 ${_assets.length} 个资产');
+      await _refreshInvestmentReturns();
       return true;
     } catch (e) {
       debugPrint('_loadAssets: 加载资产失败: $e');
       _assets = [];
       return false;
+    }
+  }
+
+  /// 刷新投资收益汇总（静默容错）
+  Future<void> _refreshInvestmentReturns() async {
+    try {
+      _investmentReturns = await _ffi.getInvestmentReturns();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('刷新投资收益失败（忽略）: $e');
     }
   }
 
@@ -255,6 +272,7 @@ class FinancialProvider with ChangeNotifier {
       if (asset.currentPrice != null) extraFields['current_price'] = asset.currentPrice;
       if (asset.code != null) extraFields['code'] = asset.code;
       if (asset.exchange != null) extraFields['exchange'] = asset.exchange;
+      if (asset.quantity != null) extraFields['quantity'] = asset.quantity;
 
       // 房产字段
       if (asset.address != null) extraFields['address'] = asset.address;
@@ -403,6 +421,7 @@ class FinancialProvider with ChangeNotifier {
       if (asset.currentPrice != null) extraFields['current_price'] = asset.currentPrice;
       if (asset.code != null) extraFields['code'] = asset.code;
       if (asset.exchange != null) extraFields['exchange'] = asset.exchange;
+      if (asset.quantity != null) extraFields['quantity'] = asset.quantity;
 
       // 房产字段
       if (asset.address != null) extraFields['address'] = asset.address;

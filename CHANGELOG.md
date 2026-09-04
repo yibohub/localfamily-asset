@@ -8,11 +8,13 @@
 ## [Unreleased]
 
 ### Added
+- **投资年化 XIRR（Phase 3 第 2 项）**：总览页新增"投资年化"卡片——组合年化（XIRR，考虑每笔买入时点的年化内部收益率）、投入成本/当前市值/累计盈亏，以及各投资资产的收益率与年化明细；新增 `returns` 计算模块（二分法解 XIRR）与 `get_investment_returns` FFI，Rust 测试 5 例
 - **净值走势（Phase 3 首项）**：打开应用自动记录当日净值（同日覆盖），总览页新增"净值走势"卡片绘制财富曲线（最多展示最近 90 天，触摸查看逐日数值）；数据不足 2 天时显示引导文案。新增 `net_worth_snapshots` 表与 `record_net_worth_snapshot` / `get_net_worth_snapshots` FFI，Rust 端新增 3 个集成测试
 - **Android 发布签名支持**：`android/key.properties` 存在时用 release keystore 签名，否则回退 debug（本地开发/CI 不受影响）；CI 支持从 Secrets 注入 keystore（正式上架前配置即可）
 - **移动端 UI 适配（Phase 1）**：金额/价格/面积/利率等 15 处数字输入改用带小数点的数字键盘；长表单底部新增全宽保存按钮（无需滚回顶部）；修改密码、助记词恢复、设置新密码、创建自定义类型等对话框增加键盘避让与滚动容器，键盘弹出不再遮挡输入框
 
 ### Fixed
+- **修复投资资产"数量"字段从未入库的存量 bug**：新增/编辑资产时表单的数量值被丢弃（Dart 端 extraFields 与 Rust 端 FFI 解析均缺失 quantity），导致依赖数量的盈亏成本计算与年化收益全部失真；两端已补齐
 - **修复详情页金额格式错乱**：资产/负债详情页大额金额此前显示 `USD175000000.00万`（单位重复且货币用裸代码），现统一为货币符号 + 亿/万分级（如 `$ 17500.00 亿`），与全项目其余页面一致
 - Rust 端文件日志不再硬编码用户目录（Dart/Rust 两端均改为环境变量推导，仅桌面端写文件，移动端降级为 stderr）
 - 修复 `cargo test` 因过时的 examples 调试脚本与未跟进签名的加密单元测试而无法编译的问题；`crate-type` 增加 `rlib` 使集成测试可引用 crate

@@ -1506,6 +1506,9 @@ pub unsafe extern "C" fn add_asset_with_extra_fields(
                 if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
                     asset.current_price = Some(v);
                 }
+                if let Some(v) = obj.get("quantity").and_then(|v| v.as_i64()) {
+                    asset.quantity = Some(v as i32);
+                }
                 // 投资类专属字段 - code 和 exchange
                 if let Some(v) = obj.get("code").and_then(|v| v.as_str()) {
                     asset.code = Some(v.to_string());
@@ -1885,6 +1888,9 @@ pub unsafe extern "C" fn update_asset_with_extra_fields(
                 }
                 if let Some(v) = obj.get("current_price").and_then(|v| v.as_f64()) {
                     asset.current_price = Some(v);
+                }
+                if let Some(v) = obj.get("quantity").and_then(|v| v.as_i64()) {
+                    asset.quantity = Some(v as i32);
                 }
                 // 投资类专属字段 - code 和 exchange
                 if let Some(v) = obj.get("code").and_then(|v| v.as_str()) {
@@ -3242,6 +3248,67 @@ pub unsafe extern "C" fn get_net_worth_snapshots() -> *mut c_char {
         Ok(json) => string_to_c_char(json),
         Err(e) => {
             eprintln!("get_net_worth_snapshots 序列化失败: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+// ============================================================
+// 投资收益（XIRR 年化）
+// ============================================================
+
+/// 获取投资类资产的收益信息（含组合 XIRR 年化），JSON，失败返回 NULL
+///
+/// 口径：成本 = buy_price × quantity，现值 = amount，买入时点 = occurrence_date；
+/// 缺成本或日期无法解析的投资资产不计入。
+///
+/// # Safety
+/// 返回的字符串需调用 free_string 释放
+#[no_mangle]
+pub unsafe extern "C" fn get_investment_returns() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => {
+            eprintln!("get_investment_returns: state 为空");
+            return ptr::null_mut();
+        }
+    };
+
+    let assets = match with_db_connection(&state, |conn| -> DbResult<Vec<Asset>> {
+        AssetRepository::list(conn)
+    }) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("get_investment_returns: 获取资产失败: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let today = Local::now().date_naive();
+    let inputs = assets
+        .iter()
+        .filter(|a| a.is_investment())
+        .filter_map(|a| {
+            let buy_price = a.buy_price?;
+            let quantity = a.quantity? as f64;
+            let cost = buy_price * quantity;
+            Some((
+                a.id.clone(),
+                a.name.clone(),
+                a.currency.clone(),
+                cost,
+                a.amount,
+                a.occurrence_date.clone(),
+            ))
+        })
+        .collect();
+
+    let result = crate::returns::summarize(inputs, today);
+    match serde_json::to_string(&result) {
+        Ok(json) => string_to_c_char(json),
+        Err(e) => {
+            eprintln!("get_investment_returns 序列化失败: {}", e);
             ptr::null_mut()
         }
     }
