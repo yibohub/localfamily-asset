@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
+import '../utils/currency_utils.dart';
 import 'financial_record_form_screen.dart';
 import 'asset_history_screen.dart';
 
@@ -801,12 +802,15 @@ class _FinancialRecordDetailScreenState
   }
 
   String _formatAmount(double amount, String currency) {
-    if (amount >= 10000) {
-      return '$currency${(amount / 10000).toStringAsFixed(2)}万';
-    } else if (amount >= 1000) {
-      return '$currency${(amount / 1000).toStringAsFixed(1)}k';
+    // 与全项目 CurrencyUtils 一致：货币符号 + 万/亿分级，避免裸代码拼接与单位错乱
+    final prefix = currency.isEmpty ? '' : '${CurrencyUtils.getSymbol(currency)} ';
+    final absAmount = amount.abs();
+    if (absAmount >= 100000000) {
+      return '$prefix${(amount / 100000000).toStringAsFixed(2)} 亿';
+    } else if (absAmount >= 10000) {
+      return '$prefix${(amount / 10000).toStringAsFixed(2)} 万';
     }
-    return '$currency${amount.toStringAsFixed(2)}';
+    return '$prefix${amount.toStringAsFixed(2)}';
   }
 
   String _formatDate(DateTime date) {
