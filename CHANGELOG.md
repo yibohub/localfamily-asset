@@ -8,6 +8,7 @@
 ## [Unreleased]
 
 ### Added
+- **CSV / Excel 批量导入（Phase 3 第 3 项）**：设置菜单新增"CSV / Excel 批量导入"——支持 `.csv`（自动识别分隔符与 UTF-8/BOM）与 `.xlsx`（自动选择含「类型/名称」表头的工作表）；列标题别名归一（中文/英文），可导入 5 种内置资产与全部内置负债的专属字段（买入价/数量/房产/存款/保单/贷款/信用卡等）；逐行校验并跳过无效行（预览区列出原因），导入前确认、完成后报告成功/失败明细；内置"下载导入模板"（含资产/负债两个工作表与示例行）。解析纯 Dart 实现，写入复用现有 `addAsset`/`addLiability` 链路，`import_template.xlsx` 示例行不写入仅作格式参考。配套 12 个解析/读取单元测试与 `docs/bulk-import.md`
 - **投资年化 XIRR（Phase 3 第 2 项）**：总览页新增"投资年化"卡片——组合年化（XIRR，考虑每笔买入时点的年化内部收益率）、投入成本/当前市值/累计盈亏，以及各投资资产的收益率与年化明细；新增 `returns` 计算模块（二分法解 XIRR）与 `get_investment_returns` FFI，Rust 测试 5 例
 - **净值走势（Phase 3 首项）**：打开应用自动记录当日净值（同日覆盖），总览页新增"净值走势"卡片绘制财富曲线（最多展示最近 90 天，触摸查看逐日数值）；数据不足 2 天时显示引导文案。新增 `net_worth_snapshots` 表与 `record_net_worth_snapshot` / `get_net_worth_snapshots` FFI，Rust 端新增 3 个集成测试
 - **Android 发布签名支持**：`android/key.properties` 存在时用 release keystore 签名，否则回退 debug（本地开发/CI 不受影响）；CI 支持从 Secrets 注入 keystore（正式上架前配置即可）

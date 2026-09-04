@@ -33,6 +33,10 @@ dependencies:
   ffi: ^2.1.0
   path_provider: ^2.1.1
 
+  # 批量导入（CSV / Excel）解析
+  csv: ^6.0.0
+  excel: ^4.0.6
+
   # File picker for export/import
   file_picker: ^8.0.0
 

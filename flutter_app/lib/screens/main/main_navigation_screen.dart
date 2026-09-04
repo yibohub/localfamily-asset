@@ -13,6 +13,7 @@ import '../asset_history_screen.dart';
 import 'assets_tab_screen.dart';
 import 'overview_tab_screen.dart';
 import 'liabilities_tab_screen.dart';
+import 'bulk_import_screen.dart';
 
 /// 主导航屏幕 - 底部导航栏（三页签模式）
 class MainNavigationScreen extends StatefulWidget {
@@ -222,10 +223,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
             ),
             ListTile(
               leading: const Icon(Icons.file_upload),
-              title: const Text('导入数据'),
+              title: const Text('导入数据（整库备份恢复）'),
               onTap: () {
                 Navigator.pop(context);
                 _importData(context);
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.table_view),
+              title: const Text('CSV / Excel 批量导入'),
+              subtitle: const Text('从表格文件批量添加资产与负债'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BulkImportScreen(),
+                  ),
+                );
               },
             ),
           ],
