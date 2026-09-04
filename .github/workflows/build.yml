@@ -235,6 +235,30 @@ jobs:
           cp rust-core/rust-core-android-armv7/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/armeabi-v7a/ || echo "armv7 not found"
           cp rust-core/rust-core-android-x64/liblocalfamily_asset_core.so flutter_app/android/app/src/main/jniLibs/x86_64/ || echo "x86_64 not found"
 
+      # 注入发布签名（可选）：仓库 Secrets 配置 ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
+      # ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD 后自动启用 release 签名；未配置则回退 debug 签名
+      - name: Setup Android signing
+        if: matrix.android == true
+        shell: bash
+        working-directory: flutter_app/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "No keystore secret configured; release build will use debug signing"
+            exit 0
+          fi
+          echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > app/upload-keystore.jks
+          cat > key.properties <<EOF
+          storeFile=app/upload-keystore.jks
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          keyPassword=${ANDROID_KEY_PASSWORD}
+          EOF
+
       # 获取依赖
       - name: Get Flutter dependencies
         shell: bash
