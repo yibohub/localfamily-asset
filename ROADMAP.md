@@ -80,7 +80,7 @@
 - [x] CI 产出的 APK 真机安装验证（Rust `.so` 加载、FFI 调用、加密流程）——2026-09-02 模拟器验证通过（发现并修复：CI 此前未将 Rust `.so` 打进 APK、缺少 x86_64 ABI；现 APK 含 arm64-v8a/armeabi-v7a/x86_64 三 ABI，初始化+加密落盘+解锁+Demo 数据全流程正常）
 - [x] 桌面专属代码平台门控（2026-09-02：window_manager 调用已在 main.dart 门控且为唯一入口；删除未使用桌面组件 window_title_bar.dart；导出路径移动端改落应用目录；asset_provider 日志去硬编码 Windows 路径）
 - [x] 移动端 UI 适配（2026-09-04：15 处小数键盘、表单底部保存、5 个对话框键盘避让/滚动、列表/详情/总览防溢出、锁屏可滚动、字体平台门控；顺带删除约 5,200 行不可达旧界面代码；Pixel 7 模拟器全流程走查 + Windows 桌面冒烟通过，全程无 RenderFlex overflow）
-- [ ] 签名配置，酷安 + GitHub Release 分发
+- [ ] 签名配置，酷安 + GitHub Release 分发（🫸 2026-09-04 用户决定暂缓；签名基础设施已就绪——build.gradle 支持 key.properties 可选签名 + CI Secrets 注入（2907c5b），待生成 keystore 并配置 4 个 Secrets 后即可启用）
 - [x] 顺手清理技术债 #2（删除 `rust_ffi.dart`）——2026-09-02 已删除
 
 **完成标准**：陌生用户能从 Release 下载 APK，完成初始化并成功记录一条资产。
