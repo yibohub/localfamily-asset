@@ -755,7 +755,8 @@ class _FinancialRecordDetailScreenState
                 top: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: () => _confirmDeleteAttachment(info),
+                  onTap:
+                      _attachmentBusy ? null : () => _confirmDeleteAttachment(info),
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
@@ -842,6 +843,13 @@ class _FinancialRecordDetailScreenState
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
       await _saveAttachment(xFile.name, bytes);
+      // image_picker 会在缓存目录留下所选照片的明文副本，加密保存后立即清除
+      try {
+        final cache = File(xFile.path);
+        if (await cache.exists()) await cache.delete();
+      } catch (e) {
+        debugPrint('清理选图缓存失败: $e');
+      }
     } catch (e) {
       debugPrint('选取图片失败: $e');
       _showSnack('选取图片失败');
@@ -856,6 +864,11 @@ class _FinancialRecordDetailScreenState
       );
       final file = result?.files.singleOrNull;
       if (file == null) return;
+      // 先用元数据大小预判，避免把超大文件整读进内存
+      if (file.size > _maxAttachmentSize) {
+        _showSnack('附件超过 20MB，请压缩后再添加');
+        return;
+      }
       final bytes = file.bytes;
       if (bytes == null) {
         _showSnack('读取文件失败');
@@ -869,6 +882,7 @@ class _FinancialRecordDetailScreenState
   }
 
   Future<void> _saveAttachment(String fileName, Uint8List bytes) async {
+    if (!mounted) return;
     if (bytes.isEmpty) {
       _showSnack('文件为空');
       return;
@@ -936,7 +950,9 @@ class _FinancialRecordDetailScreenState
             Expanded(
               child: InteractiveViewer(
                 maxScale: 5,
-                child: Center(child: Image.memory(imageData)),
+                child: Center(
+                  child: Image.memory(imageData, cacheWidth: 1080),
+                ),
               ),
             ),
           ],
@@ -963,7 +979,7 @@ class _FinancialRecordDetailScreenState
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _attachmentBusy = true);
     try {

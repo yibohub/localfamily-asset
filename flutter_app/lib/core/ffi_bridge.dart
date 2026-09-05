@@ -26,7 +26,6 @@ class FfiBridge {
   late ffi.DynamicLibrary _dylib;
 
   // FFI 函数签名
-  late final ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>) _freeString;
   late final int Function(ffi.Pointer<ffi.Char>) _initApp;
   late final int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>) _setupPassword;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPassword;
@@ -210,10 +209,6 @@ class FfiBridge {
   /// 加载 FFI 函数
   void _loadFunctions() {
     // free_string 在 Rust 中返回 void
-    // 注意：由于 toNativeUtf8() 使用 malloc 分配内存，需要使用 malloc.free 释放
-    // 而不是调用 Rust 的 free_string 函数
-    _freeString = (ptr) => ptr;
-
     _initApp = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('init_app')
         .asFunction();
@@ -658,7 +653,7 @@ class FfiBridge {
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       return jsonList.cast<Map<String, dynamic>>();
     } finally {
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
     }
   }
 
@@ -744,7 +739,7 @@ class FfiBridge {
       final jsonStr = const Utf8Decoder().convert(bytes);
       final result = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
       return result;
     } catch (e) {
       debugPrint('exportData 异常: $e');
@@ -777,7 +772,7 @@ class FfiBridge {
       final jsonStr = const Utf8Decoder().convert(bytes);
       final result = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
       return result;
     } catch (e) {
       debugPrint('importData 异常: $e');
@@ -803,7 +798,7 @@ class FfiBridge {
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       return jsonList.cast<Map<String, dynamic>>();
     } finally {
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
     }
   }
 
@@ -881,7 +876,7 @@ class FfiBridge {
       final jsonStr = const Utf8Decoder().convert(bytes);
       final result = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
       return result;
     } catch (e) {
       debugPrint('createCustomAssetType 异常: $e');
@@ -907,7 +902,7 @@ class FfiBridge {
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       return jsonList.cast<Map<String, dynamic>>();
     } finally {
-      _freeString(resultPtr);
+      _freeStringRust(resultPtr);
     }
   }
 
@@ -1483,8 +1478,9 @@ class FfiBridge {
   }) async {
     final assetIdPtr = assetId.toNativeUtf8().cast<ffi.Char>();
     final fileNamePtr = fileName.toNativeUtf8().cast<ffi.Char>();
-    final mimePtr =
-        (mimeType ?? '').toNativeUtf8().cast<ffi.Char>();
+    // mimeType 为空时传 NULL 指针，Rust 端存 NULL 而非空串
+    final ffi.Pointer<ffi.Char> mimePtr =
+        mimeType == null ? ffi.nullptr : mimeType.toNativeUtf8().cast<ffi.Char>();
     final dataPtr = base64Encode(bytes).toNativeUtf8().cast<ffi.Char>();
     try {
       final result = _addAttachment(assetIdPtr, fileNamePtr, mimePtr, dataPtr);
@@ -1498,7 +1494,7 @@ class FfiBridge {
     } finally {
       malloc.free(assetIdPtr);
       malloc.free(fileNamePtr);
-      malloc.free(mimePtr);
+      if (mimePtr != ffi.nullptr) malloc.free(mimePtr);
       malloc.free(dataPtr);
     }
   }

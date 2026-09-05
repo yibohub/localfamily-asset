@@ -88,13 +88,22 @@ pub fn save_attachment_file(
     let mut file_data = Vec::with_capacity(ATTACHMENT_HEADER_LEN + encrypted.len());
     file_data.extend_from_slice(super::encrypted::ENCRYPTED_MAGIC);
     file_data.push(super::encrypted::ENCRYPTED_VERSION);
+    // 32 字节占位：附件密钥为现成 DEK、不经此 salt 派生，仅保持与加密数据库文件头布局一致
     file_data.extend_from_slice(&generate_salt());
     file_data.extend_from_slice(&encrypted);
 
     let file_name = format!("{}.{}", file_stem, ATTACHMENT_FILE_EXT);
     let path = dir.join(&file_name);
-    fs::write(&path, &file_data)
-        .map_err(|e| DbError::DatabaseError(format!("写入附件文件失败: {}", e)))?;
+
+    // 原子写入：先写临时文件再改名，避免进程中断留下半截密文
+    let tmp_path = dir.join(format!("{}.tmp", file_name));
+    fs::write(&tmp_path, &file_data)
+        .map_err(|e| DbError::DatabaseError(format!("写入附件临时文件失败: {}", e)))?;
+    if path.exists() {
+        let _ = fs::remove_file(&path);
+    }
+    fs::rename(&tmp_path, &path)
+        .map_err(|e| DbError::DatabaseError(format!("提交附件文件失败: {}", e)))?;
     Ok(file_name)
 }
 
@@ -191,5 +200,30 @@ mod tests {
         let dir = std::env::temp_dir();
         assert!(load_attachment_file(&dir, "../evil.lfaenc", &[0u8; 32]).is_err());
         assert!(delete_attachment_file(&dir, "a\\b.lfaenc").is_err());
+    }
+
+    #[test]
+    fn test_attachment_key_survives_db_roundtrip() {
+        // DEK 方案根基:附件密钥存在 settings 表中,必须经
+        // serialize_db → deserialize_to_memory 往返后仍然可用
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::create_schema(&conn).unwrap();
+        let key_before = get_or_create_attachment_key(&conn).unwrap();
+
+        let bytes = super::super::encrypted::serialize_db(&conn).unwrap();
+        let conn2 = super::super::encrypted::deserialize_to_memory(&bytes).unwrap();
+        let key_after = get_or_create_attachment_key(&conn2).unwrap();
+
+        assert_eq!(key_before, key_after, "DEK 经数据库序列化往返后必须一致");
+
+        // 且旧密文仍能被往返后的密钥解密
+        let dir = std::env::temp_dir().join(format!("lfa_att_roundtrip_{}", std::process::id()));
+        let data = b"roundtrip payload".to_vec();
+        let file_name = save_attachment_file(&dir, "att-rt", &key_before, &data).unwrap();
+        let loaded = load_attachment_file(&dir, &file_name, &key_after).unwrap();
+        assert_eq!(loaded, data);
+
+        delete_attachment_file(&dir, &file_name).unwrap();
+        let _ = std::fs::remove_dir(&dir);
     }
 }

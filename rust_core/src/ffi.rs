@@ -770,18 +770,38 @@ pub unsafe extern "C" fn delete_asset(id: *const c_char) -> c_int {
             .map(|a| a.encrypted_path)
             .collect())
     })
+    .map_err(|e| {
+        eprintln!("delete_asset: 收集附件文件名失败: {}", e);
+        e
+    })
     .unwrap_or_default();
 
-    match with_db_connection(&state, |conn| -> DbResult<()> {
-        AssetRepository::delete(conn, &id)?;
+    let delete_result = with_db_connection(&state, |conn| -> DbResult<()> {
+        // 事务保证"删资产 + 写删除审计"原子完成，避免部分失败产生孤儿状态
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+        let result = (|| -> DbResult<()> {
+            AssetRepository::delete(conn, &id)?;
 
-        // 记录审计日志
-        let change = AssetChange::new(id.clone(), ChangeType::Deleted)
-            .with_deleted_snapshot(&existing);
-        AssetChangeRepository::create(conn, &change)?;
+            // 记录审计日志
+            let change = AssetChange::new(id.clone(), ChangeType::Deleted)
+                .with_deleted_snapshot(&existing);
+            AssetChangeRepository::create(conn, &change)?;
 
-        Ok(())
-    }) {
+            Ok(())
+        })();
+        match result {
+            Ok(_) => conn
+                .execute_batch("COMMIT")
+                .map_err(|e| DbError::DatabaseError(e.to_string())),
+            Err(e) => {
+                let _ = conn.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
+    });
+
+    match delete_result {
         Ok(_) => {
             // 级联清理附件密文文件（记录已随外键 CASCADE 删除）
             let dir = attachments_dir(&state.db_path);
@@ -842,9 +862,33 @@ pub unsafe extern "C" fn export_data(
         ),
     };
 
-    match crate::export::create_export_zip(&db_data, std::path::Path::new(output_path), &key) {
+    // 收集数据库登记的附件密文文件（随备份导出）
+    let attachments: Vec<(String, Vec<u8>)> = match with_db_connection(&_state, |conn| -> DbResult<Vec<(String, Vec<u8>)>> {
+        let mut result = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for a in AttachmentRepository::list_all(conn)? {
+            if a.encrypted_path.is_empty() || !seen.insert(a.encrypted_path.clone()) {
+                continue;
+            }
+            let path = attachments_dir(&_state.db_path).join(&a.encrypted_path);
+            match std::fs::read(&path) {
+                Ok(data) => result.push((a.encrypted_path, data)),
+                Err(e) => eprintln!("export_data: 读取附件 {} 失败（跳过）: {}", a.encrypted_path, e),
+            }
+        }
+        Ok(result)
+    }) {
+        Ok(list) => list,
+        Err(e) => {
+            return string_to_c_char(
+                serde_json::json!({"error": format!("读取附件失败: {}", e)}).to_string()
+            );
+        }
+    };
+
+    match crate::export::create_export_zip(&db_data, &attachments, std::path::Path::new(output_path), &key) {
         Ok(_) => string_to_c_char(
-            serde_json::json!({"success": true, "path": output_path}).to_string()
+            serde_json::json!({"success": true, "path": output_path, "attachments": attachments.len()}).to_string()
         ),
         Err(e) => string_to_c_char(
             serde_json::json!({"error": format!("导出失败: {}", e)}).to_string()
@@ -868,8 +912,8 @@ pub unsafe extern "C" fn import_data(
         Err(_) => return string_to_c_char("{\"error\":\"Invalid path\"}".to_string()),
     };
 
-    let state = APP_STATE.lock().unwrap();
-    let state = match state.as_ref() {
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
         Some(s) => s,
         None => return string_to_c_char(
             serde_json::json!({"error": "未初始化"}).to_string()
@@ -889,16 +933,57 @@ pub unsafe extern "C" fn import_data(
     };
 
     match crate::export::import_from_zip(std::path::Path::new(_input_path), &key) {
-        Ok(db_data) => {
+        Ok(backup) => {
             // 写入数据库文件
-            match std::fs::write(&state.db_path, &db_data) {
-                Ok(_) => string_to_c_char(
-                    serde_json::json!({"success": true, "imported": db_data.len()}).to_string()
-                ),
-                Err(e) => string_to_c_char(
+            if let Err(e) = std::fs::write(&state.db_path, &backup.db_data) {
+                return string_to_c_char(
                     serde_json::json!({"error": format!("写入数据库失败: {}", e)}).to_string()
-                ),
+                );
             }
+
+            // 还原附件目录：导入即恢复到备份时点，先清空现有密文再写入备份内容
+            let att_dir = attachments_dir(&state.db_path);
+            if att_dir.exists() {
+                if let Err(e) = std::fs::remove_dir_all(&att_dir) {
+                    return string_to_c_char(
+                        serde_json::json!({"error": format!("清理附件目录失败: {}", e)}).to_string()
+                    );
+                }
+            }
+            if let Err(e) = std::fs::create_dir_all(&att_dir) {
+                return string_to_c_char(
+                    serde_json::json!({"error": format!("创建附件目录失败: {}", e)}).to_string()
+                );
+            }
+            for (file_name, data) in &backup.attachments {
+                if let Err(e) = std::fs::write(att_dir.join(file_name), data) {
+                    return string_to_c_char(
+                        serde_json::json!({"error": format!("写入附件 {} 失败: {}", file_name, e)}).to_string()
+                    );
+                }
+            }
+
+            // 重载内存库:导入的数据必须立即可见,否则 UI 读到的仍是旧数据,
+            // 且下一次 saveDatabase 会用内存旧数据覆盖掉刚导入的磁盘文件
+            let new_conn = match load_encrypted_db(&state.db_path, &key) {
+                Ok(c) => c,
+                Err(e) => {
+                    return string_to_c_char(
+                        serde_json::json!({"error": format!("重载导入数据失败: {}", e)}).to_string()
+                    );
+                }
+            };
+            if let Err(e) = crate::db::init_db(&new_conn) {
+                return string_to_c_char(
+                    serde_json::json!({"error": format!("导入数据迁移失败: {}", e)}).to_string()
+                );
+            }
+            state.memory_conn = Some(new_conn);
+            state.is_dirty = false;
+
+            string_to_c_char(
+                serde_json::json!({"success": true, "imported": backup.db_data.len(), "attachments": backup.attachments.len()}).to_string()
+            )
         }
         Err(e) => string_to_c_char(
             serde_json::json!({"error": format!("导入失败: {}", e)}).to_string()
@@ -2528,6 +2613,17 @@ pub unsafe extern "C" fn reset_app() -> c_int {
     // 步骤4: 清除 AppState（释放数据库连接）
     *state = None;
 
+    // 步骤5: 删除附件密文目录（DEK 随数据库销毁后密文不可解密，但不应残留磁盘）
+    if let Some(path) = &db_path {
+        let dir = attachments_dir(path);
+        if dir.exists() {
+            match std::fs::remove_dir_all(&dir) {
+                Ok(_) => eprintln!("附件目录已删除: {}", dir.display()),
+                Err(e) => eprintln!("删除附件目录失败: {}", e),
+            }
+        }
+    }
+
     eprintln!("应用已重置，所有敏感数据已从内存和数据库清除");
     FfiErrorCode::Success as c_int
 }
@@ -2866,6 +2962,12 @@ pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
             }
         };
 
+        // 幂等执行 schema 创建与版本迁移（存量库在此完成升级，如 v8 移除审计表外键）
+        if let Err(e) = crate::db::init_db(&memory_conn) {
+            eprintln!("加载明文库后执行 schema 迁移失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+
         state.master_key = Some(key);
         state.memory_conn = Some(memory_conn);
         state.is_dirty = true; // 明文数据库需要迁移保存
@@ -2917,6 +3019,12 @@ pub unsafe extern "C" fn verify_password_v2(password: *const c_char) -> c_int {
             return FfiErrorCode::InvalidPassword as c_int;
         }
     };
+
+    // 幂等执行 schema 创建与版本迁移（存量加密库在此完成升级，如 v8 移除审计表外键）
+    if let Err(e) = crate::db::init_db(&memory_conn) {
+        eprintln!("解密加载后执行 schema 迁移失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
 
     // 从内存数据库中获取 stored_key_hash 来验证
     let stored_key_hash: Option<String> = memory_conn.query_row(
@@ -3006,19 +3114,11 @@ pub unsafe extern "C" fn setup_password_v2(
         }
     };
 
-    // 初始化数据库结构
-    match crate::db::init_db(&memory_conn) {
-        Ok(_) => eprintln!("内存数据库初始化成功"),
-        Err(e) => {
-            eprintln!("初始化内存数据库失败: {}", e);
-            return FfiErrorCode::DatabaseError as c_int;
-        }
-    }
-
-    // 修改密码场景：当前已解锁且有旧库时，把现有数据整体迁移到新库，
+    // 修改密码场景：当前已解锁且有旧库时，先把现有数据整体迁移到新库，
     // 避免 changePassword（verify + setup + save）清空全部数据。
-    // 迁移后 settings 里的旧 salt/key_hash 会由下方 INSERT OR REPLACE 覆盖为新值，
-    // 其余业务数据与设置（含附件密钥）原样保留。
+    // 注意 backup 会整体覆盖目标库，因此必须先于 init_db 执行；
+    // 其后的 init_db 幂等补齐 schema/默认设置并把版本推进到最新（如 v8），
+    // 旧 salt/key_hash 再由下方 INSERT OR REPLACE 覆盖为新值。
     if let Some(ref old_conn) = state.memory_conn {
         use rusqlite::backup::Backup;
         let migrate = Backup::new(old_conn, &mut memory_conn)
@@ -3031,6 +3131,15 @@ pub unsafe extern "C" fn setup_password_v2(
                 eprintln!("setup_password_v2: 数据迁移失败: {}", e);
                 return FfiErrorCode::DatabaseError as c_int;
             }
+        }
+    }
+
+    // 初始化数据库结构（幂等：backup 后补齐缺失表/默认设置并推进 schema 版本）
+    match crate::db::init_db(&memory_conn) {
+        Ok(_) => eprintln!("内存数据库初始化成功"),
+        Err(e) => {
+            eprintln!("初始化内存数据库失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
         }
     }
 
@@ -3573,20 +3682,19 @@ pub unsafe extern "C" fn delete_attachment(attachment_id: *const c_char) -> c_in
     };
 
     let dir = attachments_dir(&state.db_path);
-    let stored_name = match with_db_connection(&state, |conn| -> DbResult<String> {
+    // 顺序：先查记录 → 删文件 → 删记录。文件删除失败（如 Windows 文件占用）时
+    // 记录仍在，用户重试即可；若先删记录，文件删除失败将留下无入口的孤儿文件
+    match with_db_connection(&state, |conn| -> DbResult<()> {
         let attachment = AttachmentRepository::get(conn, &attachment_id)?;
+        delete_attachment_file(&dir, &attachment.encrypted_path)?;
         AttachmentRepository::delete(conn, &attachment_id)?;
-        Ok(attachment.encrypted_path)
+        Ok(())
     }) {
-        Ok(name) => name,
-        Err(DbError::NotFound(_)) => return FfiErrorCode::NotFound as c_int,
-        Err(_) => return FfiErrorCode::DatabaseError as c_int,
-    };
-
-    if let Err(e) = delete_attachment_file(&dir, &stored_name) {
-        eprintln!("delete_attachment: 删除文件失败（记录已删）: {}", e);
-        return FfiErrorCode::DatabaseError as c_int;
+        Ok(()) => FfiErrorCode::Success as c_int,
+        Err(DbError::NotFound(_)) => FfiErrorCode::NotFound as c_int,
+        Err(e) => {
+            eprintln!("delete_attachment: 删除失败: {}", e);
+            FfiErrorCode::DatabaseError as c_int
+        }
     }
-
-    FfiErrorCode::Success as c_int
 }

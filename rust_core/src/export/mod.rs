@@ -4,7 +4,7 @@
 
 pub mod zip;
 
-pub use zip::{create_export_zip, import_from_zip};
+pub use zip::{create_export_zip, import_from_zip, ImportedBackup};
 
 /// 导出错误类型
 #[derive(Debug, thiserror::Error)]

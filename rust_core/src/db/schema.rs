@@ -105,6 +105,12 @@ pub fn create_schema(conn: &Connection) -> Result<(), DbError> {
         [],
     ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
+    // 附件按资产查询的索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_attachments_asset_id ON attachments(asset_id)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
     // 设置表
     conn.execute(
         "CREATE TABLE IF NOT EXISTS settings (
@@ -658,6 +664,16 @@ fn migrate_v8_drop_asset_changes_fk(conn: &Connection) -> Result<(), DbError> {
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
     conn.execute("ALTER TABLE asset_changes_new RENAME TO asset_changes", [])
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+    // DROP TABLE 会连带删除索引,重建 v3 原有的两个索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_asset_changes_asset_id ON asset_changes(asset_id)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_asset_changes_changed_at ON asset_changes(changed_at)",
+        [],
+    ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
     eprintln!("========== 完成数据库迁移 v8 ==========");
     Ok(())
