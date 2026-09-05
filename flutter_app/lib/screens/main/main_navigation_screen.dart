@@ -55,6 +55,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     WidgetsBinding.instance.addObserver(this);
     // 加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _lastDueRefreshDate = DateTime.now();
       context.read<FinancialProvider>().loadFinancialRecords();
       context.read<CustomTypeProvider>().loadCustomTypes();
     });
@@ -81,6 +82,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       case AppLifecycleState.resumed:
         // 应用恢复到前台，检查是否超时
         _checkAutoLock();
+        // 跨天后到期提醒的"剩余天数"会失真，刷新一次（静默）
+        if (_lastDueRefreshDate != null &&
+            !DateUtils.isSameDay(_lastDueRefreshDate, DateTime.now())) {
+          _refreshDueData();
+        }
         break;
       case AppLifecycleState.inactive:
         // 应用处于非活动状态
@@ -103,6 +109,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     }
 
     _pausedAt = null;
+  }
+
+  DateTime? _lastDueRefreshDate;
+
+  /// 跨天恢复前台时刷新到期提醒等派生数据（未解锁时跳过）
+  Future<void> _refreshDueData() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isUnlocked) return;
+    _lastDueRefreshDate = DateTime.now();
+    try {
+      await context.read<FinancialProvider>().refreshDueItems();
+    } catch (e) {
+      debugPrint('跨天刷新到期提醒失败（忽略）: $e');
+    }
   }
 
   @override

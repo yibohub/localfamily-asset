@@ -46,6 +46,16 @@ class OverviewTabScreen extends StatelessWidget {
                 ),
               ),
 
+              // 到期提醒（未来 30 天内有到期项才显示）
+              if (provider.dueItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: _DueRemindersCard(items: provider.dueItems),
+                  ),
+                ),
+
               // 投资年化（有投资收益数据才显示）
               if (returns != null && returns.items.isNotEmpty)
                 SliverToBoxAdapter(
@@ -716,6 +726,143 @@ class _InvestmentReturnsCard extends StatelessWidget {
                 color: Colors.grey[500],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 到期提醒卡片（保单/存款/信用卡/贷款的未来 30 天到期项，含已逾期）
+class _DueRemindersCard extends StatelessWidget {
+  final List<DueItemInfo> items;
+
+  const _DueRemindersCard({required this.items});
+
+  Color _urgencyColor(int days) {
+    if (days < 0) return const Color(0xFFD32F2F); // 已逾期
+    if (days <= 3) return const Color(0xFFE65100); // 3 天内
+    if (days <= 7) return const Color(0xFFF57C00); // 一周内
+    return const Color(0xFF1565C0); // 常规
+  }
+
+  String _daysLabel(int days) {
+    if (days < 0) return '已逾期 ${-days} 天';
+    if (days == 0) return '今天到期';
+    return '剩 $days 天';
+  }
+
+  IconData _typeIcon(String type) {
+    switch (type) {
+      case 'deposit':
+        return Icons.savings_outlined;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'insurance':
+        return Icons.verified_user_outlined;
+      default:
+        return Icons.account_balance_outlined; // 贷款类
+    }
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'deposit':
+        return '存款';
+      case 'credit_card':
+        return '信用卡';
+      case 'insurance':
+        return '保单';
+      case 'debt':
+        return '其他负债';
+      case 'mortgage':
+        return '房贷';
+      case 'car_loan':
+        return '车贷';
+      case 'personal_loan':
+        return '个人借款';
+      case 'private_loan':
+        return '私人借款';
+      default:
+        return type;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const maxShow = 5;
+    final shown = items.take(maxShow).toList();
+    final overflow = items.length - shown.length;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('到期提醒',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(width: 8),
+                Text('(${items.length})',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...shown.map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(_typeIcon(item.assetType),
+                          size: 20, color: _urgencyColor(item.remainingDays)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              '${_typeLabel(item.assetType)} · ${item.dueDate}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color:
+                              _urgencyColor(item.remainingDays).withAlpha(26),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _daysLabel(item.remainingDays),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: _urgencyColor(item.remainingDays),
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+            if (overflow > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('还有 $overflow 项…',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
           ],
         ),
       ),

@@ -142,6 +142,9 @@ class FfiBridge {
   late final ffi.Pointer<ffi.Char> Function() _getNetWorthSnapshots;
   late final ffi.Pointer<ffi.Char> Function() _getInvestmentReturns;
 
+  // 到期提醒
+  late final ffi.Pointer<ffi.Char> Function(int) _getUpcomingDueItems;
+
   // 附件（加密存储）相关函数；free_string 的真实绑定（附件字符串较大必须释放）
   late final int Function(
     ffi.Pointer<ffi.Char>,
@@ -489,6 +492,12 @@ class FfiBridge {
     _deleteAttachment = _dylib
         .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>(
             'delete_attachment')
+        .asFunction();
+
+    // 到期提醒
+    _getUpcomingDueItems = _dylib
+        .lookup<ffi.NativeFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Int32)>>('get_upcoming_due_items')
         .asFunction();
 
     // free_string 真实绑定：Rust 端 CString::into_raw 需要用它释放；
@@ -1563,6 +1572,27 @@ class FfiBridge {
       malloc.free(idPtr);
     }
   }
+
+  /// 获取未来 [windowDays] 天内（含已逾期）的到期提醒项，失败返回空列表
+  Future<List<DueItemInfo>> getUpcomingDueItems({int windowDays = 30}) async {
+    ffi.Pointer<ffi.Char> resultPtr = ffi.nullptr;
+    try {
+      resultPtr = _getUpcomingDueItems(windowDays);
+      if (resultPtr == ffi.nullptr) {
+        return const [];
+      }
+      final result = resultPtr.cast<Utf8>().toDartString();
+      final List<dynamic> list = jsonDecode(result) as List<dynamic>;
+      return list
+          .map((e) => DueItemInfo.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('getUpcomingDueItems 异常: $e');
+      return const [];
+    } finally {
+      if (resultPtr != ffi.nullptr) _freeStringRust(resultPtr);
+    }
+  }
 }
 
 /// 投资收益模型（FFI JSON snake_case → Dart camelCase）
@@ -1686,6 +1716,33 @@ class AttachmentInfo {
       fileSize: json['fileSize'] as int,
       mimeType: json['mimeType'] as String?,
       createdAt: json['createdAt'] as int,
+    );
+  }
+}
+
+/// 到期提醒项（FFI JSON snake_case → Dart camelCase）
+class DueItemInfo {
+  final String id;
+  final String assetType;
+  final String name;
+  final String dueDate; // YYYY-MM-DD
+  final int remainingDays; // 负数表示已逾期
+
+  const DueItemInfo({
+    required this.id,
+    required this.assetType,
+    required this.name,
+    required this.dueDate,
+    required this.remainingDays,
+  });
+
+  factory DueItemInfo.fromJson(Map<String, dynamic> json) {
+    return DueItemInfo(
+      id: json['id'] as String,
+      assetType: json['assetType'] as String,
+      name: json['name'] as String,
+      dueDate: json['dueDate'] as String,
+      remainingDays: json['remainingDays'] as int,
     );
   }
 }

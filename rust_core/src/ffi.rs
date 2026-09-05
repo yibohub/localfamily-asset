@@ -3698,3 +3698,59 @@ pub unsafe extern "C" fn delete_attachment(attachment_id: *const c_char) -> c_in
         }
     }
 }
+
+// ============================================================
+// 到期提醒（保单/存款/信用卡/贷款）
+// ============================================================
+
+/// 获取未来 window_days 天内（含已逾期）的到期项，JSON 数组，失败返回 NULL
+///
+/// 涵盖：存款到期日、贷款类预计还清日、信用卡每月循环还款日、保单保障期（"N年"）。
+/// 按 remainingDays 升序排列，负数表示已逾期。
+///
+/// # Safety
+/// 返回的字符串需调用 free_string 释放
+#[no_mangle]
+pub unsafe extern "C" fn get_upcoming_due_items(window_days: c_int) -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => {
+            eprintln!("get_upcoming_due_items: state 为空");
+            return ptr::null_mut();
+        }
+    };
+
+    let window = window_days.clamp(1, 365) as i64;
+    let today = Local::now().date_naive();
+
+    let items = match with_db_connection(&state, |conn| -> DbResult<Vec<crate::due::DueItem>> {
+        crate::due::collect_due_items(conn, today, window)
+    }) {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!("get_upcoming_due_items 失败: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let payload: Vec<serde_json::Value> = items
+        .iter()
+        .map(|i| {
+            json!({
+                "id": i.id,
+                "assetType": i.asset_type,
+                "name": i.name,
+                "dueDate": i.due_date,
+                "remainingDays": i.days_left,
+            })
+        })
+        .collect();
+    match serde_json::to_string(&payload) {
+        Ok(json) => string_to_c_char(json),
+        Err(e) => {
+            eprintln!("get_upcoming_due_items 序列化失败: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
