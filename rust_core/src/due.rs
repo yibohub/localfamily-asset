@@ -83,9 +83,9 @@ fn next_credit_card_due(due: &str, today: NaiveDate, window_end: NaiveDate) -> O
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
-    (NaiveDate::from_ymd_opt(ny, nm, 1)
+    NaiveDate::from_ymd_opt(ny, nm, 1)
         .map(|first| (first - chrono::Duration::days(1)).day())
-        .unwrap_or(28)) as u32
+        .unwrap_or(28)
 }
 
 /// 汇总窗口内的到期项（含已逾期），按剩余天数升序
@@ -213,7 +213,17 @@ mod tests {
         NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
     }
 
-    fn setup(rows: &[(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>)]) -> Connection {
+    type SetupRow<'a> = (
+        &'a str,
+        &'a str,
+        &'a str,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+    );
+
+    fn setup(rows: &[SetupRow<'_>]) -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         // init_db 跑全部迁移,确保负债扩展列(due_date/payment_due_date 等)存在
         crate::db::init_db(&conn).unwrap();

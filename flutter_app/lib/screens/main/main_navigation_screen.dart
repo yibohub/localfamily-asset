@@ -55,6 +55,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     WidgetsBinding.instance.addObserver(this);
     // 加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _lastDueRefreshDate = DateTime.now();
       context.read<FinancialProvider>().loadFinancialRecords();
       context.read<CustomTypeProvider>().loadCustomTypes();
     });

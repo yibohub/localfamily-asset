@@ -773,6 +773,8 @@ class _DueRemindersCard extends StatelessWidget {
         return '信用卡';
       case 'insurance':
         return '保单';
+      case 'debt':
+        return '其他负债';
       case 'mortgage':
         return '房贷';
       case 'car_loan':
