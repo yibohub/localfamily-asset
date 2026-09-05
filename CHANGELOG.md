@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-05
+
 ### Added
 - **到期提醒（Phase 3 第 5 项，Phase 3 全部完成）**：总览页新增"到期提醒"卡片——自动汇总未来 30 天内到期（含已逾期）的记录并紧迫度标色（已逾期红、≤3 天深橙、≤7 天橙、其余蓝），无到期项时卡片隐藏。覆盖四类到期场景：存款到期日（maturity_date）、贷款类预计还清日（due_date）、信用卡每月循环还款日（payment_due_date 的"日"，自动推算下一个还款日，月末无对应日时回退月末）、保单保障期（coverage_period 文本解析"N年"，到期日=投保日+N 年；"终身/至XX岁"不提醒）。新增 `due` 计算模块与 `get_upcoming_due_items` FFI（Rust 测试 6 例），随资产增删改自动刷新
 - **附件支持（Phase 3 第 4 项）**：资产详情页新增"附件"卡片——可添加保单/房产证等照片或文件，支持拍照、相册选取（移动端）与文件选择（桌面端）；附件文件以独立密钥（DEK，随机生成后存放于数据库 settings 表，受主密码加密保护）进行 AES-256-GCM 文件级加密，落盘于数据库同目录 `attachments/` 子目录，文件格式与加密数据库一致（`LFAENC01` 头）；点击缩略图全屏预览（支持双指缩放），删除需确认且同步清理密文文件；删除资产时级联清理其全部附件；单文件上限 20MB，添加/删除后按即时保存策略加密落盘。新增 `attachment_storage` 模块与 `add_attachment` / `get_attachments_by_asset` / `read_attachment_data` / `delete_attachment` 4 个 FFI（Rust 测试 4 例）；移动端选取用 `image_picker`（Apache-2.0），桌面端沿用 `file_picker`。Windows DLL 端到端冒烟 23 项 + Android 模拟器（Pixel 7 / API 35）全流程端到端（添加/预览/删除/重启持久化）均通过
