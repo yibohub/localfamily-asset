@@ -2,9 +2,15 @@
 ///
 /// 显示资产或负债的完整信息，包括所有扩展字段
 
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../core/ffi_bridge.dart';
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
 import '../utils/currency_utils.dart';
@@ -31,10 +37,31 @@ class _FinancialRecordDetailScreenState
     extends State<FinancialRecordDetailScreen> {
   dynamic _record; // Asset? or Liability?
 
+  // 附件状态（仅资产支持：保单/房产证等照片）
+  final FfiBridge _ffi = FfiBridge();
+  List<AttachmentInfo> _attachments = const [];
+  bool _attachmentsLoading = false;
+  bool _attachmentBusy = false;
+
   @override
   void initState() {
     super.initState();
     _loadRecord();
+    _loadAttachments();
+  }
+
+  /// 单个附件解密后的大小上限（与 Rust 端 ATTACHMENT_MAX_SIZE 一致）
+  static const int _maxAttachmentSize = 20 * 1024 * 1024;
+
+  Future<void> _loadAttachments() async {
+    if (widget.recordType != RecordType.asset) return;
+    setState(() => _attachmentsLoading = true);
+    try {
+      final list = await _ffi.getAttachments(widget.recordId);
+      if (mounted) setState(() => _attachments = list);
+    } finally {
+      if (mounted) setState(() => _attachmentsLoading = false);
+    }
   }
 
   void _loadRecord() {
@@ -203,6 +230,11 @@ class _FinancialRecordDetailScreenState
           if (_record.note != null && _record.note!.isNotEmpty) ...[
             const SizedBox(height: 16),
             _buildNoteCard(context),
+          ],
+          // 附件（仅资产：保单/房产证等照片，加密存储）
+          if (widget.recordType == RecordType.asset) ...[
+            const SizedBox(height: 16),
+            _buildAttachmentsSection(context),
           ],
           // 时间信息
           const SizedBox(height: 16),
@@ -634,6 +666,359 @@ class _FinancialRecordDetailScreenState
       ),
     );
   }
+
+  // ==================== 附件（保单/房产证照片，加密存储） ====================
+
+  Widget _buildAttachmentsSection(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('附件', style: Theme.of(context).textTheme.titleMedium),
+                if (_attachments.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Text('(${_attachments.length})',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+                const Spacer(),
+                if (_attachmentBusy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    tooltip: '添加附件',
+                    onPressed: _addAttachmentFlow,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_attachmentsLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_attachments.isEmpty)
+              Text(
+                '暂无附件，可添加保单、房产证等照片（加密存储）',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _attachments
+                    .map((a) => _buildAttachmentTile(context, a))
+                    .toList(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentTile(BuildContext context, AttachmentInfo info) {
+    final isImage = _isImageMime(info.mimeType);
+    return SizedBox(
+      width: 96,
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: () => _previewAttachment(info),
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: isImage
+                      ? const Icon(Icons.image_outlined, size: 32)
+                      : const Icon(Icons.insert_drive_file_outlined,
+                          size: 32),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap:
+                      _attachmentBusy ? null : () => _confirmDeleteAttachment(info),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close,
+                        size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            info.fileName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addAttachmentFlow() async {
+    final options = <(String, IconData, VoidCallback)>[
+      if (Platform.isAndroid || Platform.isIOS)
+        (
+          '拍照',
+          Icons.photo_camera_outlined,
+          () => _pickFromImagePicker(ImageSource.camera),
+        ),
+      if (Platform.isAndroid || Platform.isIOS)
+        (
+          '从相册选择',
+          Icons.photo_library_outlined,
+          () => _pickFromImagePicker(ImageSource.gallery),
+        ),
+      (
+        '选择文件',
+        Icons.folder_outlined,
+        _pickFromFilePicker,
+      ),
+    ];
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('添加附件'),
+            ),
+            ...options.map(
+              (o) => ListTile(
+                leading: Icon(o.$2),
+                title: Text(o.$1),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  o.$3();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFromImagePicker(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(
+        source: source,
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 85,
+      );
+      if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
+      await _saveAttachment(xFile.name, bytes);
+      // image_picker 会在缓存目录留下所选照片的明文副本，加密保存后立即清除
+      try {
+        final cache = File(xFile.path);
+        if (await cache.exists()) await cache.delete();
+      } catch (e) {
+        debugPrint('清理选图缓存失败: $e');
+      }
+    } catch (e) {
+      debugPrint('选取图片失败: $e');
+      _showSnack('选取图片失败');
+    }
+  }
+
+  Future<void> _pickFromFilePicker() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      final file = result?.files.singleOrNull;
+      if (file == null) return;
+      // 先用元数据大小预判，避免把超大文件整读进内存
+      if (file.size > _maxAttachmentSize) {
+        _showSnack('附件超过 20MB，请压缩后再添加');
+        return;
+      }
+      final bytes = file.bytes;
+      if (bytes == null) {
+        _showSnack('读取文件失败');
+        return;
+      }
+      await _saveAttachment(file.name, bytes);
+    } catch (e) {
+      debugPrint('选择文件失败: $e');
+      _showSnack('选择文件失败');
+    }
+  }
+
+  Future<void> _saveAttachment(String fileName, Uint8List bytes) async {
+    if (!mounted) return;
+    if (bytes.isEmpty) {
+      _showSnack('文件为空');
+      return;
+    }
+    if (bytes.length > _maxAttachmentSize) {
+      _showSnack('附件超过 20MB，请压缩后再添加');
+      return;
+    }
+
+    setState(() => _attachmentBusy = true);
+    try {
+      final ok = await _ffi.addAttachment(
+        assetId: widget.recordId,
+        fileName: fileName,
+        mimeType: _guessMimeType(fileName),
+        bytes: bytes,
+      );
+      if (!ok) {
+        _showSnack('添加附件失败');
+        return;
+      }
+      // 即时加密落盘（与全局保存策略一致）
+      await _ffi.saveDatabase();
+      _showSnack('附件已加密保存');
+      await _loadAttachments();
+    } finally {
+      if (mounted) setState(() => _attachmentBusy = false);
+    }
+  }
+
+  Future<void> _previewAttachment(AttachmentInfo info) async {
+    if (_attachmentBusy) return;
+    setState(() => _attachmentBusy = true);
+    Uint8List? data;
+    try {
+      data = await _ffi.readAttachmentData(info.id);
+    } finally {
+      if (mounted) setState(() => _attachmentBusy = false);
+    }
+
+    if (data == null) {
+      _showSnack('读取附件失败');
+      return;
+    }
+    if (!_isImageMime(info.mimeType)) {
+      _showSnack('该文件类型暂不支持预览');
+      return;
+    }
+    if (!mounted) return;
+    final imageData = data;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        child: Column(
+          children: [
+            AppBar(
+              title: Text(info.fileName),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(dialogContext),
+                ),
+              ],
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: Image.memory(imageData, cacheWidth: 1080),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAttachment(AttachmentInfo info) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除附件'),
+        content: Text('确定删除「${info.fileName}」吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _attachmentBusy = true);
+    try {
+      final ok = await _ffi.deleteAttachment(info.id);
+      if (!ok) {
+        _showSnack('删除附件失败');
+        return;
+      }
+      await _ffi.saveDatabase();
+      _showSnack('附件已删除');
+      await _loadAttachments();
+    } finally {
+      if (mounted) setState(() => _attachmentBusy = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String? _guessMimeType(String fileName) {
+    final ext = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : '';
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      'heic' || 'heif' => 'image/heic',
+      'pdf' => 'application/pdf',
+      _ => null,
+    };
+  }
+
+  bool _isImageMime(String? mime) => mime != null && mime.startsWith('image/');
 
   Widget _buildTimeInfo(BuildContext context) {
     return Card(

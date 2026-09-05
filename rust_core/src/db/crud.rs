@@ -774,6 +774,53 @@ impl AttachmentRepository {
         Ok(attachments)
     }
 
+    /// 全部附件记录（导出备份时枚举密文文件用）
+    pub fn list_all(conn: &Connection) -> DbResult<Vec<Attachment>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, asset_id, file_name, file_size, encrypted_path, mime_type, created_at
+             FROM attachments ORDER BY created_at DESC"
+        ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        let attachments = stmt.query_map([], |row| {
+            Ok(Attachment {
+                id: row.get(0)?,
+                asset_id: row.get(1)?,
+                file_name: row.get(2)?,
+                file_size: row.get(3)?,
+                encrypted_path: row.get(4)?,
+                mime_type: row.get(5)?,
+                created_at: row.get(6)?,
+            })
+        }).map_err(|e| DbError::DatabaseError(e.to_string()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| DbError::DatabaseError(e.to_string()))?;
+
+        Ok(attachments)
+    }
+
+    pub fn get(conn: &Connection, id: &str) -> DbResult<Attachment> {
+        conn.query_row(
+            "SELECT id, asset_id, file_name, file_size, encrypted_path, mime_type, created_at
+             FROM attachments WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok(Attachment {
+                    id: row.get(0)?,
+                    asset_id: row.get(1)?,
+                    file_name: row.get(2)?,
+                    file_size: row.get(3)?,
+                    encrypted_path: row.get(4)?,
+                    mime_type: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            },
+        )
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => DbError::NotFound(format!("附件不存在: {}", id)),
+            other => DbError::DatabaseError(other.to_string()),
+        })
+    }
+
     pub fn delete(conn: &Connection, id: &str) -> DbResult<()> {
         conn.execute(
             "DELETE FROM attachments WHERE id = ?1",
