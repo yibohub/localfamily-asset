@@ -39,6 +39,9 @@ class FinancialProvider with ChangeNotifier {
   // 投资收益（含组合 XIRR），依赖资产数据
   PortfolioReturns? _investmentReturns;
 
+  // 到期提醒项（未来窗口内含已逾期，按剩余天数升序）
+  List<DueItemInfo> _dueItems = [];
+
   // Getters
   List<Asset> get assets => _assets;
   List<Liability> get liabilities => _liabilities;
@@ -55,6 +58,9 @@ class FinancialProvider with ChangeNotifier {
 
   /// 投资收益汇总（无投资数据时为 null）
   PortfolioReturns? get investmentReturns => _investmentReturns;
+
+  /// 到期提醒项（未来 30 天窗口内含已逾期；无到期项时为空）
+  List<DueItemInfo> get dueItems => _dueItems;
 
   /// 获取自定义资产类型（不包括负债）
   List<CustomAssetType> get customAssetTypesOnly {
@@ -148,6 +154,8 @@ class FinancialProvider with ChangeNotifier {
       if (success) {
         // 数据就绪后记录当日净值快照并刷新序列（静默，不影响主流程）
         await _recordDailySnapshot();
+        // 刷新到期提醒（静默，不影响主流程）
+        await _refreshDueItems();
       }
 
       return success;
@@ -228,6 +236,16 @@ class FinancialProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('刷新投资收益失败（忽略）: $e');
+    }
+  }
+
+  /// 刷新到期提醒项（静默容错；增删改记录后随 loadFinancialRecords 一并刷新）
+  Future<void> _refreshDueItems() async {
+    try {
+      _dueItems = await _ffi.getUpcomingDueItems(windowDays: 30);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('刷新到期提醒失败（忽略）: $e');
     }
   }
 

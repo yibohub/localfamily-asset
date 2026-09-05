@@ -10,6 +10,7 @@
 
 pub mod crypto;
 pub mod db;
+pub mod due;
 pub mod export;
 pub mod ffi;
 pub mod returns;
@@ -23,6 +24,7 @@ pub use crypto::{
 };
 
 pub use returns::{CashFlow, InvestmentReturn, PortfolioReturns, xirr};
+pub use due::DueItem;
 
 pub use db::{
     DbError, DbResult,
