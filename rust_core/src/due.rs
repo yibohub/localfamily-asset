@@ -28,15 +28,16 @@ pub struct DueItem {
     pub days_left: i64,
 }
 
-/// 解析 "YYYY-MM-DD"（容忍 ISO 带时间的完整串，取前 10 字符）
+/// 解析 "YYYY-MM-DD"（容忍 ISO 带时间的完整串，取前 10 字符；
+/// 用 get 防御多字节 UTF-8 字符恰跨第 10 字节的切片 panic）
 fn parse_date(s: &str) -> Option<NaiveDate> {
-    if s.len() < 10 {
-        return None;
-    }
-    NaiveDate::parse_from_str(&s[..10], "%Y-%m-%d").ok()
+    let prefix = s.get(..10)?;
+    NaiveDate::parse_from_str(prefix, "%Y-%m-%d").ok()
 }
 
 /// 从 coverage_period 文本提取"N年"的 N（如"20年"/"保 10 年"；"终身/至70岁"返回 None）
+///
+/// 数字与"年"之间容忍空白（"10 年"）；钳制范围 1..=1000 防溢出
 fn parse_coverage_years(text: &str) -> Option<i64> {
     let chars: Vec<char> = text.chars().collect();
     let mut start: Option<usize> = None;
@@ -47,7 +48,10 @@ fn parse_coverage_years(text: &str) -> Option<i64> {
             }
         } else if start.is_some() && c == '年' {
             let digits: String = chars[start.unwrap()..i].iter().collect();
-            return digits.trim().parse::<i64>().ok().filter(|&n| n > 0);
+            let n = digits.trim().parse::<i64>().ok()?;
+            return if (1..=1000).contains(&n) { Some(n) } else { None };
+        } else if start.is_some() && c.is_whitespace() {
+            continue; // 数字段内部的空白（"10 年"）
         } else {
             start = None;
         }
@@ -67,15 +71,9 @@ fn next_credit_card_due(due: &str, today: NaiveDate, window_end: NaiveDate) -> O
             let total = today.year() * 12 + (today.month() as i32 - 1) + add;
             (total / 12, (total % 12 + 1) as u32)
         };
-        // 目标日：优先 day，当月不存在时取月末
-        let candidate = NaiveDate::from_ymd_opt(year, month, day.min(28))
-            .or_else(|| NaiveDate::from_ymd_opt(year, month, 1))
-            .map(|first| {
-                let last_day = days_in_month(year, month);
-                NaiveDate::from_ymd_opt(year, month, day.min(last_day))
-                    .unwrap_or(last_month_day(year, month))
-            })
-            .unwrap_or_else(|| last_month_day(year, month));
+        // 目标日：优先 day，当月不存在该日（如 31 日在 2 月）时取月末
+        let last = days_in_month(year, month);
+        let candidate = NaiveDate::from_ymd_opt(year, month, day.min(last))?;
         if candidate >= today && candidate <= window_end {
             return Some(candidate);
         }
@@ -90,19 +88,17 @@ fn days_in_month(year: i32, month: u32) -> u32 {
         .unwrap_or(28)) as u32
 }
 
-fn last_month_day(year: i32, month: u32) -> NaiveDate {
-    let last = days_in_month(year, month);
-    NaiveDate::from_ymd_opt(year, month, last).unwrap_or_else(|| NaiveDate::from_ymd_opt(year, month, 28).unwrap())
-}
-
 /// 汇总窗口内的到期项（含已逾期），按剩余天数升序
 pub fn collect_due_items(conn: &Connection, today: NaiveDate, window_days: i64) -> DbResult<Vec<DueItem>> {
     let window_end = today + chrono::Duration::days(window_days.max(0));
+    // 已逾期项只回看 30 天：一次性日期（存款/贷款/保单）过期后 days_left 恒为负，
+    // 不设下限会让多年前的旧记录永远霸占列表头部
+    let overdue_start = today - chrono::Duration::days(30);
     let mut items: Vec<DueItem> = Vec::new();
 
-    let mut push = |id: String, asset_type: &str, name: String, date: Option<NaiveDate>, items: &mut Vec<DueItem>| {
+    let push = |id: String, asset_type: &str, name: String, date: Option<NaiveDate>, items: &mut Vec<DueItem>| {
         if let Some(d) = date {
-            if d <= window_end {
+            if d >= overdue_start && d <= window_end {
                 items.push(DueItem {
                     id,
                     asset_type: asset_type.to_string(),
@@ -119,7 +115,7 @@ pub fn collect_due_items(conn: &Connection, today: NaiveDate, window_days: i64) 
         .prepare(
             "SELECT id, asset_type, name, maturity_date, due_date
              FROM assets
-             WHERE asset_type IN ('deposit', 'mortgage', 'car_loan', 'personal_loan', 'private_loan')",
+             WHERE asset_type IN ('deposit', 'debt', 'mortgage', 'car_loan', 'personal_loan', 'private_loan')",
         )
         .map_err(|e| DbError::DatabaseError(e.to_string()))?;
     let rows = stmt
@@ -248,14 +244,18 @@ mod tests {
             "mortgage",
             "房贷",
             None,
-            Some("2029-12-01"),
+            Some("2029-12-17"),
             None,
             None,
         )]);
-        // 已逾期也返回（负数天数）
+        // 已逾期也返回（负数天数；-15 在 30 天回看窗口内）
         let items = collect_due_items(&conn, d("2030-01-01"), 30).unwrap();
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].days_left, -31);
+        assert_eq!(items[0].days_left, -15);
+
+        // 逾期超过 30 天回看窗口的不再返回
+        let items = collect_due_items(&conn, d("2030-02-15"), 30).unwrap();
+        assert!(items.is_empty());
     }
 
     #[test]
@@ -288,13 +288,20 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].due_date, "2044-01-01");
 
-        // "终身"/"至70岁" 不提醒
+        // "终身"/"至70岁"/异常数值 不提醒
         let conn = setup(&[
             ("i2", "insurance", "终身寿", None, None, None, Some("终身")),
             ("i3", "insurance", "定寿", None, None, None, Some("至70岁")),
+            ("i4", "insurance", "天文", None, None, None, Some("99999999999年")),
         ]);
         let items = collect_due_items(&conn, d("2100-01-01"), 36500).unwrap();
         assert!(items.is_empty());
+
+        // 数字与"年"之间带空白同样可解析
+        let conn = setup(&[("i5", "insurance", "带空格", None, None, None, Some("保 10 年"))]);
+        let items = collect_due_items(&conn, d("2034-01-01"), 30).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].due_date, "2034-01-01");
     }
 
     #[test]

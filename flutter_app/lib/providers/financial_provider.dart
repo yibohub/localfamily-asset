@@ -239,7 +239,9 @@ class FinancialProvider with ChangeNotifier {
     }
   }
 
-  /// 刷新到期提醒项（静默容错；增删改记录后随 loadFinancialRecords 一并刷新）
+  /// 刷新到期提醒项（静默容错；增删改记录后与跨天恢复前台时调用）
+  Future<void> refreshDueItems() => _refreshDueItems();
+
   Future<void> _refreshDueItems() async {
     try {
       _dueItems = await _ffi.getUpcomingDueItems(windowDays: 30);
@@ -336,6 +338,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadAssets();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
@@ -407,6 +410,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadLiabilities();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
@@ -486,6 +490,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadAssets();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
@@ -558,6 +563,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadLiabilities();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
@@ -584,6 +590,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadAssets();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
@@ -609,6 +616,7 @@ class FinancialProvider with ChangeNotifier {
         // 立即保存数据库到磁盘
         await _ffi.saveDatabase();
         await _loadLiabilities();
+        await _refreshDueItems();
       }
 
       _isLoading = false;
