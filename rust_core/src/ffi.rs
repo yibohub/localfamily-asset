@@ -932,6 +932,12 @@ pub unsafe extern "C" fn import_data(
         ),
     };
 
+    // 导入会整体覆盖当前库与附件目录，先快照留底（失败不阻塞导入）
+    {
+        let _ = crate::db::snapshot::create_snapshot(&state.db_path);
+        let _ = crate::db::snapshot::prune_snapshots(&state.db_path);
+    }
+
     match crate::export::import_from_zip(std::path::Path::new(_input_path), &key) {
         Ok(backup) => {
             // 写入数据库文件
@@ -2624,6 +2630,17 @@ pub unsafe extern "C" fn reset_app() -> c_int {
         }
     }
 
+    // 步骤6: 清除数据库快照与 .bak 残留（重置是安全功能，不留可恢复密文）
+    if let Some(path) = &db_path {
+        if let Err(e) = crate::db::snapshot::delete_all_snapshots(path) {
+            eprintln!("清理快照目录失败: {}", e);
+        }
+        let bak = std::path::Path::new(path).with_extension("bak");
+        if bak.exists() {
+            let _ = std::fs::remove_file(&bak);
+        }
+    }
+
     eprintln!("应用已重置，所有敏感数据已从内存和数据库清除");
     FfiErrorCode::Success as c_int
 }
@@ -3120,6 +3137,11 @@ pub unsafe extern "C" fn setup_password_v2(
     // 其后的 init_db 幂等补齐 schema/默认设置并把版本推进到最新（如 v8），
     // 旧 salt/key_hash 再由下方 INSERT OR REPLACE 覆盖为新值。
     if let Some(ref old_conn) = state.memory_conn {
+        // 改密码前先快照当前加密库：迁移逻辑一旦有回归可从快照一键恢复
+        //（失败不阻塞改密流程）
+        let _ = crate::db::snapshot::create_snapshot(&state.db_path);
+        let _ = crate::db::snapshot::prune_snapshots(&state.db_path);
+
         use rusqlite::backup::Backup;
         let migrate = Backup::new(old_conn, &mut memory_conn)
             .and_then(|b| {
@@ -3253,6 +3275,23 @@ pub unsafe extern "C" fn save_database() -> c_int {
         }
     };
 
+    // 每天首次保存前自动快照当日第一份（写坏/逻辑覆盖时的当日保底）
+    // 失败不阻塞保存
+    {
+        let today = Local::now().format("%Y%m%d").to_string();
+        let need_daily = crate::db::snapshot::list_snapshots(&state.db_path)
+            .map(|list| {
+                list.first()
+                    .map(|latest| !latest.name.contains(&today))
+                    .unwrap_or(true)
+            })
+            .unwrap_or(false);
+        if need_daily {
+            let _ = crate::db::snapshot::create_snapshot(&state.db_path);
+            let _ = crate::db::snapshot::prune_snapshots(&state.db_path);
+        }
+    }
+
     // 保存加密数据库（使用内存数据库中的盐值）
     match save_encrypted_db(memory_conn, &state.db_path, &key, &salt) {
         Ok(_) => {
@@ -3265,6 +3304,103 @@ pub unsafe extern "C" fn save_database() -> c_int {
             FfiErrorCode::DatabaseError as c_int
         }
     }
+}
+
+/// 列出数据库快照（按时间倒序的 JSON 数组）
+#[export_name = "list_snapshots"]
+pub unsafe extern "C" fn list_snapshots() -> *mut c_char {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return string_to_c_char("[]".to_string()),
+    };
+
+    let list = match crate::db::snapshot::list_snapshots(&state.db_path) {
+        Ok(l) => l,
+        Err(_) => return string_to_c_char("[]".to_string()),
+    };
+
+    let json = serde_json::to_string(
+        &list.iter()
+            .map(|s| serde_json::json!({
+                "name": s.name,
+                "timestamp": s.timestamp,
+                "size": s.size,
+                "attachmentFiles": s.attachment_files,
+                "attachmentsSize": s.attachments_size,
+            }))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap_or_else(|_| "[]".to_string());
+    string_to_c_char(json)
+}
+
+/// 手动创建快照
+#[export_name = "create_snapshot"]
+pub unsafe extern "C" fn create_snapshot() -> c_int {
+    let state = APP_STATE.lock().unwrap();
+    let state = match state.as_ref() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    match crate::db::snapshot::create_snapshot(&state.db_path) {
+        Ok(_) => {
+            let _ = crate::db::snapshot::prune_snapshots(&state.db_path);
+            FfiErrorCode::Success as c_int
+        }
+        Err(_) => FfiErrorCode::DatabaseError as c_int,
+    }
+}
+
+/// 从快照恢复：覆盖磁盘库文件后立即从磁盘重载内存库（复用导入链路）
+#[export_name = "restore_snapshot"]
+pub unsafe extern "C" fn restore_snapshot(name: *const c_char) -> c_int {
+    let name = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s,
+        Err(_) => return FfiErrorCode::GenericError as c_int,
+    };
+
+    let mut state = APP_STATE.lock().unwrap();
+    let state = match state.as_mut() {
+        Some(s) => s,
+        None => return FfiErrorCode::GenericError as c_int,
+    };
+
+    // 恢复后要用主密钥从磁盘重载，必须处于解锁状态
+    let key = match state.master_key {
+        Some(k) => k,
+        None => {
+            eprintln!("恢复快照失败：应用未解锁");
+            return FfiErrorCode::GenericError as c_int;
+        }
+    };
+
+    match crate::db::snapshot::restore_snapshot(&state.db_path, name) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("恢复快照失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    }
+
+    // 从磁盘重载内存库：解密 + 幂等 schema 迁移（与导入链路一致）
+    let new_conn = match load_encrypted_db(&state.db_path, &key) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("恢复快照后重载失败: {}", e);
+            return FfiErrorCode::DatabaseError as c_int;
+        }
+    };
+    if let Err(e) = crate::db::init_db(&new_conn) {
+        eprintln!("恢复快照后迁移失败: {}", e);
+        return FfiErrorCode::DatabaseError as c_int;
+    }
+    state.memory_conn = Some(new_conn);
+    state.is_dirty = false;
+
+    eprintln!("快照已恢复: {}", name);
+    FfiErrorCode::Success as c_int
 }
 
 /// 清理应用（退出时调用）

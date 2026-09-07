@@ -187,10 +187,13 @@ pub fn save_encrypted_db<P: AsRef<Path>>(
     // 写入文件
     let path = path.as_ref();
 
-    // Windows 平台：先删除目标文件（如果存在），避免 rename 失败
+    // Windows 平台 rename 不能覆盖已存在文件：先把旧库挪为 .bak（保留一代
+    // 回滚，同时消除"已删除、未写入"的丢失窗口），挪动失败时退回删除
     if path.exists() {
-        // 尝试删除目标文件，忽略不存在的错误
-        let _ = std::fs::remove_file(path);
+        let bak_path = path.with_extension("bak");
+        if std::fs::rename(path, &bak_path).is_err() {
+            let _ = std::fs::remove_file(path);
+        }
     }
 
     // 写入临时文件
@@ -198,7 +201,7 @@ pub fn save_encrypted_db<P: AsRef<Path>>(
     std::fs::write(&temp_path, &file_data)
         .map_err(|e| DbError::DatabaseError(format!("写入加密文件失败: {}", e)))?;
 
-    // 原子性重命名（此时目标文件已被删除）
+    // 原子性重命名（此时目标文件已被挪走）
     std::fs::rename(&temp_path, path)
         .map_err(|e| DbError::DatabaseError(format!("重命名加密文件失败: {}", e)))?;
 

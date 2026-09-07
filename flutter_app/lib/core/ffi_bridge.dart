@@ -31,6 +31,9 @@ class FfiBridge {
   late final int Function(ffi.Pointer<ffi.Char>) _verifyPassword;
   late final int Function(ffi.Pointer<ffi.Char>) _verifyWithMnemonic;
   late final ffi.Pointer<ffi.Char> Function() _getPasswordHint;
+  late final ffi.Pointer<ffi.Char> Function() _listSnapshots;
+  late final int Function() _createSnapshot;
+  late final int Function(ffi.Pointer<ffi.Char>) _restoreSnapshot;
   late final ffi.Pointer<ffi.Char> Function() _generateMnemonic;
   late final int Function(ffi.Pointer<ffi.Char>) _saveMnemonic;
   late final int Function(
@@ -230,6 +233,15 @@ class FfiBridge {
 
     _getPasswordHint = _dylib
         .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('get_password_hint')
+        .asFunction();
+    _listSnapshots = _dylib
+        .lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>('list_snapshots')
+        .asFunction();
+    _createSnapshot = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function()>>('create_snapshot')
+        .asFunction();
+    _restoreSnapshot = _dylib
+        .lookup<ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>>('restore_snapshot')
         .asFunction();
 
     _generateMnemonic = _dylib
@@ -1415,6 +1427,57 @@ class FfiBridge {
   }
 
   // ============================================================
+  // 数据库快照（加密库文件的字节级滚动备份，防数据丢失）
+  // ============================================================
+
+  /// 列出全部快照（按时间倒序；失败返回空列表）
+  Future<List<SnapshotInfo>> listSnapshots() async {
+    try {
+      final result = _listSnapshots();
+      final jsonStr = result.cast<Utf8>().toDartString();
+      malloc.free(result);
+      final list = jsonDecode(jsonStr) as List;
+      return list
+          .map((e) => SnapshotInfo.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('listSnapshots 异常: $e');
+      return const [];
+    }
+  }
+
+  /// 手动创建快照
+  Future<bool> createSnapshot() async {
+    try {
+      final result = _createSnapshot();
+      if (result != FfiErrorCode.success) {
+        debugPrint('createSnapshot 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('createSnapshot 异常: $e');
+      return false;
+    }
+  }
+
+  /// 从快照恢复（恢复前自动快照当前数据；成功后内存库已从磁盘重载）
+  Future<bool> restoreSnapshot(String name) async {
+    final namePtr = name.toNativeUtf8().cast<ffi.Char>();
+    try {
+      final result = _restoreSnapshot(namePtr);
+      if (result != FfiErrorCode.success) {
+        debugPrint('restoreSnapshot 失败，错误码: $result');
+      }
+      return result == FfiErrorCode.success;
+    } catch (e) {
+      debugPrint('restoreSnapshot 异常: $e');
+      return false;
+    } finally {
+      malloc.free(namePtr);
+    }
+  }
+
+  // ============================================================
   // 净资产快照（财富曲线）
   // ============================================================
 
@@ -1743,6 +1806,33 @@ class DueItemInfo {
       name: json['name'] as String,
       dueDate: json['dueDate'] as String,
       remainingDays: json['remainingDays'] as int,
+    );
+  }
+}
+
+/// 数据库快照元信息（加密库文件 + 附件密文的字节级备份）
+class SnapshotInfo {
+  final String name;
+  final int timestamp; // Unix 秒
+  final int size; // 库文件字节
+  final int attachmentFiles; // 附件密文文件数
+  final int attachmentsSize; // 附件密文字节合计
+
+  const SnapshotInfo({
+    required this.name,
+    required this.timestamp,
+    required this.size,
+    this.attachmentFiles = 0,
+    this.attachmentsSize = 0,
+  });
+
+  factory SnapshotInfo.fromJson(Map<String, dynamic> json) {
+    return SnapshotInfo(
+      name: json['name'] as String,
+      timestamp: json['timestamp'] as int,
+      size: json['size'] as int,
+      attachmentFiles: (json['attachmentFiles'] as num?)?.toInt() ?? 0,
+      attachmentsSize: (json['attachmentsSize'] as num?)?.toInt() ?? 0,
     );
   }
 }
