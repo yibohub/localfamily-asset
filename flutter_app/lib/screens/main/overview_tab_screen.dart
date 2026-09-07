@@ -6,10 +6,39 @@ import '../../core/ffi_bridge.dart';
 import '../../models/financial_models.dart';
 import '../../providers/financial_provider.dart';
 import '../../utils/currency_utils.dart';
+import '../financial_record_detail_screen.dart';
 
 /// 总览标签页 - 显示资产和负债总览
 class OverviewTabScreen extends StatelessWidget {
-  const OverviewTabScreen({super.key});
+  /// 请求切换底部导航页签（0=资产，2=负债）；typeFilter 为需预设的类型
+  /// 筛选 id（null = 显示全部）
+  final void Function(int tabIndex, {String? typeFilter})? onNavigateToTab;
+
+  const OverviewTabScreen({super.key, this.onNavigateToTab});
+
+  /// 负债小类 id 集合（这些到期项存在负债记录里，其余为资产）
+  static const _liabilityTypeIds = {
+    'debt',
+    'mortgage',
+    'car_loan',
+    'credit_card',
+    'personal_loan',
+    'private_loan',
+  };
+
+  void _openDueRecord(BuildContext context, DueItemInfo item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FinancialRecordDetailScreen(
+          recordId: item.id,
+          recordType: _liabilityTypeIds.contains(item.assetType)
+              ? RecordType.liability
+              : RecordType.asset,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +60,10 @@ class OverviewTabScreen extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _OverviewSummaryCard(summary: summary),
+                  child: _OverviewSummaryCard(
+                    summary: summary,
+                    onGoToTab: onNavigateToTab,
+                  ),
                 ),
               ),
 
@@ -52,7 +84,10 @@ class OverviewTabScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16.0, vertical: 8.0),
-                    child: _DueRemindersCard(items: provider.dueItems),
+                    child: _DueRemindersCard(
+                      items: provider.dueItems,
+                      onOpenRecord: (item) => _openDueRecord(context, item),
+                    ),
                   ),
                 ),
 
@@ -75,6 +110,7 @@ class OverviewTabScreen extends StatelessWidget {
                     child: _AssetBreakdownSection(
                       assets: assets,
                       total: summary.totalAssets,
+                      onGoToTab: onNavigateToTab,
                     ),
                   ),
                 ),
@@ -88,6 +124,7 @@ class OverviewTabScreen extends StatelessWidget {
                     child: _LiabilityBreakdownSection(
                       liabilities: liabilities,
                       total: summary.totalLiabilities,
+                      onGoToTab: onNavigateToTab,
                     ),
                   ),
                 ),
@@ -103,7 +140,10 @@ class OverviewTabScreen extends StatelessWidget {
 class _OverviewSummaryCard extends StatelessWidget {
   final PortfolioSummary summary;
 
-  const _OverviewSummaryCard({required this.summary});
+  /// 点击总资产/总负债行时切换页签（null 时行不可点击）
+  final void Function(int tabIndex, {String? typeFilter})? onGoToTab;
+
+  const _OverviewSummaryCard({required this.summary, this.onGoToTab});
 
   @override
   Widget build(BuildContext context) {
@@ -116,20 +156,22 @@ class _OverviewSummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 总资产
+            // 总资产（点击跳转资产页签）
             _SummaryRow(
               label: '总资产',
               amount: summary.totalAssets,
               color: colorScheme.primary,
               icon: Icons.account_balance_wallet,
+              onTap: onGoToTab == null ? null : () => onGoToTab!(0),
             ),
             const Divider(height: 24),
-            // 总负债
+            // 总负债（点击跳转负债页签）
             _SummaryRow(
               label: '总负债',
               amount: summary.totalLiabilities,
               color: Colors.red[400]!,
               icon: Icons.credit_card,
+              onTap: onGoToTab == null ? null : () => onGoToTab!(2),
             ),
             const Divider(height: 24),
             // 净资产
@@ -156,6 +198,7 @@ class _SummaryRow extends StatelessWidget {
   final Color color;
   final IconData icon;
   final bool isBold;
+  final VoidCallback? onTap;
 
   const _SummaryRow({
     required this.label,
@@ -163,13 +206,14 @@ class _SummaryRow extends StatelessWidget {
     required this.color,
     required this.icon,
     this.isBold = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
+    final row = Row(
       children: [
         Expanded(
           child: Row(
@@ -196,7 +240,19 @@ class _SummaryRow extends StatelessWidget {
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
+        // 可点击行右侧显示箭头提示可跳转
+        if (onTap != null) ...[
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+        ],
       ],
+    );
+
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: row,
     );
   }
 }
@@ -206,9 +262,13 @@ class _AssetBreakdownSection extends StatelessWidget {
   final List<Asset> assets;
   final double total;
 
+  /// 点击条目切换到资产页签并按该类型筛选
+  final void Function(int tabIndex, {String? typeFilter})? onGoToTab;
+
   const _AssetBreakdownSection({
     required this.assets,
     required this.total,
+    this.onGoToTab,
   });
 
   @override
@@ -241,6 +301,9 @@ class _AssetBreakdownSection extends StatelessWidget {
                 type: entry.key,
                 amount: amount,
                 percentage: percentage,
+                onTap: onGoToTab == null
+                    ? null
+                    : () => onGoToTab!(0, typeFilter: entry.key.id),
               );
             }),
           ],
@@ -255,18 +318,20 @@ class _AssetBreakdownItem extends StatelessWidget {
   final AssetType type;
   final double amount;
   final double percentage;
+  final VoidCallback? onTap;
 
   const _AssetBreakdownItem({
     required this.type,
     required this.amount,
     required this.percentage,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,6 +379,13 @@ class _AssetBreakdownItem extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: content,
+    );
   }
 }
 
@@ -322,9 +394,13 @@ class _LiabilityBreakdownSection extends StatelessWidget {
   final List<Liability> liabilities;
   final double total;
 
+  /// 点击条目切换到负债页签并按该类型筛选
+  final void Function(int tabIndex, {String? typeFilter})? onGoToTab;
+
   const _LiabilityBreakdownSection({
     required this.liabilities,
     required this.total,
+    this.onGoToTab,
   });
 
   @override
@@ -358,6 +434,9 @@ class _LiabilityBreakdownSection extends StatelessWidget {
                 type: entry.key,
                 amount: amount,
                 percentage: percentage,
+                onTap: onGoToTab == null
+                    ? null
+                    : () => onGoToTab!(2, typeFilter: entry.key.id),
               );
             }),
           ],
@@ -372,18 +451,20 @@ class _LiabilityBreakdownItem extends StatelessWidget {
   final LiabilityType type;
   final double amount;
   final double percentage;
+  final VoidCallback? onTap;
 
   const _LiabilityBreakdownItem({
     required this.type,
     required this.amount,
     required this.percentage,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,6 +513,13 @@ class _LiabilityBreakdownItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: content,
     );
   }
 }
@@ -737,7 +825,10 @@ class _InvestmentReturnsCard extends StatelessWidget {
 class _DueRemindersCard extends StatelessWidget {
   final List<DueItemInfo> items;
 
-  const _DueRemindersCard({required this.items});
+  /// 点击条目打开对应记录详情（null 时不可点击）
+  final void Function(DueItemInfo item)? onOpenRecord;
+
+  const _DueRemindersCard({required this.items, this.onOpenRecord});
 
   Color _urgencyColor(int days) {
     if (days < 0) return const Color(0xFFD32F2F); // 已逾期
@@ -810,53 +901,68 @@ class _DueRemindersCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ...shown.map((item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(_typeIcon(item.assetType),
-                          size: 20, color: _urgencyColor(item.remainingDays)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            Text(
-                              '${_typeLabel(item.assetType)} · ${item.dueDate}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
+            ...shown.map((item) {
+              final row = Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(_typeIcon(item.assetType),
+                        size: 20, color: _urgencyColor(item.remainingDays)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          Text(
+                            '${_typeLabel(item.assetType)} · ${item.dueDate}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color:
-                              _urgencyColor(item.remainingDays).withAlpha(26),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          _daysLabel(item.remainingDays),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color: _urgencyColor(item.remainingDays),
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color:
+                            _urgencyColor(item.remainingDays).withAlpha(26),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
-                )),
+                      child: Text(
+                        _daysLabel(item.remainingDays),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: _urgencyColor(item.remainingDays),
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                    if (onOpenRecord != null)
+                      Icon(Icons.chevron_right,
+                          size: 18, color: Colors.grey[400]),
+                  ],
+                ),
+              );
+
+              if (onOpenRecord == null) return row;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 0),
+                child: InkWell(
+                  onTap: () => onOpenRecord!(item),
+                  borderRadius: BorderRadius.circular(8),
+                  child: row,
+                ),
+              );
+            }),
             if (overflow > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),

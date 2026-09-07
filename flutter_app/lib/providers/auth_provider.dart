@@ -110,6 +110,22 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// 退出当前账户
+  ///
+  /// 与 lock() 的区别：lock 仅切换到锁屏，主密钥与解密后的内存数据库仍保留在
+  /// Rust 侧；logout 会先将数据保存落盘，再清零主密钥并丢弃解密内存库，
+  /// 下次解锁需重新输入密码并从磁盘解密加载
+  Future<void> logout() async {
+    if (_status != AuthStatus.unlocked) return;
+    try {
+      await _ffi.cleanupApp(save: true);
+    } catch (e) {
+      debugPrint('退出账户时保存/清理失败: $e');
+    }
+    _status = AuthStatus.locked;
+    notifyListeners();
+  }
+
   /// 修改密码
   Future<bool> changePassword(String oldPassword, String newPassword) async {
     try {

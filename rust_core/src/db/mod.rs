@@ -10,6 +10,7 @@ pub mod custom_crud;
 pub mod encrypted;
 pub mod snapshot_crud;
 pub mod attachment_storage;
+pub mod snapshot;
 
 pub use models::{Asset, Liability, AssetHistory, Attachment, AssetType, LiabilityType, AssetChange, ChangeType, NetWorthSnapshot};
 pub use schema::{create_schema, init_db, wipe_db};

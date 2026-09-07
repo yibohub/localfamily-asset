@@ -679,6 +679,26 @@ class FinancialProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 清空全部明文数据缓存（退出账户时调用）
+  ///
+  /// 配合 AuthProvider.logout 使用：Rust 侧丢弃解密内存库后，
+  /// Dart 侧缓存也一并清除，解锁后由 loadFinancialRecords 重新加载
+  void clearAll() {
+    _assets = [];
+    _liabilities = [];
+    _customAssetTypes = [];
+    _liabilityTypeFilterId = null;
+    _assetSearchResults.clear();
+    _liabilitySearchResults.clear();
+    _isSearching = false;
+    _isLoading = false;
+    _errorMessage = null;
+    _netWorthSnapshots = [];
+    _investmentReturns = null;
+    _dueItems = [];
+    notifyListeners();
+  }
+
   /// 设置负债类型筛选器（支持自定义类型 ID）
   void setLiabilityTypeFilterById(String? typeId) {
     _liabilityTypeFilterId = typeId;

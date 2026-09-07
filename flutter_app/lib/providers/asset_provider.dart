@@ -397,6 +397,19 @@ class AssetProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 清空明文数据缓存（退出账户时调用）
+  void clear() {
+    _assets.clear();
+    _assetChanges.clear();
+    _searchResults.clear();
+    _isSearching = false;
+    _assetTypeFilter = null;
+    _liabilityTypeFilter = null;
+    _assetTypeFilterId = null;
+    _liabilityTypeFilterId = null;
+    notifyListeners();
+  }
+
   /// 加载所有审计日志
   Future<void> loadAssetChanges() async {
     try {

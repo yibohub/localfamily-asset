@@ -20,16 +20,6 @@ class LiabilitiesTabScreen extends StatefulWidget {
 
 class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
   @override
-  void initState() {
-    super.initState();
-    // 加载自定义类型和数据
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FinancialProvider>().loadFinancialRecords();
-      context.read<CustomTypeProvider>().loadCustomTypes();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Consumer<FinancialProvider>(
       builder: (context, provider, child) {

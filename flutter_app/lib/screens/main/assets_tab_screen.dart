@@ -24,7 +24,19 @@ String _normalizeGroupName(String name) {
 
 /// 资产标签页 - 显示所有资产（不含负债）
 class AssetsTabScreen extends StatefulWidget {
-  const AssetsTabScreen({super.key});
+  /// 从总览跳转时预设的类型筛选 id（null = 全部）
+  final String? initialTypeFilter;
+
+  /// 跳转指令序号：总览每次主动下发筛选时递增。
+  /// IndexedStack 保活下页签 State 不重建，普通页签切换也会重新下发相同
+  /// 配置，只有序号变化才视为一次新的跳转指令
+  final int filterCommandSeq;
+
+  const AssetsTabScreen({
+    super.key,
+    this.initialTypeFilter,
+    this.filterCommandSeq = 0,
+  });
 
   @override
   State<AssetsTabScreen> createState() => _AssetsTabScreenState();
@@ -32,15 +44,26 @@ class AssetsTabScreen extends StatefulWidget {
 
 class _AssetsTabScreenState extends State<AssetsTabScreen> {
   String? _selectedTypeId;
+  int _appliedFilterSeq = 0;
 
   @override
   void initState() {
     super.initState();
-    // 加载自定义类型和数据
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FinancialProvider>().loadFinancialRecords();
-      context.read<CustomTypeProvider>().loadCustomTypes();
-    });
+    _selectedTypeId = widget.initialTypeFilter;
+    _appliedFilterSeq = widget.filterCommandSeq;
+  }
+
+  @override
+  void didUpdateWidget(covariant AssetsTabScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 只响应总览主动下发的跳转指令（序号变化）：
+    // 点分布条目设筛选，点"总资产"行清除；用户手选筛选不受页签切换影响
+    if (widget.filterCommandSeq != _appliedFilterSeq) {
+      setState(() {
+        _selectedTypeId = widget.initialTypeFilter;
+      });
+      _appliedFilterSeq = widget.filterCommandSeq;
+    }
   }
 
   /// 获取筛选后的资产列表
