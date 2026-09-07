@@ -1,6 +1,6 @@
-/// 金融记录状态管理（资产/负债分离模型）
-///
-/// 使用 financial_models.dart 中定义的 Asset 和 Liability 类
+// 金融记录状态管理（资产/负债分离模型）
+//
+// 使用 financial_models.dart 中定义的 Asset 和 Liability 类
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';

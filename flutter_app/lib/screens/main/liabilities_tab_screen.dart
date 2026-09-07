@@ -118,9 +118,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
       initialLiabilityType =
           LiabilityTypeExtension.fromString(provider.liabilityTypeFilterId!);
     }
-    if (initialLiabilityType == null) {
-      initialLiabilityType = provider.lastSelectedLiabilityType;
-    }
+    initialLiabilityType ??= provider.lastSelectedLiabilityType;
 
     Navigator.push(
       context,
@@ -131,7 +129,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
         ),
       ),
     ).then((result) {
-      if (result == true && mounted) {
+      if (result == true && context.mounted) {
         context.read<FinancialProvider>().loadFinancialRecords();
       }
     });
@@ -143,7 +141,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
       context: context,
       builder: (_) => const CustomTypeManageDialog(isLiability: true),
     ).then((result) {
-      if (result == true && mounted) {
+      if (result == true && context.mounted) {
         context.read<CustomTypeProvider>().loadCustomTypes();
       }
     });

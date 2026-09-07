@@ -1,6 +1,6 @@
-/// ============================================================
-/// 金融记录数据模型（重构版：资产、负债分离）
-/// ============================================================
+// ============================================================
+// 金融记录数据模型（重构版：资产、负债分离）
+// ============================================================
 
 import 'package:flutter/material.dart';
 import 'asset.dart' as legacy; // 导入旧的 Asset 模型以支持 UI 兼容性
@@ -506,19 +506,19 @@ class Asset extends FinancialRecord {
   final String? insurer; // 保险公司
 
   Asset({
-    required String id,
-    required String name,
+    required super.id,
+    required super.name,
     required this.type,
-    required double amount,
-    String currency = 'CNY',
+    required super.amount,
+    super.currency,
     this.account,
-    required DateTime occurrenceDate,
+    required super.occurrenceDate,
     this.buyPrice,
     this.currentPrice,
     this.code,
     this.exchange,
     this.quantity,
-    String? note,
+    super.note,
     this.tags,
     // 房产字段
     this.address,
@@ -545,18 +545,9 @@ class Asset extends FinancialRecord {
     this.premiumPeriod,
     this.coveragePeriod,
     this.insurer,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-  }) : super(
-          id: id,
-          name: name,
-          amount: amount,
-          currency: currency,
-          occurrenceDate: occurrenceDate,
-          note: note,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-        );
+    required super.createdAt,
+    required super.updatedAt,
+  });
 
   /// 是否为投资类资产
   bool get isInvestment => type.isInvestment;
@@ -844,12 +835,12 @@ class Liability extends FinancialRecord {
   final String? repaymentPlan; // 还款计划描述
 
   Liability({
-    required String id,
-    required String name,
+    required super.id,
+    required super.name,
     required this.type,
-    required double amount,
-    String currency = 'CNY',
-    required DateTime occurrenceDate,
+    required super.amount,
+    super.currency,
+    required super.occurrenceDate,
     this.dueDate,
     this.interestRate,
     this.repaymentMethod,
@@ -872,19 +863,10 @@ class Liability extends FinancialRecord {
     this.purpose,
     this.hasInterest,
     this.repaymentPlan,
-    String? note,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-  }) : super(
-          id: id,
-          name: name,
-          amount: amount,
-          currency: currency,
-          occurrenceDate: occurrenceDate,
-          note: note,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-        );
+    super.note,
+    required super.createdAt,
+    required super.updatedAt,
+  });
 
   /// 是否为信用卡类型
   bool get isCreditCard => type == LiabilityType.creditCard;

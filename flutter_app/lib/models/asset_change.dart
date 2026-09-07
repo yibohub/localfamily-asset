@@ -122,9 +122,9 @@ class AssetChange {
       case ChangeType.updated:
         final recordName = displayName != null && displayName.isNotEmpty ? '「$displayName」' : '';
         if (changedField != null) {
-          return '修改了${_typeName}$recordName的${_translateField(changedField!)}';
+          return '修改了$_typeName$recordName的${_translateField(changedField!)}';
         }
-        return '修改了${_typeName}$recordName';
+        return '修改了$_typeName$recordName';
     }
   }
 
@@ -254,7 +254,7 @@ class AssetChange {
           // 只有值不同时才记录
           if (!_valuesEqual(oldValue, newValue)) {
             final fieldName = fieldNames[key] ?? key;
-            buffer.writeln('${_formatFieldValueChange(fieldName, oldValue, newValue)}');
+            buffer.writeln(_formatFieldValueChange(fieldName, oldValue, newValue));
           }
         }
       }
@@ -315,7 +315,7 @@ class AssetChange {
     if (value == null) return '';
     if (value is bool) return value ? '是' : '否';
     if (value is double || value is int) return value.toString();
-    if (value is List) return (value as List).join(', ');
+    if (value is List) return value.join(', ');
     // 翻译枚举值
     if (value is String) {
       return _translateEnumValue(value);

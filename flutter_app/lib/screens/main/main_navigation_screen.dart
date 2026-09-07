@@ -379,7 +379,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       final ffi = FfiBridge();
       final resultMap = await ffi.exportData(
         password: password,
-        outputPath: outputPath!,
+        outputPath: outputPath,
       );
 
       if (!context.mounted) return;
@@ -430,6 +430,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     }
 
     // 2. 让用户输入密码
+    if (!context.mounted) return;
     final password = await _promptForPassword(context, '请输入密码以解密数据');
     if (password == null) return;
 
@@ -446,17 +447,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       final ffi = FfiBridge();
       final resultMap = await ffi.importData(
         password: password,
-        inputPath: inputPath!,
+        inputPath: inputPath,
       );
 
       if (!context.mounted) return;
       Navigator.pop(context); // 关闭加载对话框
 
       if (resultMap['success'] == true) {
-        // 重新加载数据
-        if (!context.mounted) return;
-        await context.read<FinancialProvider>().loadFinancialRecords();
-        await context.read<CustomTypeProvider>().loadCustomTypes();
+        // 重新加载数据（先取 provider 再 await，避免多次跨 gap 使用 context）
+        final financialProvider = context.read<FinancialProvider>();
+        final customTypeProvider = context.read<CustomTypeProvider>();
+        await financialProvider.loadFinancialRecords();
+        await customTypeProvider.loadCustomTypes();
 
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

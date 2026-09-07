@@ -82,7 +82,7 @@ class LiabilityListTile extends StatelessWidget {
     }
 
     return CircleAvatar(
-      backgroundColor: iconColor?.withOpacity(0.2),
+      backgroundColor: iconColor?.withValues(alpha: 0.2),
       child: Icon(iconData, color: iconColor, size: 20),
     );
   }
@@ -121,7 +121,7 @@ class LiabilityListTile extends StatelessWidget {
         if (liability.dueDate != null) {
           final daysLeft = liability.daysUntilDue;
           if (daysLeft != null && daysLeft > 0) {
-            parts.add('剩${daysLeft}天');
+            parts.add('剩$daysLeft天');
           }
         }
         break;
@@ -173,7 +173,7 @@ class LiabilityListTile extends StatelessWidget {
         } else if (daysLeft == 0) {
           parts.add('今日到期');
         } else if (daysLeft <= 7) {
-          parts.add('${daysLeft}天后到期');
+          parts.add('$daysLeft天后到期');
         }
       }
     }

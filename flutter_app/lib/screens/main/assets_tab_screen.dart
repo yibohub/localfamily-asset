@@ -179,19 +179,6 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     );
   }
 
-  /// 打开详情页
-  void _openDetail(BuildContext context, Asset asset) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FinancialRecordDetailScreen(
-          recordId: asset.id,
-          recordType: RecordType.asset,
-        ),
-      ),
-    );
-  }
-
   /// 显示添加页面
   void _showAddDialog(BuildContext context) {
     // 从筛选器或 Provider 获取初始类型
@@ -199,10 +186,8 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     if (_selectedTypeId != null) {
       initialAssetType = AssetTypeExtension.fromString(_selectedTypeId!);
     }
-    if (initialAssetType == null) {
-      initialAssetType =
-          context.read<FinancialProvider>().lastSelectedAssetType;
-    }
+    initialAssetType ??=
+        context.read<FinancialProvider>().lastSelectedAssetType;
 
     Navigator.push(
       context,
@@ -213,7 +198,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
         ),
       ),
     ).then((result) {
-      if (result == true && mounted) {
+      if (result == true && context.mounted) {
         context.read<FinancialProvider>().loadFinancialRecords();
       }
     });
@@ -225,7 +210,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
       context: context,
       builder: (_) => const CustomTypeManageDialog(isLiability: false),
     ).then((result) {
-      if (result == true && mounted) {
+      if (result == true && context.mounted) {
         context.read<CustomTypeProvider>().loadCustomTypes();
       }
     });
@@ -252,7 +237,7 @@ class _AssetListItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.1),
+          backgroundColor: iconColor.withValues(alpha: 0.1),
           child: Icon(iconData, color: iconColor, size: 20),
         ),
         title: Text(
@@ -512,7 +497,7 @@ class _AssetGroupListItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: assets.first.type.color.withOpacity(0.1),
+          backgroundColor: assets.first.type.color.withValues(alpha: 0.1),
           child: Icon(assets.first.type.icon,
               color: assets.first.type.color, size: 20),
         ),

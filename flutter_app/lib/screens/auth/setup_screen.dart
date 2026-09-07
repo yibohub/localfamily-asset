@@ -75,14 +75,15 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _loadDemoData() async {
     if (_selectedDemo == null) return;
 
+    // 在 async gap 前读取 provider
+    final assetProvider = context.read<AssetProvider>();
+
     try {
       final String jsonString = await rootBundle.loadString(
         'assets/demo/${_selectedDemo}_assets.json',
       );
       final Map<String, dynamic> demoData = jsonDecode(jsonString);
       final List<dynamic> assetsJson = demoData['assets'] as List<dynamic>;
-
-      final assetProvider = context.read<AssetProvider>();
 
       for (var assetJson in assetsJson) {
         final asset = Asset(
@@ -186,7 +187,7 @@ class _SetupScreenState extends State<SetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
+                const Icon(
                   Icons.lock_person,
                   size: 64,
                   color: AppTheme.primaryColor,
@@ -343,7 +344,7 @@ class _SetupScreenState extends State<SetupScreen> {
                               Expanded(
                                 child: Row(
                                   children: [
-                                    Icon(Icons.security,
+                                    const Icon(Icons.security,
                                         color: AppTheme.primaryColor),
                                     const SizedBox(width: 8),
                                     Flexible(
@@ -480,7 +481,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
               TextSpan(
                 text: words[index],
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,

@@ -607,7 +607,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           controller: _amountController,
           decoration: const InputDecoration(
             labelText: '金额',
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(),
             prefixText: '¥',
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -720,9 +720,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '投资信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -790,9 +790,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '房产信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -884,9 +884,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '存款信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -899,7 +899,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _depositAccountTypeController.text.isEmpty
+            initialValue: _depositAccountTypeController.text.isEmpty
                 ? null
                 : _depositAccountTypeController.text,
             decoration: const InputDecoration(
@@ -960,9 +960,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '保单信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -974,7 +974,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _insuranceTypeController.text.isEmpty
+            initialValue: _insuranceTypeController.text.isEmpty
                 ? null
                 : _insuranceTypeController.text,
             decoration: const InputDecoration(
@@ -1067,9 +1067,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           '负债信息',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
         // 债权人/机构
@@ -1178,7 +1178,7 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<RepaymentMethod>(
-            value: _repaymentMethod,
+            initialValue: _repaymentMethod,
             decoration: const InputDecoration(
               labelText: '还款方式',
               border: OutlineInputBorder(),
@@ -1223,9 +1223,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         // 房贷专属字段
         if (_selectedLiabilityType == LiabilityType.mortgage) ...[
           const SizedBox(height: 16),
-          Text(
+          const Text(
             '房贷信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -1268,9 +1268,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         // 车贷专属字段
         if (_selectedLiabilityType == LiabilityType.carLoan) ...[
           const SizedBox(height: 16),
-          Text(
+          const Text(
             '车贷信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -1304,9 +1304,9 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         if (_selectedLiabilityType == LiabilityType.personalLoan ||
             _selectedLiabilityType == LiabilityType.privateLoan) ...[
           const SizedBox(height: 16),
-          Text(
+          const Text(
             '借款信息',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           TextFormField(

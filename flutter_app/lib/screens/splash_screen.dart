@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
 
 import 'package:provider/provider.dart';
@@ -114,9 +113,9 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 32),
               // 品牌名称
-              Text(
+              const Text(
                 AppTheme.appName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,

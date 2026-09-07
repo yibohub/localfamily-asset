@@ -412,7 +412,7 @@ class _LockScreenState extends State<LockScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 品牌 Logo 图标 - 使用品牌深海蓝
-                  Icon(
+                  const Icon(
                     Icons.lock_rounded,
                     size: 80,
                     color: AppTheme.primaryColor,
