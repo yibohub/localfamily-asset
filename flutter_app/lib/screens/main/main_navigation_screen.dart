@@ -748,8 +748,10 @@ class _SnapshotsDialogState extends State<_SnapshotsDialog> {
       // 内存库已由 Rust 端从磁盘重载，刷新界面数据
       context.read<FinancialProvider>().loadFinancialRecords();
       context.read<CustomTypeProvider>().loadCustomTypes();
+      // 先取 messenger 再关对话框，避免 pop 后 context 失效
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('已恢复到所选快照')),
       );
     }
