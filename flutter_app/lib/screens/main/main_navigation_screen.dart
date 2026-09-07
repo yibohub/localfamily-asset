@@ -175,96 +175,98 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     showModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 主题切换
-            Consumer<ThemeProvider>(
-              builder: (context, themeProvider, _) {
-                final themeMode = themeProvider.themeMode;
-                final isDark = themeMode == ThemeMode.dark ||
-                    (themeMode == ThemeMode.system &&
-                        MediaQuery.of(context).platformBrightness ==
-                            Brightness.dark);
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 主题切换
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  final themeMode = themeProvider.themeMode;
+                  final isDark = themeMode == ThemeMode.dark ||
+                      (themeMode == ThemeMode.system &&
+                          MediaQuery.of(context).platformBrightness ==
+                              Brightness.dark);
 
-                return ListTile(
-                  leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                  title: const Text('主题模式'),
-                  subtitle: Text(_getThemeModeText(themeMode)),
-                  trailing: Switch(
-                    value: isDark,
-                    onChanged: (_) {
-                      themeProvider.toggleTheme();
-                    },
-                  ),
-                );
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('操作记录'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AssetHistoryScreen(
-                      assetId: null, // null = 显示全部操作记录
+                  return ListTile(
+                    leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                    title: const Text('主题模式'),
+                    subtitle: Text(_getThemeModeText(themeMode)),
+                    trailing: Switch(
+                      value: isDark,
+                      onChanged: (_) {
+                        themeProvider.toggleTheme();
+                      },
                     ),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.lock),
-              title: const Text('锁定应用'),
-              onTap: () {
-                Navigator.pop(context);
-                context.read<AuthProvider>().lock();
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.password),
-              title: const Text('修改密码'),
-              onTap: () {
-                Navigator.pop(context);
-                _showChangePasswordDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_download),
-              title: const Text('导出数据'),
-              onTap: () {
-                Navigator.pop(context);
-                _exportData(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_upload),
-              title: const Text('导入数据（整库备份恢复）'),
-              onTap: () {
-                Navigator.pop(context);
-                _importData(context);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.table_view),
-              title: const Text('CSV / Excel 批量导入'),
-              subtitle: const Text('从表格文件批量添加资产与负债'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BulkImportScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('操作记录'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AssetHistoryScreen(
+                        assetId: null, // null = 显示全部操作记录
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('锁定应用'),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.read<AuthProvider>().lock();
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.password),
+                title: const Text('修改密码'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showChangePasswordDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download),
+                title: const Text('导出数据'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportData(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload),
+                title: const Text('导入数据（整库备份恢复）'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _importData(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.table_view),
+                title: const Text('CSV / Excel 批量导入'),
+                subtitle: const Text('从表格文件批量添加资产与负债'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const BulkImportScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
