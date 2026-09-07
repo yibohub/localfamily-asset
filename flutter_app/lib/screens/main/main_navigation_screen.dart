@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../providers/financial_provider.dart';
+import '../../providers/asset_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/custom_type_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -28,26 +29,51 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   // 默认显示总览（索引 1）
   int _currentIndex = 1;
   DateTime? _pausedAt;
+  AuthStatus? _lastAuthStatus;
+
+  // 从总览分布条目跳转资产页签时预设的类型筛选（null = 全部）及其指令序号
+  String? _assetTabTypeFilter;
+  int _filterCommandSeq = 0;
   static const Duration _autoLockDuration = Duration(minutes: 3);
-
-  // Tab 顺序：资产 → 总览 → 负债
-  static const List<Widget> _tabScreens = [
-    AssetsTabScreen(),
-    OverviewTabScreen(),
-    LiabilitiesTabScreen(),
-  ];
-
-  static const List<String> _tabTitles = [
-    '资产',
-    '总览',
-    '负债',
-  ];
 
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
   }
+
+  /// 总览页跳转：切换页签并按需预设类型筛选（typeFilter 为 null 时显示全部）。
+  /// 资产筛选通过"指令"下发给保活的资产页签，仅资产页签跳转时递增序号；
+  /// 负债筛选为 Provider 状态，直接设置
+  void _navigateFromOverview(int tabIndex, {String? typeFilter}) {
+    setState(() {
+      _currentIndex = tabIndex;
+      if (tabIndex == 0) {
+        _assetTabTypeFilter = typeFilter;
+        _filterCommandSeq++;
+      }
+    });
+    if (tabIndex == 2) {
+      context.read<FinancialProvider>().setLiabilityTypeFilterById(typeFilter);
+    }
+  }
+
+  // Tab 顺序：资产 → 总览 → 负债
+  // 总览页的统计行与分布条目通过 onNavigateToTab 切换页签（可携带类型筛选）
+  List<Widget> get _tabScreens => [
+        AssetsTabScreen(
+          initialTypeFilter: _assetTabTypeFilter,
+          filterCommandSeq: _filterCommandSeq,
+        ),
+        OverviewTabScreen(onNavigateToTab: _navigateFromOverview),
+        const LiabilitiesTabScreen(),
+      ];
+
+  static const List<String> _tabTitles = [
+    '资产',
+    '总览',
+    '负债',
+  ];
 
   @override
   void initState() {
@@ -129,6 +155,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
+        // 退出账户（或锁定）后重新解锁：Provider 缓存已清空/需刷新，重新加载
+        if (_lastAuthStatus == AuthStatus.locked &&
+            authProvider.status == AuthStatus.unlocked) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            context.read<FinancialProvider>().loadFinancialRecords();
+            context.read<CustomTypeProvider>().loadCustomTypes();
+          });
+        }
+        _lastAuthStatus = authProvider.status;
+
         // 如果已锁定，显示锁定屏幕
         if (authProvider.status == AuthStatus.locked) {
           return const LockScreen();
@@ -144,7 +181,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               ),
             ],
           ),
-          body: _tabScreens[_currentIndex],
+          // IndexedStack 保活三个页签：切换不销毁重建，回退时保留滚动位置与筛选状态
+          body: IndexedStack(
+            index: _currentIndex,
+            children: _tabScreens,
+          ),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _currentIndex,
             onDestinationSelected: _onTabTapped,
@@ -217,23 +258,44 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.lock),
-                title: const Text('锁定应用'),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.read<AuthProvider>().lock();
-                },
-              ),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('锁定应用'),
+              onTap: () {
+                Navigator.pop(context);
+                context.read<AuthProvider>().lock();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('退出账户'),
+              subtitle: const Text('保存并清除内存中的解密数据，下次访问需重新输入密码'),
+              onTap: () {
+                Navigator.pop(context);
+                _logout(context);
+              },
+            ),
               const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.password),
-                title: const Text('修改密码'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showChangePasswordDialog(context);
-                },
-              ),
+            ListTile(
+              leading: const Icon(Icons.password),
+              title: const Text('修改密码'),
+              onTap: () {
+                Navigator.pop(context);
+                _showChangePasswordDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_backup_restore),
+              title: const Text('数据快照'),
+              subtitle: const Text('自动备份加密数据库，数据异常时可一键恢复'),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (_) => const _SnapshotsDialog(),
+                );
+              },
+            ),
               ListTile(
                 leading: const Icon(Icons.file_download),
                 title: const Text('导出数据'),
@@ -270,6 +332,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         ),
       ),
     );
+  }
+
+  /// 退出当前账户：清空明文缓存并清除 Rust 侧解密状态，回到锁屏
+  void _logout(BuildContext context) {
+    // 先清除各 Provider 的明文缓存，再触发状态切换（logout 内部为异步）
+    context.read<AuthProvider>().logout();
+    context.read<FinancialProvider>().clearAll();
+    context.read<AssetProvider>().clear();
+    context.read<CustomTypeProvider>().clear();
   }
 
   String _getThemeModeText(ThemeMode mode) {
@@ -608,6 +679,165 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 数据快照管理对话框：列出/创建/恢复加密库快照
+class _SnapshotsDialog extends StatefulWidget {
+  const _SnapshotsDialog();
+
+  @override
+  State<_SnapshotsDialog> createState() => _SnapshotsDialogState();
+}
+
+class _SnapshotsDialogState extends State<_SnapshotsDialog> {
+  final FfiBridge _ffi = FfiBridge();
+  late Future<List<SnapshotInfo>> _snapshots;
+  bool _creating = false;
+  String? _restoring;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapshots = _ffi.listSnapshots();
+  }
+
+  void _reload() {
+    setState(() {
+      _snapshots = _ffi.listSnapshots();
+    });
+  }
+
+  Future<void> _create() async {
+    setState(() => _creating = true);
+    await _ffi.createSnapshot();
+    if (!mounted) return;
+    _reload();
+  }
+
+  Future<void> _confirmRestore(SnapshotInfo info) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('恢复快照'),
+        content: Text('确定恢复到 ${_formatTime(info.timestamp)} 的快照吗？\n\n'
+            '附件照片将一并恢复到该时点；恢复前会先为当前数据'
+            '自动创建一份快照，该快照之后发生的改动将会丢失。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red[400]),
+            child: const Text('恢复'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    setState(() => _restoring = info.name);
+    final ok = await _ffi.restoreSnapshot(info.name);
+    if (!mounted) return;
+    setState(() => _restoring = null);
+
+    if (ok) {
+      // 内存库已由 Rust 端从磁盘重载，刷新界面数据
+      context.read<FinancialProvider>().loadFinancialRecords();
+      context.read<CustomTypeProvider>().loadCustomTypes();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已恢复到所选快照')),
+      );
+    }
+  }
+
+  String _formatTime(int seconds) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    final mm = dt.month.toString().padLeft(2, '0');
+    final dd = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return '${dt.year}-$mm-$dd $hh:$mi';
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes >= 1048576) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
+  String _subtitleOf(SnapshotInfo info) {
+    if (info.attachmentFiles > 0) {
+      return '${_formatSize(info.size)} · 附件 ${info.attachmentFiles} 个'
+          '（${_formatSize(info.attachmentsSize)}）';
+    }
+    return _formatSize(info.size);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('数据快照'),
+      content: SizedBox(
+        width: 400,
+        height: 360,
+        child: FutureBuilder<List<SnapshotInfo>>(
+          future: _snapshots,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final list = snapshot.data ?? const <SnapshotInfo>[];
+            if (list.isEmpty) {
+              return Center(
+                child: Text(
+                  '暂无快照\n每天首次保存和导入/改密前会自动创建',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                ),
+              );
+            }
+            return ListView.builder(
+              itemCount: list.length,
+              itemBuilder: (context, index) {
+                final info = list[index];
+                final busy = _restoring == info.name;
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.backup_outlined),
+                  title: Text(_formatTime(info.timestamp)),
+                  subtitle: Text(_subtitleOf(info)),
+                  trailing: busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          onPressed: () => _confirmRestore(info),
+                          child: const Text('恢复'),
+                        ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _creating ? null : _create,
+          child: Text(_creating ? '创建中…' : '立即创建快照'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
     );
   }
 }
