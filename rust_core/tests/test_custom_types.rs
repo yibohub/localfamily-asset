@@ -2,33 +2,15 @@
 //!
 //! 运行测试：cargo test --package localfamily_asset_core --test test_custom_types
 
+use localfamily_asset_core::db::{
+    init_db, Asset, AssetRepository, CustomTypeRepository, Liability, LiabilityRepository,
+};
 use rusqlite::Connection;
 
-/// 创建测试数据库连接
+/// 创建测试数据库连接（真实完整 schema）
 fn setup_test_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
-
-    // 初始化数据库结构
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS custom_asset_types (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            icon_name TEXT NOT NULL,
-            is_liability INTEGER NOT NULL DEFAULT 0,
-            created_at INTEGER NOT NULL
-        )",
-        [],
-    )
-    .unwrap();
-
-    // 创建索引
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_custom_types_is_liability
-         ON custom_asset_types(is_liability)",
-        [],
-    )
-    .unwrap();
-
+    init_db(&conn).unwrap();
     conn
 }
 
@@ -190,22 +172,10 @@ mod tests {
         assert_eq!(count_after, 0, "Type should be deleted");
     }
 
-    /// 测试 6：测试检查类型是否被使用
+    /// 测试 6：测试检查类型是否被使用（真实 schema + 真实 repository）
     #[test]
     fn test_is_type_in_use() {
         let conn = setup_test_db();
-
-        // 创建资产表
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS assets (
-                id TEXT PRIMARY KEY,
-                type TEXT NOT NULL,
-                name TEXT NOT NULL,
-                amount REAL NOT NULL
-            )",
-            [],
-        )
-        .unwrap();
 
         // 插入自定义类型
         let used_type_id = "custom_used";
@@ -225,32 +195,71 @@ mod tests {
         )
         .unwrap();
 
-        // 创建使用该类型的资产
+        // 创建使用该类型的资产（assets 表资产/负债共用，类型存 asset_type 列）
         conn.execute(
-            "INSERT INTO assets (id, type, name, amount) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO assets (id, asset_type, name, amount, currency, occurrence_date, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 'CNY', '2026-09-07', 1000, 1000)",
             ("asset_001", used_type_id, "测试资产", 1000.0),
         )
         .unwrap();
 
-        // 检查是否被使用
-        let used_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM assets WHERE type = ?1",
-                [used_type_id],
-                |row| row.get(0),
-            )
-            .unwrap();
+        // 通过真实 repository 检查是否被使用
+        assert!(
+            CustomTypeRepository::is_in_use(&conn, used_type_id).unwrap(),
+            "被资产引用的类型应判定为使用中"
+        );
+        assert!(
+            !CustomTypeRepository::is_in_use(&conn, unused_type_id).unwrap(),
+            "未被引用的类型应判定为未使用"
+        );
+    }
 
-        let unused_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM assets WHERE type = ?1",
-                [unused_type_id],
-                |row| row.get(0),
-            )
-            .unwrap();
+    /// 测试 6b：list() 应返回挂载在自定义类型下的资产与负债
+    #[test]
+    fn test_list_returns_custom_type_records() {
+        let conn = setup_test_db();
 
-        assert_eq!(used_count, 1, "Used type should have 1 asset");
-        assert_eq!(unused_count, 0, "Unused type should have 0 assets");
+        // 自定义资产类型（股权）与自定义负债类型
+        conn.execute(
+            "INSERT INTO custom_asset_types (id, name, icon_name, is_liability, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            ("custom_equity", "股权", "star", false as i32, 1000i64),
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO custom_asset_types (id, name, icon_name, is_liability, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            ("custom_borrow", "熟人借款", "handshake", true as i32, 2000i64),
+        )
+        .unwrap();
+
+        // 通过仓库写入记录（走真实 Asset/Liability 持久化）
+        let asset = Asset::new("custom_equity".into(), "陆联股份".into(), 50000.0);
+        AssetRepository::create(&conn, &asset).unwrap();
+
+        let liability = Liability::new("custom_borrow".into(), "朋友借款".into(), 3000.0);
+        LiabilityRepository::create(&conn, &liability).unwrap();
+
+        // 内置类型记录也应正常返回（回归保护）
+        let builtin = Asset::new("deposit".into(), "招行存款".into(), 10000.0);
+        AssetRepository::create(&conn, &builtin).unwrap();
+        let builtin_liab = Liability::new("credit_card".into(), "招行卡".into(), 2000.0);
+        LiabilityRepository::create(&conn, &builtin_liab).unwrap();
+
+        // list() 应同时包含内置与自定义类型记录
+        let assets = AssetRepository::list(&conn).unwrap();
+        assert_eq!(assets.len(), 2, "资产列表应含自定义股权 1 条 + 内置存款 1 条");
+        assert!(
+            assets.iter().any(|a| a.asset_type == "custom_equity"),
+            "自定义类型资产应出现在 list() 中"
+        );
+
+        let liabilities = LiabilityRepository::list(&conn).unwrap();
+        assert_eq!(liabilities.len(), 2, "负债列表应含自定义 1 条 + 内置信用卡 1 条");
+        assert!(
+            liabilities.iter().any(|l| l.liability_type == "custom_borrow"),
+            "自定义类型负债应出现在 list() 中"
+        );
     }
 
     /// 测试 7：测试按负债状态筛选

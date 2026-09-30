@@ -111,12 +111,16 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
 
   /// 显示添加页面
   void _showAddDialog(BuildContext context) {
-    // 从筛选器或 Provider 获取初始类型
+    // 从筛选器或 Provider 获取初始类型（内置或自定义）
     final provider = context.read<FinancialProvider>();
     LiabilityType? initialLiabilityType;
+    String? initialCustomLiabilityTypeId;
     if (provider.liabilityTypeFilterId != null) {
       initialLiabilityType =
           LiabilityTypeExtension.fromString(provider.liabilityTypeFilterId!);
+      // 自定义筛选时（内置解析失败），把筛选 id 作为自定义初始类型传入
+      initialCustomLiabilityTypeId =
+          initialLiabilityType == null ? provider.liabilityTypeFilterId : null;
     }
     initialLiabilityType ??= provider.lastSelectedLiabilityType;
 
@@ -126,6 +130,7 @@ class _LiabilitiesTabScreenState extends State<LiabilitiesTabScreen> {
         builder: (context) => FinancialRecordFormScreen(
           initialType: RecordType.liability,
           initialLiabilityType: initialLiabilityType,
+          initialCustomLiabilityTypeId: initialCustomLiabilityTypeId,
         ),
       ),
     ).then((result) {

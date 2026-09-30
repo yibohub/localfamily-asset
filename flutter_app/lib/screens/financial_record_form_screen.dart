@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/financial_models.dart';
+import '../providers/custom_type_provider.dart';
 import '../providers/financial_provider.dart';
 import '../widgets/smart_financial_record_name_input.dart';
 
@@ -18,6 +19,8 @@ class FinancialRecordFormScreen extends StatefulWidget {
   final RecordType initialType;
   final AssetType? initialAssetType; // 新增：初始资产类型
   final LiabilityType? initialLiabilityType; // 新增：初始负债类型
+  final String? initialCustomAssetTypeId; // 初始自定义资产类型 id
+  final String? initialCustomLiabilityTypeId; // 初始自定义负债类型 id
 
   const FinancialRecordFormScreen({
     super.key,
@@ -25,6 +28,8 @@ class FinancialRecordFormScreen extends StatefulWidget {
     required this.initialType,
     this.initialAssetType,
     this.initialLiabilityType,
+    this.initialCustomAssetTypeId,
+    this.initialCustomLiabilityTypeId,
   });
 
   @override
@@ -115,9 +120,17 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
   late RecordType _selectedRecordType;
   AssetType? _selectedAssetType;
   LiabilityType? _selectedLiabilityType;
+  String? _selectedCustomAssetTypeId;
+  String? _selectedCustomLiabilityTypeId;
   bool _isLoading = false;
 
   FormMode get _mode => widget.record == null ? FormMode.add : FormMode.edit;
+
+  /// 是否选中了自定义资产类型
+  bool get _isCustomAssetSelected => _selectedCustomAssetTypeId != null;
+
+  /// 是否选中了自定义负债类型
+  bool get _isCustomLiabilitySelected => _selectedCustomLiabilityTypeId != null;
 
   @override
   void initState() {
@@ -125,13 +138,23 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     _selectedRecordType = widget.initialType;
     final provider = context.read<FinancialProvider>();
 
-    // 使用传入的初始类型，如果没有则使用 Provider 中保存的最后选择，最后使用默认值
-    _selectedAssetType = widget.initialAssetType ??
-        provider.lastSelectedAssetType ??
-        AssetType.deposit;
-    _selectedLiabilityType = widget.initialLiabilityType ??
-        provider.lastSelectedLiabilityType ??
-        LiabilityType.debt;
+    // 自定义初始类型优先；没有则用传入的内置初始类型，最后使用默认值
+    if (_selectedRecordType == RecordType.asset &&
+        widget.initialCustomAssetTypeId != null) {
+      _selectedCustomAssetTypeId = widget.initialCustomAssetTypeId;
+    } else {
+      _selectedAssetType = widget.initialAssetType ??
+          provider.lastSelectedAssetType ??
+          AssetType.deposit;
+    }
+    if (_selectedRecordType == RecordType.liability &&
+        widget.initialCustomLiabilityTypeId != null) {
+      _selectedCustomLiabilityTypeId = widget.initialCustomLiabilityTypeId;
+    } else {
+      _selectedLiabilityType = widget.initialLiabilityType ??
+          provider.lastSelectedLiabilityType ??
+          LiabilityType.debt;
+    }
     _occurrenceDate = DateTime.now();
 
     // 如果是编辑模式，加载数据
@@ -198,7 +221,13 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     if (widget.record is Asset) {
       final asset = widget.record as Asset;
       _selectedRecordType = RecordType.asset;
-      _selectedAssetType = asset.type;
+      if (asset.isCustomType) {
+        // 编辑自定义类型资产：选中自定义类型 chip，内置类型仅兜底
+        _selectedCustomAssetTypeId = asset.customTypeId;
+        _selectedAssetType = asset.type;
+      } else {
+        _selectedAssetType = asset.type;
+      }
 
       _nameController.text = asset.name;
       _amountController.text = asset.amount.toString();
@@ -245,7 +274,13 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     } else if (widget.record is Liability) {
       final liability = widget.record as Liability;
       _selectedRecordType = RecordType.liability;
-      _selectedLiabilityType = liability.type;
+      if (liability.isCustomType) {
+        // 编辑自定义类型负债：选中自定义类型 chip，内置类型仅兜底
+        _selectedCustomLiabilityTypeId = liability.customTypeId;
+        _selectedLiabilityType = liability.type;
+      } else {
+        _selectedLiabilityType = liability.type;
+      }
 
       _nameController.text = liability.name;
       _amountController.text = liability.amount.toString();
@@ -307,11 +342,14 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
     final provider = context.read<FinancialProvider>();
     bool success = false;
 
-    if (_selectedRecordType == RecordType.asset && _selectedAssetType != null) {
+    if (_selectedRecordType == RecordType.asset &&
+        (_selectedAssetType != null || _selectedCustomAssetTypeId != null)) {
       final asset = Asset(
         id: widget.record?.id ?? const Uuid().v4(),
         name: _nameController.text,
-        type: _selectedAssetType!,
+        // 自定义类型选中时 type 仅为内置兜底值，实际类型以 customTypeId 为准
+        type: _selectedAssetType ?? AssetType.deposit,
+        customTypeId: _selectedCustomAssetTypeId,
         amount: double.parse(_amountController.text),
         currency: _currencyController.text,
         account:
@@ -400,11 +438,13 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
           ? await provider.addAsset(asset)
           : await provider.updateAsset(asset);
     } else if (_selectedRecordType == RecordType.liability &&
-        _selectedLiabilityType != null) {
+        (_selectedLiabilityType != null || _selectedCustomLiabilityTypeId != null)) {
       final liability = Liability(
         id: widget.record?.id ?? const Uuid().v4(),
         name: _nameController.text,
-        type: _selectedLiabilityType!,
+        // 自定义类型选中时 type 仅为内置兜底值，实际类型以 customTypeId 为准
+        type: _selectedLiabilityType ?? LiabilityType.debt,
+        customTypeId: _selectedCustomLiabilityTypeId,
         amount: double.parse(_amountController.text),
         currency: _currencyController.text,
         occurrenceDate: _occurrenceDate ?? DateTime.now(),
@@ -588,14 +628,21 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
         SmartFinancialRecordNameInput(
           nameController: _nameController,
           subAccountController: _accountController,
+          // 内置类型选中时按内置类型过滤；自定义类型选中时按自定义类型过滤
           assetTypeFilter: _selectedRecordType == RecordType.asset &&
+                  !_isCustomAssetSelected &&
                   _selectedAssetType != null
               ? [_selectedAssetType!]
               : null,
           liabilityTypeFilter: _selectedRecordType == RecordType.liability &&
+                  !_isCustomLiabilitySelected &&
                   _selectedLiabilityType != null
               ? [_selectedLiabilityType!]
               : null,
+          customTypeIdFilter:
+              _selectedRecordType == RecordType.asset
+                  ? _selectedCustomAssetTypeId
+                  : _selectedCustomLiabilityTypeId,
           labelText: '$typeLabel名称',
           hintText: _selectedRecordType == RecordType.asset
               ? '例如：苹果公司股票'
@@ -655,64 +702,150 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
   }
 
   Widget _buildAssetTypeSelector() {
+    // 自定义资产类型（可能尚未加载，空列表时仅显示内置类型）
+    final customTypes = context.watch<CustomTypeProvider>().assetCustomTypes;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: AssetType.values.map((type) {
-        final isSelected = _selectedAssetType == type;
-        return ChoiceChip(
-          label: Text(type.displayName),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedAssetType = type);
-            // 保存选择到 Provider
-            context.read<FinancialProvider>().setLastSelectedAssetType(type);
-          },
-          avatar: Icon(
-            type.icon,
-            size: 18,
-            color: isSelected ? Colors.white : type.color,
-          ),
-          selectedColor: type.color,
-          labelStyle: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-          ),
-        );
-      }).toList(),
+      children: [
+        ...AssetType.values.map((type) {
+          final isSelected = _selectedAssetType == type &&
+              !_isCustomAssetSelected;
+          return ChoiceChip(
+            label: Text(type.displayName),
+            selected: isSelected,
+            onSelected: (_) {
+              setState(() {
+                _selectedAssetType = type;
+                _selectedCustomAssetTypeId = null;
+              });
+              // 保存选择到 Provider
+              context.read<FinancialProvider>().setLastSelectedAssetType(type);
+            },
+            avatar: Icon(
+              type.icon,
+              size: 18,
+              color: isSelected ? Colors.white : type.color,
+            ),
+            selectedColor: type.color,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          );
+        }),
+        // 自定义资产类型 chips（与内置类型并列）
+        ...customTypes.map((type) {
+          final isSelected = _selectedCustomAssetTypeId == type.id;
+          return ChoiceChip(
+            label: Text(type.name),
+            selected: isSelected,
+            onSelected: (_) {
+              setState(() {
+                _selectedCustomAssetTypeId = type.id;
+                _selectedAssetType = null;
+              });
+            },
+            avatar: Icon(
+              type.icon,
+              size: 18,
+              color: isSelected ? Colors.white : type.color,
+            ),
+            selectedColor: type.color,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          );
+        }),
+      ],
     );
   }
 
   Widget _buildLiabilityTypeSelector() {
+    // 自定义负债类型（可能尚未加载，空列表时仅显示内置类型）
+    final customTypes = context.watch<CustomTypeProvider>().liabilityCustomTypes;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: LiabilityType.values.map((type) {
-        final isSelected = _selectedLiabilityType == type;
-        return ChoiceChip(
-          label: Text(type.displayName),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedLiabilityType = type);
-            // 保存选择到 Provider
-            context
-                .read<FinancialProvider>()
-                .setLastSelectedLiabilityType(type);
-          },
-          avatar: Icon(
-            type.icon,
-            size: 18,
-            color: isSelected ? Colors.white : type.color,
-          ),
-          selectedColor: type.color,
-          labelStyle: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-          ),
-        );
-      }).toList(),
+      children: [
+        ...LiabilityType.values.map((type) {
+          final isSelected = _selectedLiabilityType == type &&
+              !_isCustomLiabilitySelected;
+          return ChoiceChip(
+            label: Text(type.displayName),
+            selected: isSelected,
+            onSelected: (_) {
+              setState(() {
+                _selectedLiabilityType = type;
+                _selectedCustomLiabilityTypeId = null;
+              });
+              // 保存选择到 Provider
+              context
+                  .read<FinancialProvider>()
+                  .setLastSelectedLiabilityType(type);
+            },
+            avatar: Icon(
+              type.icon,
+              size: 18,
+              color: isSelected ? Colors.white : type.color,
+            ),
+            selectedColor: type.color,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          );
+        }),
+        // 自定义负债类型 chips（与内置类型并列）
+        ...customTypes.map((type) {
+          final isSelected = _selectedCustomLiabilityTypeId == type.id;
+          return ChoiceChip(
+            label: Text(type.name),
+            selected: isSelected,
+            onSelected: (_) {
+              setState(() {
+                _selectedCustomLiabilityTypeId = type.id;
+                _selectedLiabilityType = null;
+              });
+            },
+            avatar: Icon(
+              type.icon,
+              size: 18,
+              color: isSelected ? Colors.white : type.color,
+            ),
+            selectedColor: type.color,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          );
+        }),
+      ],
     );
   }
 
   Widget _buildAssetFields(BuildContext context) {
+    // 自定义资产类型：无内置专属语义，仅提供账户/平台字段
+    if (_isCustomAssetSelected) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '资产信息',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _accountController,
+            decoration: const InputDecoration(
+              labelText: '账户/平台',
+              hintText: '例如：华泰证券',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      );
+    }
+
     if (_selectedAssetType == null) return const SizedBox.shrink();
 
     // 投资类字段
@@ -1062,8 +1195,12 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
   }
 
   Widget _buildLiabilityFields(BuildContext context) {
-    if (_selectedLiabilityType == null) return const SizedBox.shrink();
+    // 自定义负债类型：显示通用负债字段（债权人/利率/还款方式/到期日/期限）
+    if (_isCustomLiabilitySelected) {
+      return _buildCommonLiabilityFields(context);
+    }
 
+    if (_selectedLiabilityType == null) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1336,6 +1473,81 @@ class _FinancialRecordFormScreenState extends State<FinancialRecordFormScreen> {
             maxLines: 3,
           ),
         ],
+      ],
+    );
+  }
+
+  /// 自定义负债类型通用字段：债权人/年利率/还款方式/到期日/期限
+  Widget _buildCommonLiabilityFields(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '负债信息',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _lenderController,
+          decoration: const InputDecoration(
+            labelText: '债权人/机构',
+            hintText: '例如：招商银行',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _interestRateController,
+          decoration: const InputDecoration(
+            labelText: '年利率（%）',
+            hintText: '例如：4.35',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<RepaymentMethod>(
+          initialValue: _repaymentMethod,
+          decoration: const InputDecoration(
+            labelText: '还款方式',
+            border: OutlineInputBorder(),
+          ),
+          items: RepaymentMethod.values.map((method) {
+            return DropdownMenuItem(
+              value: method,
+              child: Text(method.displayName),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() => _repaymentMethod = value);
+          },
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: () => _pickDate(_dueDate, (date) => _dueDate = date),
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '还债期限/到期日',
+              border: OutlineInputBorder(),
+              suffixIcon: Icon(Icons.calendar_today),
+            ),
+            child: Text(
+              _dueDate == null
+                  ? '请选择到期日期'
+                  : '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}',
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _loanTermController,
+          decoration: const InputDecoration(
+            labelText: '贷款期限（月）',
+            hintText: '例如：360',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+        ),
       ],
     );
   }

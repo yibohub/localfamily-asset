@@ -72,18 +72,28 @@ class CustomAssetType {
 
   /// 获取图标数据
   IconData get icon {
-    // 根据图标名称返回对应的图标
+    // 根据图标名称返回对应的图标（与创建对话框的图标白名单保持一致）
     switch (iconName) {
       case 'home':
         return Icons.home;
       case 'account_balance':
         return Icons.account_balance;
+      case 'account_balance_wallet':
+        return Icons.account_balance_wallet;
+      case 'attach_money':
+        return Icons.attach_money;
       case 'trending_up':
         return Icons.trending_up;
       case 'pie_chart':
         return Icons.pie_chart;
       case 'security':
         return Icons.security;
+      case 'verified_user':
+        return Icons.verified_user;
+      case 'diamond':
+        return Icons.diamond;
+      case 'payments':
+        return Icons.payments;
       case 'credit_card':
         return Icons.credit_card;
       case 'home_work':
@@ -94,6 +104,12 @@ class CustomAssetType {
         return Icons.person;
       case 'handshake':
         return Icons.handshake;
+      case 'request_quote':
+        return Icons.request_quote;
+      case 'gavel':
+        return Icons.gavel;
+      case 'money_off':
+        return Icons.money_off;
       default:
         return Icons.category;
     }

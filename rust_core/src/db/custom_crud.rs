@@ -64,7 +64,7 @@ impl CustomTypeRepository {
     /// 检查自定义类型是否被使用
     pub fn is_in_use(conn: &Connection, type_id: &str) -> DbResult<bool> {
         let mut stmt = conn.prepare(
-            "SELECT COUNT(*) FROM assets WHERE type = ?1"
+            "SELECT COUNT(*) FROM assets WHERE asset_type = ?1"
         ).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
         let count: i64 = stmt.query_row([type_id], |row| row.get(0))

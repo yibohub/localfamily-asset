@@ -3,7 +3,7 @@
 // 使用 financial_models.dart 中定义的 Asset 和 Liability 类
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../core/ffi_bridge.dart';
 import '../models/financial_models.dart';
 import '../models/custom_asset_type.dart';
@@ -72,11 +72,64 @@ class FinancialProvider with ChangeNotifier {
     return _customAssetTypes.where((t) => t.isLiability).toList();
   }
 
-  /// 获取筛选后的负债列表
+  /// 获取筛选后的负债列表（支持自定义类型 ID）
   List<Liability> get filteredLiabilities {
     if (_liabilityTypeFilterId == null) return _liabilities;
-    return _liabilities.where((l) => l.type.snakeCaseName == _liabilityTypeFilterId).toList();
+    return _liabilities
+        .where((l) => l.typeId == _liabilityTypeFilterId)
+        .toList();
   }
+
+  /// 按 id 查询自定义类型（内置 id 或未知 id 返回 null）
+  CustomAssetType? customTypeById(String? id) {
+    if (id == null) return null;
+    for (final t in _customAssetTypes) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
+  // ---- 类型展示帮助方法（内置枚举语义 + 自定义类型统一出口） ----
+
+  /// 类型显示名：内置类型返回中文名，自定义类型返回其名称，
+  /// 已删除/未知的自定义 id 原样返回
+  String typeLabelOf(String typeId) {
+    final custom = customTypeById(typeId);
+    if (custom != null) return custom.name;
+    final assetType = AssetTypeExtension.fromString(typeId);
+    if (assetType != null) return assetType.displayName;
+    final liabilityType = LiabilityTypeExtension.fromString(typeId);
+    if (liabilityType != null) return liabilityType.displayName;
+    return typeId;
+  }
+
+  /// 类型图标
+  IconData typeIconOf(String typeId) {
+    final custom = customTypeById(typeId);
+    if (custom != null) return custom.icon;
+    final assetType = AssetTypeExtension.fromString(typeId);
+    if (assetType != null) return assetType.icon;
+    final liabilityType = LiabilityTypeExtension.fromString(typeId);
+    if (liabilityType != null) return liabilityType.icon;
+    return Icons.category;
+  }
+
+  /// 类型颜色
+  Color typeColorOf(String typeId) {
+    final custom = customTypeById(typeId);
+    if (custom != null) return custom.color;
+    final assetType = AssetTypeExtension.fromString(typeId);
+    if (assetType != null) return assetType.color;
+    final liabilityType = LiabilityTypeExtension.fromString(typeId);
+    if (liabilityType != null) return liabilityType.color;
+    return Colors.grey;
+  }
+
+  /// 资产记录的类型显示名
+  String assetTypeLabel(Asset asset) => typeLabelOf(asset.typeId);
+
+  /// 负债记录的类型显示名
+  String liabilityTypeLabel(Liability liability) => typeLabelOf(liability.typeId);
 
   /// 计算总资产
   double get totalAssets => _assets.fold(0.0, (sum, asset) => sum + asset.amount);
@@ -113,22 +166,22 @@ class FinancialProvider with ChangeNotifier {
     return count > 0 ? totalProfitLoss : null;
   }
 
-  /// 按类型分组资产
+  /// 按类型分组资产（键为 typeId，自定义类型自成一组）
   Map<String, List<Asset>> get assetsByType {
     final grouped = <String, List<Asset>>{};
     for (var asset in _assets) {
-      final typeName = asset.type.name;
-      grouped.putIfAbsent(typeName, () => []).add(asset);
+      final typeId = asset.typeId;
+      grouped.putIfAbsent(typeId, () => []).add(asset);
     }
     return grouped;
   }
 
-  /// 按类型分组负债
+  /// 按类型分组负债（键为 typeId，自定义类型自成一组）
   Map<String, List<Liability>> get liabilitiesByType {
     final grouped = <String, List<Liability>>{};
     for (var liability in _liabilities) {
-      final typeName = liability.type.name;
-      grouped.putIfAbsent(typeName, () => []).add(liability);
+      final typeId = liability.typeId;
+      grouped.putIfAbsent(typeId, () => []).add(liability);
     }
     return grouped;
   }
@@ -326,7 +379,7 @@ class FinancialProvider with ChangeNotifier {
 
       final success = await _ffi.addAssetWithExtraFields(
         name: asset.name,
-        assetType: asset.type.name,
+        assetType: asset.typeId,
         amount: asset.amount,
         currency: asset.currency,
         occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
@@ -398,7 +451,7 @@ class FinancialProvider with ChangeNotifier {
 
       final success = await _ffi.addLiabilityWithExtraFields(
         name: liability.name,
-        liabilityType: liability.type.snakeCaseName,
+        liabilityType: liability.typeId,
         amount: liability.amount,
         currency: liability.currency,
         occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],
@@ -478,7 +531,7 @@ class FinancialProvider with ChangeNotifier {
       final success = await _ffi.updateAssetWithExtraFields(
         id: asset.id,
         name: asset.name,
-        assetType: asset.type.name,
+        assetType: asset.typeId,
         amount: asset.amount,
         currency: asset.currency,
         occurrenceDate: asset.occurrenceDate.toIso8601String().split('T')[0],
@@ -551,7 +604,7 @@ class FinancialProvider with ChangeNotifier {
       final success = await _ffi.updateLiabilityWithExtraFields(
         id: liability.id,
         name: liability.name,
-        liabilityType: liability.type.snakeCaseName,
+        liabilityType: liability.typeId,
         amount: liability.amount,
         currency: liability.currency,
         occurrenceDate: liability.occurrenceDate.toIso8601String().split('T')[0],
@@ -646,14 +699,14 @@ class FinancialProvider with ChangeNotifier {
   PortfolioSummary getPortfolioSummary() {
     final assetBreakdown = <String, double>{};
     for (var asset in _assets) {
-      final typeName = asset.type.name;
-      assetBreakdown[typeName] = (assetBreakdown[typeName] ?? 0) + asset.amount;
+      final typeId = asset.typeId;
+      assetBreakdown[typeId] = (assetBreakdown[typeId] ?? 0) + asset.amount;
     }
 
     final liabilityBreakdown = <String, double>{};
     for (var liability in _liabilities) {
-      final typeName = liability.type.name;
-      liabilityBreakdown[typeName] = (liabilityBreakdown[typeName] ?? 0) + liability.amount;
+      final typeId = liability.typeId;
+      liabilityBreakdown[typeId] = (liabilityBreakdown[typeId] ?? 0) + liability.amount;
     }
 
     // 计算投资类资产统计
@@ -788,7 +841,11 @@ class FinancialProvider with ChangeNotifier {
   }
 
   /// 按名称搜索资产
-  Future<void> searchAssetsByName(String namePattern, {List<AssetType>? types}) async {
+  Future<void> searchAssetsByName(
+    String namePattern, {
+    List<AssetType>? types,
+    String? customTypeId,
+  }) async {
     if (namePattern.trim().isEmpty) {
       _assetSearchResults.clear();
       _isSearching = false;
@@ -807,9 +864,13 @@ class FinancialProvider with ChangeNotifier {
           continue;
         }
 
-        // 如果有类型过滤，检查类型是否匹配
-        if (types != null && types.isNotEmpty) {
-          if (!types.contains(asset.type)) {
+        // 自定义类型过滤优先；否则按内置类型过滤
+        if (customTypeId != null) {
+          if (asset.customTypeId != customTypeId) {
+            continue;
+          }
+        } else if (types != null && types.isNotEmpty) {
+          if (asset.customTypeId != null || !types.contains(asset.type)) {
             continue;
           }
         }
@@ -830,7 +891,11 @@ class FinancialProvider with ChangeNotifier {
   }
 
   /// 按名称搜索负债
-  Future<void> searchLiabilitiesByName(String namePattern, {List<LiabilityType>? types}) async {
+  Future<void> searchLiabilitiesByName(
+    String namePattern, {
+    List<LiabilityType>? types,
+    String? customTypeId,
+  }) async {
     if (namePattern.trim().isEmpty) {
       _liabilitySearchResults.clear();
       _isSearching = false;
@@ -849,9 +914,13 @@ class FinancialProvider with ChangeNotifier {
           continue;
         }
 
-        // 如果有类型过滤，检查类型是否匹配
-        if (types != null && types.isNotEmpty) {
-          if (!types.contains(liability.type)) {
+        // 自定义类型过滤优先；否则按内置类型过滤
+        if (customTypeId != null) {
+          if (liability.customTypeId != customTypeId) {
+            continue;
+          }
+        } else if (types != null && types.isNotEmpty) {
+          if (liability.customTypeId != null || !types.contains(liability.type)) {
             continue;
           }
         }

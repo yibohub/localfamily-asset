@@ -5,6 +5,22 @@ use rusqlite::{Connection, params};
 use super::{DbError, DbResult};
 use super::models::{Asset, Liability, AssetHistory, Attachment, AssetChange, ChangeType};
 
+/// 查询该侧（资产/负债）自定义类型 id 列表。
+///
+/// 用于把自定义类型记录也纳入 list()/search 等查询范围。
+/// 表不存在或查询失败时返回空 Vec（调用方只需回退到纯内置类型集合）。
+fn custom_type_ids(conn: &Connection, is_liability: bool) -> Vec<String> {
+    let sql = "SELECT id FROM custom_asset_types WHERE is_liability = ?1";
+    let flag = if is_liability { 1 } else { 0 };
+    match conn.prepare(sql) {
+        Ok(mut stmt) => stmt
+            .query_map([flag], |row| row.get::<_, String>(0))
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
 /// 从行数据构建 Asset 对象（包含所有扩展字段）
 fn make_asset_from_row(
     id: String,
@@ -256,10 +272,17 @@ impl AssetRepository {
         Ok(asset)
     }
 
-    /// 获取所有资产（包含所有扩展字段）
+    /// 获取所有资产（包含所有扩展字段；含自定义类型的资产）
     pub fn list(conn: &Connection) -> DbResult<Vec<Asset>> {
-        // 资产类型列表
-        let asset_types = ["property", "deposit", "stock", "fund", "insurance"];
+        // 资产类型列表 = 内置类型 + 自定义资产类型 id
+        let mut asset_types = vec![
+            "property".to_string(),
+            "deposit".to_string(),
+            "stock".to_string(),
+            "fund".to_string(),
+            "insurance".to_string(),
+        ];
+        asset_types.extend(custom_type_ids(conn, false));
         let placeholders = asset_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
         let sql = format!(
@@ -279,7 +302,8 @@ impl AssetRepository {
         let mut stmt = conn.prepare(&sql).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
         // 构建参数列表
-        let params_list: Vec<&dyn rusqlite::ToSql> = asset_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let params_list: Vec<&dyn rusqlite::ToSql> =
+            asset_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
 
         let assets = stmt.query_map(params_list.as_slice(), |row| {
             let asset_type: String = row.get(1)?;
@@ -1054,11 +1078,19 @@ impl LiabilityRepository {
         Ok(liability)
     }
 
-    /// 获取所有负债（包含所有扩展字段）
+    /// 获取所有负债（包含所有扩展字段；含自定义类型的负债）
     pub fn list(conn: &Connection) -> DbResult<Vec<Liability>> {
         eprintln!("LiabilityRepository::list: 开始查询负债");
-        // 负债类型列表
-        let liability_types = ["debt", "mortgage", "car_loan", "credit_card", "personal_loan", "private_loan"];
+        // 负债类型列表 = 内置类型 + 自定义负债类型 id
+        let mut liability_types = vec![
+            "debt".to_string(),
+            "mortgage".to_string(),
+            "car_loan".to_string(),
+            "credit_card".to_string(),
+            "personal_loan".to_string(),
+            "private_loan".to_string(),
+        ];
+        liability_types.extend(custom_type_ids(conn, true));
         eprintln!("LiabilityRepository::list: 负债类型列表: {:?}", liability_types);
 
         let placeholders = liability_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
@@ -1080,7 +1112,8 @@ impl LiabilityRepository {
         let mut stmt = conn.prepare(&sql).map_err(|e| DbError::DatabaseError(e.to_string()))?;
 
         // 构建参数列表
-        let params_list: Vec<&dyn rusqlite::ToSql> = liability_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let params_list: Vec<&dyn rusqlite::ToSql> =
+            liability_types.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
 
         let liabilities = stmt.query_map(params_list.as_slice(), |row| {
             let has_interest: Option<i32> = row.get(26)?;

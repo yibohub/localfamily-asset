@@ -461,12 +461,22 @@ abstract class FinancialRecord {
   String get recordType;
 }
 
+/// 资产记录是否挂载在自定义类型下（此时 [Asset.typeId] 为 custom id）
+bool isCustomTypeRecord(String? customTypeId) =>
+    customTypeId != null && customTypeId.startsWith('custom_');
+
 /// ============================================================
 /// 资产模型
 /// ============================================================
 
 class Asset extends FinancialRecord {
   final AssetType type;
+
+  /// 自定义类型 id（如 "custom_<uuid>"）。为 null 表示使用内置 [type]。
+  /// 当该值非空时，[type] 仅为内置回退值（通常回落 deposit），
+  /// 实际类型标识以 [typeId] 为准。
+  final String? customTypeId;
+
   final String? account; // 账户/平台
   final List<String>? tags;
 
@@ -509,6 +519,7 @@ class Asset extends FinancialRecord {
     required super.id,
     required super.name,
     required this.type,
+    this.customTypeId,
     required super.amount,
     super.currency,
     this.account,
@@ -550,7 +561,13 @@ class Asset extends FinancialRecord {
   });
 
   /// 是否为投资类资产
-  bool get isInvestment => type.isInvestment;
+  bool get isInvestment => customTypeId == null && type.isInvestment;
+
+  /// 类型标识 id：自定义类型记录返回 custom id，否则返回内置 snake_case
+  String get typeId => customTypeId ?? type.snakeCaseName;
+
+  /// 是否为自定义类型记录
+  bool get isCustomType => customTypeId != null;
 
   /// 计算盈亏百分比
   double? get profitLossPercent {
@@ -588,7 +605,8 @@ class Asset extends FinancialRecord {
     return {
       'id': id,
       'record_type': recordType,
-      'asset_type': type.name,
+      'asset_type': typeId,
+      'custom_type_id': customTypeId,
       'name': name,
       'amount': amount,
       'currency': currency,
@@ -632,6 +650,10 @@ class Asset extends FinancialRecord {
   }
 
   factory Asset.fromJson(Map<String, dynamic> json) {
+    // 优先取 custom_type_id；兼容历史数据仅 asset_type 为 custom_xxx 的情况
+    final customId =
+        json['custom_type_id'] as String? ?? json['asset_type'] as String?;
+    final effectiveCustomId = isCustomTypeRecord(customId) ? customId : null;
     return Asset(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -639,6 +661,7 @@ class Asset extends FinancialRecord {
         (e) => e.name == json['asset_type'],
         orElse: () => AssetType.deposit,
       ),
+      customTypeId: effectiveCustomId,
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'CNY',
       account: json['account'] as String?,
@@ -708,6 +731,8 @@ class Asset extends FinancialRecord {
     String? id,
     String? name,
     AssetType? type,
+    String? customTypeId,
+    bool clearCustomTypeId = false,
     double? amount,
     String? currency,
     String? account,
@@ -752,6 +777,7 @@ class Asset extends FinancialRecord {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
+      customTypeId: clearCustomTypeId ? null : (customTypeId ?? this.customTypeId),
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       account: account ?? this.account,
@@ -802,6 +828,10 @@ class Asset extends FinancialRecord {
 class Liability extends FinancialRecord {
   final LiabilityType type;
 
+  /// 自定义类型 id（如 "custom_<uuid>"）。为 null 表示使用内置 [type]。
+  /// 当该值非空时，[type] 仅为内置回退值，实际类型以 [typeId] 为准。
+  final String? customTypeId;
+
   // 通用负债字段
   final DateTime? dueDate; // 还债期限/到期日
   final double? interestRate; // 年利率 (%)
@@ -838,6 +868,7 @@ class Liability extends FinancialRecord {
     required super.id,
     required super.name,
     required this.type,
+    this.customTypeId,
     required super.amount,
     super.currency,
     required super.occurrenceDate,
@@ -868,8 +899,14 @@ class Liability extends FinancialRecord {
     required super.updatedAt,
   });
 
-  /// 是否为信用卡类型
-  bool get isCreditCard => type == LiabilityType.creditCard;
+  /// 是否为信用卡类型（自定义类型记录不视为信用卡）
+  bool get isCreditCard => customTypeId == null && type == LiabilityType.creditCard;
+
+  /// 类型标识 id：自定义类型记录返回 custom id，否则返回内置 snake_case
+  String get typeId => customTypeId ?? type.snakeCaseName;
+
+  /// 是否为自定义类型记录
+  bool get isCustomType => customTypeId != null;
 
   /// 计算已使用额度百分比（仅信用卡有效）
   double? get creditUtilization {
@@ -901,7 +938,8 @@ class Liability extends FinancialRecord {
     return {
       'id': id,
       'record_type': recordType,
-      'liability_type': type.name,
+      'liability_type': typeId,
+      'custom_type_id': customTypeId,
       'name': name,
       'amount': amount,
       'currency': currency,
@@ -935,6 +973,10 @@ class Liability extends FinancialRecord {
   }
 
   factory Liability.fromJson(Map<String, dynamic> json) {
+    // 优先取 custom_type_id；兼容历史数据仅 liability_type 为 custom_xxx 的情况
+    final customId =
+        json['custom_type_id'] as String? ?? json['liability_type'] as String?;
+    final effectiveCustomId = isCustomTypeRecord(customId) ? customId : null;
     return Liability(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -942,6 +984,7 @@ class Liability extends FinancialRecord {
         (e) => e.snakeCaseName == json['liability_type'],
         orElse: () => LiabilityType.debt,
       ),
+      customTypeId: effectiveCustomId,
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'CNY',
       occurrenceDate: json['occurrence_date'] != null
@@ -1005,6 +1048,8 @@ class Liability extends FinancialRecord {
     String? id,
     String? name,
     LiabilityType? type,
+    String? customTypeId,
+    bool clearCustomTypeId = false,
     double? amount,
     String? currency,
     DateTime? occurrenceDate,
@@ -1038,6 +1083,8 @@ class Liability extends FinancialRecord {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
+      customTypeId:
+          clearCustomTypeId ? null : (customTypeId ?? this.customTypeId),
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       occurrenceDate: occurrenceDate ?? this.occurrenceDate,

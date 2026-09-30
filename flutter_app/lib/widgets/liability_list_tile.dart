@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../models/financial_models.dart';
+import '../providers/financial_provider.dart';
 import '../utils/currency_utils.dart';
 
 /// 负债列表项组件
@@ -54,31 +57,38 @@ class LiabilityListTile extends StatelessWidget {
     IconData iconData;
     Color? iconColor;
 
-    switch (liability.type) {
-      case LiabilityType.creditCard:
-        iconData = Icons.credit_card;
-        iconColor = Colors.blue[400];
-        break;
-      case LiabilityType.mortgage:
-        iconData = Icons.home_work;
-        iconColor = Colors.brown[400];
-        break;
-      case LiabilityType.carLoan:
-        iconData = Icons.directions_car;
-        iconColor = Colors.purple[400];
-        break;
-      case LiabilityType.personalLoan:
-        iconData = Icons.person;
-        iconColor = Colors.orange[400];
-        break;
-      case LiabilityType.privateLoan:
-        iconData = Icons.handshake;
-        iconColor = Colors.teal[400];
-        break;
-      case LiabilityType.debt:
-        iconData = Icons.receipt_long;
-        iconColor = Colors.grey[400];
-        break;
+    if (liability.isCustomType) {
+      // 自定义负债类型：图标/颜色来自自定义类型定义
+      final provider = context.read<FinancialProvider>();
+      iconData = provider.typeIconOf(liability.typeId);
+      iconColor = provider.typeColorOf(liability.typeId);
+    } else {
+      switch (liability.type) {
+        case LiabilityType.creditCard:
+          iconData = Icons.credit_card;
+          iconColor = Colors.blue[400];
+          break;
+        case LiabilityType.mortgage:
+          iconData = Icons.home_work;
+          iconColor = Colors.brown[400];
+          break;
+        case LiabilityType.carLoan:
+          iconData = Icons.directions_car;
+          iconColor = Colors.purple[400];
+          break;
+        case LiabilityType.personalLoan:
+          iconData = Icons.person;
+          iconColor = Colors.orange[400];
+          break;
+        case LiabilityType.privateLoan:
+          iconData = Icons.handshake;
+          iconColor = Colors.teal[400];
+          break;
+        case LiabilityType.debt:
+          iconData = Icons.receipt_long;
+          iconColor = Colors.grey[400];
+          break;
+      }
     }
 
     return CircleAvatar(
@@ -89,79 +99,93 @@ class LiabilityListTile extends StatelessWidget {
 
   /// 构建副标题（根据负债类型显示不同信息）
   Widget? _buildSubtitle(BuildContext context, Liability liability) {
+    final provider = context.read<FinancialProvider>();
     final parts = <String>[];
 
     // 添加类型名称
-    parts.add(liability.type.displayName);
+    parts.add(provider.liabilityTypeLabel(liability));
 
-    // 根据负债类型添加专属信息
-    switch (liability.type) {
-      case LiabilityType.creditCard:
-        if (liability.lastFourDigits != null) {
-          parts.add('****${liability.lastFourDigits}');
-        }
-        if (liability.issuer != null) {
-          parts.add(liability.issuer!);
-        }
-        if (liability.billingDate != null) {
-          parts.add('账单日${liability.billingDate!.day}日');
-        }
-        break;
-
-      case LiabilityType.mortgage:
-        if (liability.lender != null) {
-          parts.add(liability.lender!);
-        }
-        if (liability.interestRate != null) {
-          parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
-        }
-        if (liability.repaymentMethod != null) {
-          parts.add(liability.repaymentMethod!.displayName);
-        }
-        if (liability.dueDate != null) {
-          final daysLeft = liability.daysUntilDue;
-          if (daysLeft != null && daysLeft > 0) {
-            parts.add('剩$daysLeft天');
+    if (liability.isCustomType) {
+      // 自定义负债类型：显示通用信息
+      if (liability.lender != null) {
+        parts.add(liability.lender!);
+      }
+      if (liability.interestRate != null) {
+        parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
+      }
+      if (liability.repaymentMethod != null) {
+        parts.add(liability.repaymentMethod!.displayName);
+      }
+    } else {
+      // 根据负债类型添加专属信息
+      switch (liability.type) {
+        case LiabilityType.creditCard:
+          if (liability.lastFourDigits != null) {
+            parts.add('****${liability.lastFourDigits}');
           }
-        }
-        break;
+          if (liability.issuer != null) {
+            parts.add(liability.issuer!);
+          }
+          if (liability.billingDate != null) {
+            parts.add('账单日${liability.billingDate!.day}日');
+          }
+          break;
 
-      case LiabilityType.carLoan:
-        if (liability.lender != null) {
-          parts.add(liability.lender!);
-        }
-        if (liability.vehicleBrand != null) {
-          parts.add(liability.vehicleBrand!);
-        }
-        if (liability.interestRate != null) {
-          parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
-        }
-        break;
+        case LiabilityType.mortgage:
+          if (liability.lender != null) {
+            parts.add(liability.lender!);
+          }
+          if (liability.interestRate != null) {
+            parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
+          }
+          if (liability.repaymentMethod != null) {
+            parts.add(liability.repaymentMethod!.displayName);
+          }
+          if (liability.dueDate != null) {
+            final daysLeft = liability.daysUntilDue;
+            if (daysLeft != null && daysLeft > 0) {
+              parts.add('剩$daysLeft天');
+            }
+          }
+          break;
 
-      case LiabilityType.personalLoan:
-      case LiabilityType.privateLoan:
-        if (liability.lender != null) {
-          parts.add(liability.lender!);
-        }
-        if (liability.interestRate != null) {
-          parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
-        }
-        if (liability.purpose != null) {
-          parts.add(liability.purpose!);
-        }
-        if (liability.repaymentMethod != null) {
-          parts.add(liability.repaymentMethod!.displayName);
-        }
-        break;
+        case LiabilityType.carLoan:
+          if (liability.lender != null) {
+            parts.add(liability.lender!);
+          }
+          if (liability.vehicleBrand != null) {
+            parts.add(liability.vehicleBrand!);
+          }
+          if (liability.interestRate != null) {
+            parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
+          }
+          break;
 
-      case LiabilityType.debt:
-        if (liability.lender != null) {
-          parts.add(liability.lender!);
-        }
-        if (liability.interestRate != null) {
-          parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
-        }
-        break;
+        case LiabilityType.personalLoan:
+        case LiabilityType.privateLoan:
+          if (liability.lender != null) {
+            parts.add(liability.lender!);
+          }
+          if (liability.interestRate != null) {
+            parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
+          }
+          if (liability.purpose != null) {
+            parts.add(liability.purpose!);
+          }
+          if (liability.repaymentMethod != null) {
+            parts.add(liability.repaymentMethod!.displayName);
+          }
+          break;
+
+        case LiabilityType.debt:
+          if (liability.lender != null) {
+            parts.add(liability.lender!);
+          }
+          if (liability.interestRate != null) {
+            parts.add('利率${liability.interestRate!.toStringAsFixed(2)}%');
+          }
+          break;
+      }
     }
 
     // 添加还款日期信息

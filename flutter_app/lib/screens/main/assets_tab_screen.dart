@@ -66,7 +66,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     }
   }
 
-  /// 获取筛选后的资产列表
+  /// 获取筛选后的资产列表（_selectedTypeId 可为内置类型名或自定义类型 id）
   List<Asset> _getFilteredAssets(
       FinancialProvider provider, CustomTypeProvider customTypeProvider) {
     final assets = provider.assets;
@@ -75,11 +75,10 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
     }
 
     return assets.where((asset) {
-      // 检查内置类型
-      if (asset.type.id == _selectedTypeId) {
+      // 自定义类型记录按 customTypeId 匹配，内置记录按内置 id 匹配
+      if (asset.typeId == _selectedTypeId) {
         return true;
       }
-      // TODO: 检查自定义类型
       return false;
     }).toList();
   }
@@ -181,10 +180,14 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
 
   /// 显示添加页面
   void _showAddDialog(BuildContext context) {
-    // 从筛选器或 Provider 获取初始类型
+    // 从筛选器或 Provider 获取初始类型（内置或自定义）
     AssetType? initialAssetType;
+    String? initialCustomAssetTypeId;
     if (_selectedTypeId != null) {
       initialAssetType = AssetTypeExtension.fromString(_selectedTypeId!);
+      // 自定义筛选时（内置解析失败），把筛选 id 作为自定义初始类型传入
+      initialCustomAssetTypeId =
+          initialAssetType == null ? _selectedTypeId : null;
     }
     initialAssetType ??=
         context.read<FinancialProvider>().lastSelectedAssetType;
@@ -195,6 +198,7 @@ class _AssetsTabScreenState extends State<AssetsTabScreen> {
         builder: (context) => FinancialRecordFormScreen(
           initialType: RecordType.asset,
           initialAssetType: initialAssetType,
+          initialCustomAssetTypeId: initialCustomAssetTypeId,
         ),
       ),
     ).then((result) {
@@ -229,9 +233,9 @@ class _AssetListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final assetType = asset.type;
-    final iconData = assetType.icon;
-    final iconColor = assetType.color;
+    final provider = context.read<FinancialProvider>();
+    final iconData = provider.typeIconOf(asset.typeId);
+    final iconColor = provider.typeColorOf(asset.typeId);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -265,10 +269,11 @@ class _AssetListItem extends StatelessWidget {
   }
 
   Widget? _buildSubtitle(BuildContext context, Asset asset) {
+    final provider = context.read<FinancialProvider>();
     final parts = <String>[];
 
     // 添加类型名称
-    parts.add(asset.type.displayName);
+    parts.add(provider.assetTypeLabel(asset));
 
     // 添加账户
     if (asset.account != null) {
@@ -493,13 +498,15 @@ class _AssetGroupListItem extends StatelessWidget {
     }
 
     // 多个同名资产：显示可展开的分组
+    final provider = context.read<FinancialProvider>();
+    final first = assets.first;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: assets.first.type.color.withValues(alpha: 0.1),
-          child: Icon(assets.first.type.icon,
-              color: assets.first.type.color, size: 20),
+          backgroundColor: provider.typeColorOf(first.typeId).withValues(alpha: 0.1),
+          child: Icon(provider.typeIconOf(first.typeId),
+              color: provider.typeColorOf(first.typeId), size: 20),
         ),
         title: Text(
           _displayName,
@@ -588,10 +595,11 @@ class _AssetSubListItem extends StatelessWidget {
   }
 
   Widget? _buildSubtitle(BuildContext context, Asset asset) {
+    final provider = context.read<FinancialProvider>();
     final parts = <String>[];
 
     // 添加类型名称
-    parts.add(asset.type.displayName);
+    parts.add(provider.assetTypeLabel(asset));
 
     // 添加投资类信息
     if (asset.isInvestment) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/financial_models.dart';
+import '../providers/custom_type_provider.dart';
 import '../providers/financial_provider.dart';
 import '../utils/debouncer.dart';
 
@@ -88,8 +89,45 @@ class _SmartFinancialRecordNameInputState
       // 使用 FinancialProvider 搜索
       final provider = context.read<FinancialProvider>();
 
-      // 根据类型过滤器决定搜索资产还是负债
-      if (widget.assetTypeFilter != null) {
+      // 自定义类型过滤优先；否则按资产/负债内置类型过滤
+      if (widget.customTypeIdFilter != null) {
+        // 需要先判断该自定义类型是资产还是负债
+        final customTypeProvider = context.read<CustomTypeProvider>();
+        final isLiabilityCustom = customTypeProvider
+            .customTypes
+            .any((t) => t.id == widget.customTypeIdFilter && t.isLiability);
+        if (isLiabilityCustom) {
+          provider
+              .searchLiabilitiesByName(
+                query,
+                customTypeId: widget.customTypeIdFilter,
+              )
+              .then((_) {
+            if (mounted) {
+              setState(() {
+                _suggestions.clear();
+                _suggestions.addAll(provider.liabilitySearchResults);
+                _isSearching = false;
+              });
+            }
+          });
+        } else {
+          provider
+              .searchAssetsByName(
+                query,
+                customTypeId: widget.customTypeIdFilter,
+              )
+              .then((_) {
+            if (mounted) {
+              setState(() {
+                _suggestions.clear();
+                _suggestions.addAll(provider.assetSearchResults);
+                _isSearching = false;
+              });
+            }
+          });
+        }
+      } else if (widget.assetTypeFilter != null) {
         // 搜索资产
         provider
             .searchAssetsByName(query, types: widget.assetTypeFilter)
@@ -181,7 +219,12 @@ class _SmartFinancialRecordNameInputState
   }
 
   String _getSubtitle(Object record) {
+    final provider = context.read<FinancialProvider>();
     if (record is Asset) {
+      // 自定义类型记录显示自定义类型名，否则显示内置中文名
+      if (record.isCustomType) {
+        return provider.assetTypeLabel(record);
+      }
       switch (record.type) {
         case AssetType.property:
           return '房产';
@@ -195,6 +238,9 @@ class _SmartFinancialRecordNameInputState
           return '保单';
       }
     } else if (record is Liability) {
+      if (record.isCustomType) {
+        return provider.liabilityTypeLabel(record);
+      }
       switch (record.type) {
         case LiabilityType.debt:
           return '其他负债';

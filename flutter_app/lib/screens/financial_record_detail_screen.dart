@@ -82,14 +82,15 @@ class _FinancialRecordDetailScreenState
     });
   }
 
-  /// 获取类型的显示名称（处理 dynamic 类型的扩展方法问题）
+  /// 获取类型的显示名称（内置中文名 / 自定义类型名）
   String _getTypeDisplayName() {
+    final provider = context.read<FinancialProvider>();
     if (widget.recordType == RecordType.asset) {
       final asset = _record as Asset;
-      return asset.type.displayName;
+      return provider.assetTypeLabel(asset);
     } else {
       final liability = _record as Liability;
-      return liability.type.displayName;
+      return provider.liabilityTypeLabel(liability);
     }
   }
 
@@ -97,7 +98,7 @@ class _FinancialRecordDetailScreenState
   bool _isInvestment() {
     if (widget.recordType == RecordType.asset) {
       final asset = _record as Asset;
-      return asset.type.isInvestment;
+      return asset.isInvestment;
     }
     return false;
   }
@@ -186,17 +187,20 @@ class _FinancialRecordDetailScreenState
             _buildInvestmentInfo(context),
           ],
           // 房产信息
-          if (isAsset && _getAssetType() == AssetType.property) ...[
+          if (isAsset && !(_record as Asset).isCustomType &&
+              _getAssetType() == AssetType.property) ...[
             const SizedBox(height: 16),
             _buildPropertyInfo(context),
           ],
           // 存款信息
-          if (isAsset && _getAssetType() == AssetType.deposit) ...[
+          if (isAsset && !(_record as Asset).isCustomType &&
+              _getAssetType() == AssetType.deposit) ...[
             const SizedBox(height: 16),
             _buildDepositInfo(context),
           ],
           // 保单信息
-          if (isAsset && _getAssetType() == AssetType.insurance) ...[
+          if (isAsset && !(_record as Asset).isCustomType &&
+              _getAssetType() == AssetType.insurance) ...[
             const SizedBox(height: 16),
             _buildInsuranceInfo(context),
           ],
@@ -1070,6 +1074,9 @@ class _FinancialRecordDetailScreenState
   Widget _buildTypeIcon(BuildContext context) {
     if (widget.recordType == RecordType.asset) {
       final asset = _record as Asset;
+      if (asset.isCustomType) {
+        return _customTypeAvatar(context, asset.typeId);
+      }
       switch (asset.type) {
         case AssetType.property:
           return const CircleAvatar(
@@ -1099,6 +1106,9 @@ class _FinancialRecordDetailScreenState
       }
     } else {
       final liability = _record as Liability;
+      if (liability.isCustomType) {
+        return _customTypeAvatar(context, liability.typeId);
+      }
       switch (liability.type) {
         case LiabilityType.debt:
           return const CircleAvatar(
@@ -1134,8 +1144,17 @@ class _FinancialRecordDetailScreenState
     }
   }
 
-  void _handleEdit(BuildContext context) {
-    Navigator.push(
+  /// 自定义类型的头像（图标/颜色来自自定义类型定义）
+  Widget _customTypeAvatar(BuildContext context, String typeId) {
+    final provider = context.read<FinancialProvider>();
+    final color = provider.typeColorOf(typeId);
+    return CircleAvatar(
+      backgroundColor: color,
+      child: Icon(provider.typeIconOf(typeId), color: Colors.white, size: 20),
+    );
+  }
+
+  void _handleEdit(BuildContext context) {    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FinancialRecordFormScreen(

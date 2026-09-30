@@ -274,11 +274,13 @@ class _AssetBreakdownSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final provider = context.read<FinancialProvider>();
 
-    // 按类型分组
-    final typeGroups = <AssetType, double>{};
+    // 按类型分组（键为 typeId：内置 snake_case 或自定义类型 id）
+    final typeGroups = <String, double>{};
     for (final asset in assets) {
-      typeGroups[asset.type] = (typeGroups[asset.type] ?? 0.0) + asset.amount;
+      final typeId = asset.typeId;
+      typeGroups[typeId] = (typeGroups[typeId] ?? 0.0) + asset.amount;
     }
 
     return Card(
@@ -298,12 +300,15 @@ class _AssetBreakdownSection extends StatelessWidget {
               final amount = entry.value;
               final percentage = total > 0 ? (amount / total * 100) : 0.0;
               return _AssetBreakdownItem(
-                type: entry.key,
+                typeId: entry.key,
+                label: provider.typeLabelOf(entry.key),
+                icon: provider.typeIconOf(entry.key),
+                color: provider.typeColorOf(entry.key),
                 amount: amount,
                 percentage: percentage,
                 onTap: onGoToTab == null
                     ? null
-                    : () => onGoToTab!(0, typeFilter: entry.key.id),
+                    : () => onGoToTab!(0, typeFilter: entry.key),
               );
             }),
           ],
@@ -315,13 +320,19 @@ class _AssetBreakdownSection extends StatelessWidget {
 
 /// 资产类型分布项
 class _AssetBreakdownItem extends StatelessWidget {
-  final AssetType type;
+  final String typeId;
+  final String label;
+  final IconData icon;
+  final Color color;
   final double amount;
   final double percentage;
   final VoidCallback? onTap;
 
   const _AssetBreakdownItem({
-    required this.type,
+    required this.typeId,
+    required this.label,
+    required this.icon,
+    required this.color,
     required this.amount,
     required this.percentage,
     this.onTap,
@@ -341,11 +352,11 @@ class _AssetBreakdownItem extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(type.icon, size: 16, color: type.color),
+                    Icon(icon, size: 16, color: color),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        type.displayName,
+                        label,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium,
                       ),
@@ -364,7 +375,7 @@ class _AssetBreakdownItem extends StatelessWidget {
           LinearProgressIndicator(
             value: percentage / 100,
             backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(type.color),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
           const SizedBox(height: 2),
           Align(
@@ -406,12 +417,13 @@ class _LiabilityBreakdownSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final provider = context.read<FinancialProvider>();
 
-    // 按类型分组
-    final typeGroups = <LiabilityType, double>{};
+    // 按类型分组（键为 typeId：内置 snake_case 或自定义类型 id）
+    final typeGroups = <String, double>{};
     for (final liability in liabilities) {
-      typeGroups[liability.type] =
-          (typeGroups[liability.type] ?? 0.0) + liability.amount;
+      final typeId = liability.typeId;
+      typeGroups[typeId] = (typeGroups[typeId] ?? 0.0) + liability.amount;
     }
 
     return Card(
@@ -431,12 +443,14 @@ class _LiabilityBreakdownSection extends StatelessWidget {
               final amount = entry.value;
               final percentage = total > 0 ? (amount / total * 100) : 0.0;
               return _LiabilityBreakdownItem(
-                type: entry.key,
+                label: provider.typeLabelOf(entry.key),
+                icon: provider.typeIconOf(entry.key),
+                color: provider.typeColorOf(entry.key),
                 amount: amount,
                 percentage: percentage,
                 onTap: onGoToTab == null
                     ? null
-                    : () => onGoToTab!(2, typeFilter: entry.key.id),
+                    : () => onGoToTab!(2, typeFilter: entry.key),
               );
             }),
           ],
@@ -448,13 +462,17 @@ class _LiabilityBreakdownSection extends StatelessWidget {
 
 /// 负债类型分布项
 class _LiabilityBreakdownItem extends StatelessWidget {
-  final LiabilityType type;
+  final String label;
+  final IconData icon;
+  final Color color;
   final double amount;
   final double percentage;
   final VoidCallback? onTap;
 
   const _LiabilityBreakdownItem({
-    required this.type,
+    required this.label,
+    required this.icon,
+    required this.color,
     required this.amount,
     required this.percentage,
     this.onTap,
@@ -474,11 +492,11 @@ class _LiabilityBreakdownItem extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(type.icon, size: 16, color: type.color),
+                    Icon(icon, size: 16, color: color),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        type.displayName,
+                        label,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium,
                       ),
@@ -499,7 +517,7 @@ class _LiabilityBreakdownItem extends StatelessWidget {
           LinearProgressIndicator(
             value: percentage / 100,
             backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(type.color),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
           const SizedBox(height: 2),
           Align(
