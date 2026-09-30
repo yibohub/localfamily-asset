@@ -16,6 +16,22 @@
 
 > 截图为演示数据（巴菲特组合 Demo 模式）。
 
+## 下载安装
+
+从 [GitHub Releases](https://github.com/yibohub/localfamily-asset/releases/latest) 下载对应平台的安装包（免费、无需注册）：
+
+| 平台 | 下载文件 | 使用方式 |
+|---|---|---|
+| Windows | `localfamily-asset-windows-x64.zip` | 解压后运行 `localfamily_asset.exe`，免安装绿色软件 |
+| Linux | `localfamily-asset-linux-x64.tar.gz` | 解压后运行包内可执行文件 |
+| Android | `localfamily-asset-android.apk` | 见下方安装步骤 |
+
+**Android 安装**：下载 APK 后点击打开，系统提示"未知来源应用"时选择"仍要安装 / 允许本次安装"即可。本应用不申请存储、通讯录、位置等任何敏感权限——附件照片通过系统相册选择器访问，数据全部保存在应用私有目录。
+
+**Windows 首次运行**：项目未购买代码签名证书，SmartScreen 可能弹出"Windows 已保护你的电脑"——点击"更多信息" → "仍要运行"。这是无签名开源软件的常见提示，不代表检出问题；不放心可从源码自行构建。
+
+> ⚠️ 卸载应用会连同本机加密数据一并清除。换机或重装前，请先在应用内使用"加密导出"备份数据。
+
 ---
 
 ## ⚠️ 产品说明

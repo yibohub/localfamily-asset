@@ -186,7 +186,7 @@ jobs:
         working-directory: flutter_app
         run: |
           flutter config --enable-linux-desktop
-          flutter create --platforms=linux . --project-name localfamily_asset --org com.example
+          flutter create --platforms=linux . --project-name localfamily_asset --org io.github.yibohub
 
       # 安装 Linux 桌面依赖
       - name: Install Linux dependencies
@@ -366,7 +366,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          prerelease: true
+          prerelease: false
           files: dist/*
           generate_release_notes: true
           body: |

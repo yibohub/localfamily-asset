@@ -2,13 +2,13 @@
 
 > 本文档是 LocalFamily Asset（隐财）的**唯一路线图事实来源**：战略决策、阶段计划、竞品与市场数据以这里为准。
 > 分工：`CHANGELOG.md` 记录"已发布的变更"（Keep a Changelog）；本文档记录"将要做的事"与"支撑决策的外部事实"。
-> 最后更新：2026-09-04（第二节竞品数据采集日期为 2026-08-30）
+> 最后更新：2026-09-30（新增 Phase 4 鸿蒙适配规划；第二节竞品数据采集日期仍为 2026-08-30）
 
 ## 一、当前状态快照（2026-09-04）
 
 **项目本身**
 
-- 版本 0.2.1（`[Unreleased]` 含移动端 UI 适配与旧界面死代码清理）
+- 版本 0.3.0（2026-09-30 发布：自定义类型录入闭环 + GitHub 正式分发就绪——正式包名 / 权限最小化 / 安装指引 / CI 签名启用）
 - 实际可用平台：**Windows 桌面端**（日常形态）+ **Android**（CI 产物已真机验证，Phase 1 收尾中）；CI（`build.yml`）具备 Windows/Linux/Android 构建管线
 - 加密落盘已实现：内存 SQLite + 文件级加密（LFAENC01 格式，AES-256-GCM + Argon2id），BIP39 助记词恢复
 - 核心迭代集中于 2026 年 1-2 月（约 140 次提交）；2026-08-30 重启推进，Phase 0 已收官
@@ -80,7 +80,12 @@
 - [x] CI 产出的 APK 真机安装验证（Rust `.so` 加载、FFI 调用、加密流程）——2026-09-02 模拟器验证通过（发现并修复：CI 此前未将 Rust `.so` 打进 APK、缺少 x86_64 ABI；现 APK 含 arm64-v8a/armeabi-v7a/x86_64 三 ABI，初始化+加密落盘+解锁+Demo 数据全流程正常）
 - [x] 桌面专属代码平台门控（2026-09-02：window_manager 调用已在 main.dart 门控且为唯一入口；删除未使用桌面组件 window_title_bar.dart；导出路径移动端改落应用目录；asset_provider 日志去硬编码 Windows 路径）
 - [x] 移动端 UI 适配（2026-09-04：15 处小数键盘、表单底部保存、5 个对话框键盘避让/滚动、列表/详情/总览防溢出、锁屏可滚动、字体平台门控；顺带删除约 5,200 行不可达旧界面代码；Pixel 7 模拟器全流程走查 + Windows 桌面冒烟通过，全程无 RenderFlex overflow）
-- [ ] 签名配置，酷安 + GitHub Release 分发（🫸 2026-09-04 用户决定暂缓；签名基础设施已就绪——build.gradle 支持 key.properties 可选签名 + CI Secrets 注入（2907c5b），待生成 keystore 并配置 4 个 Secrets 后即可启用）
+- [x] 签名落地——2026-09-30 完成：keystore 生成（离线双备份）+ 4 个 CI Secrets 配置；顺带修复签名支持上线以来从未被触发的 `storeFile` 路径翻倍 bug（349074f）；workflow_dispatch 试运行全绿，`validateSigningRelease`/`packageRelease` 实测通过，正式签名链路启用
+- [x] 正式包名 `io.github.yibohub.localfamily_asset`（GitHub Pages 反向域名惯例）——2026-09-30 完成：build.gradle namespace/applicationId、MainActivity 包路径、CI `--org` 同步替换，`com.example` 零残留；debug APK 构建通过，aapt 验证包名生效
+- [x] 权限清理——2026-09-30 完成：删除 3 个模板遗留存储权限（含高敏感的 `MANAGE_EXTERNAL_STORAGE`）；aapt 验证 APK 仅剩 AndroidX 自动注入的签名级自定义权限，不再申请任何危险权限
+- [x] 启动图标补全——2026-09-30 完成：flutter_launcher_icons 从 `app_icon.png` 生成 mdpi→xxxhdpi 全套位图（Android 8 以下恢复图标），保留 8.0+ 自适应矢量图标；新增 dev 依赖 flutter_launcher_icons（MIT）与 `flutter_launcher_icons.yaml` 配置
+- [x] README 下载安装指引 + CI Release 正式化——2026-09-30 完成：新增"下载安装"章节（三平台产物表、Android 未知来源安装步骤、Windows SmartScreen"仍要运行"说明、卸载清数据备份警示）；`prerelease: true → false`，`releases/latest` 此后指向最新版本
+- [ ] 应用商店上架 🫸 暂缓（2026-09-04 起暂缓酷安；**2026-09-30 明确暂不上架商店，以 GitHub Release 为正式分发渠道**）。重启时的长周期前置：**软著**（30-60 工作日，最长关键路径，最先提交）、**App 备案**（1-3 周，经云接入商，纯离线应用也需）、各店开发者账号、合规格式隐私政策页、targetSdk 按目标商店当年门槛核对（当前 34，需按启动时要求核实）；首站酷安（个人门槛最低），华为/小米/OV/应用宝及 AGC 普遍需软著
 - [x] 顺手清理技术债 #2（删除 `rust_ffi.dart`）——2026-09-02 已删除
 
 **完成标准**：陌生用户能从 Release 下载 APK，完成初始化并成功记录一条资产。
@@ -99,6 +104,31 @@
 3. **CSV/Excel 批量导入** ✅ 2026-09-04 完成：设置菜单新增"CSV / Excel 批量导入"——支持 `.csv`（分隔符/编码自动识别）与 `.xlsx`（自动定位含类型/名称表头的工作表），中文列标题别名归一，5 种内置资产 + 全部内置负债专属字段均可导入（股票买入价/数量、房产、存款、保单、贷款、信用卡等）；逐行校验、预览列出跳过行及原因，确认后导入并在完成后报告成功/失败明细；内置模板下载（资产/负债双工作表 + 示例行）；12 个单元测试 + Android 模拟器端到端验证通过（5 条混合资产导入后总览/投资年化联动正确）；字段格式约定见 `docs/bulk-import.md`。注：自定义类型目前无添加链路，导入遇自定义类型行会跳过并提示（与表单一致）
 4. **附件支持** ✅ 2026-09-04 完成：资产详情页新增"附件"卡片——保单/房产证等照片或文件的添加（移动端拍照/相册、桌面端文件选择）、全屏预览（双指缩放）、删除（确认并同步清理密文文件）；附件以独立密钥（DEK 存 settings 表，受主密码加密保护）做 AES-256-GCM 文件级加密，落盘数据库同目录 `attachments/`（`LFAENC01` 格式，与加密数据库一致），改密码无需重加密附件；删除资产级联清理附件；单文件 ≤20MB。新增 `attachment_storage` 模块 + 4 个附件 FFI（Rust 测试 4 例）；Windows DLL 端到端冒烟（ctypes 直调全链路）23 项通过；Android 模拟器（Pixel 7 / API 35）端到端验证通过：相册选图添加 → 密文落盘 → 解密全屏预览 → 删除 → 杀进程重启解锁后附件持久化完好
 5. **到期提醒** ✅ 2026-09-05 完成：总览页新增"到期提醒"卡片——自动汇总未来 30 天内到期（含已逾期）的记录，按剩余天数升序、紧迫度标色（已逾期红、≤3 天深橙、≤7 天橙、其余蓝），无到期项时隐藏。覆盖存款到期日、贷款类还清日、信用卡每月循环还款日（月末无对应日回退月末）、保单保障期（coverage_period 解析"N年"+投保日推算；"终身/至XX岁"不提醒）。新增 `due` 模块与 `get_upcoming_due_items` FFI（Rust 测试 6 例）；Windows 冒烟 + Android 模拟器（Pixel 7/API 35）端到端验证通过
+6. **自定义类型录入闭环** ✅ 2026-09-07 完成：打通"创建自定义类型 → 录入资产/负债 → 列表/总览/详情展示 → 筛选新建联动"全链路（此前自定义类型只能建、筛选栏可见，表单无法选中，记录只能落内置类型）。自定义记录语义归内置白名单：不参与到期提醒/投资年化。后续候选：**自定义类型"行为模板"**（让自定义类型继承存款/贷款/投资等内置模板语义，从而可参与到期提醒/收益计算——需给 `custom_asset_types` 增加模板维度并扩 due/returns 判定）；当前已记录的自定义类型挂载记录，删除类型前有 is_in_use 保护（顺带修复了查错列 `type`→`asset_type` 的存量 bug）
+
+### Phase 4 — 鸿蒙（HarmonyOS NEXT）适配 ❌ 未开始（时机：Phase 2 曝光后启动，视需求反馈可提前）
+
+**决策背景**：鸿蒙此前未列入路线图，因 Flutter 官方不支持 OpenHarmony、自行维护引擎适配成本过高。2026-09-30 评估：适配生态已成熟、成本降至可接受范围，正式提上日程。与 Phase 2 的先后为默认排序——冷启动曝光先行（窗口收窄，Android+桌面已构成完整形态），鸿蒙版完成后作为二次传播素材；启动时可重估。
+
+**外部事实（2026-09-30 采集）**
+
+- Flutter 鸿蒙适配存在两条线：**CPF-Flutter**（华为侧维护者主导的官方适配基线，托管于 GitCode `CPF-Flutter` 组织，产业链认可）与 **oh-flutter**（2025-08 成立的社区组织，独立维护版本线，已实现上游发布后 1 天完成适配，如 3.47.5-ohos-1.0.0，配套 DevEco Studio 26 / OpenHarmony API 26）。生产用途跟 CPF 基线，SDK 经 git 拉取指定 tag，禁用 `flutter upgrade`
+- CPF-Flutter 社区已完成 **250+ Flutter 三方库**的 OpenHarmony 适配；本项目全部插件依赖（path_provider / shared_preferences / image_picker / **file_picker**）均在覆盖范围内（`*_ohos` 版本，git 依赖引入），质量待技术验证阶段确认
+- Rust 官方支持 `aarch64-unknown-linux-ohos` 编译目标；本 crate 依赖（aes-gcm / argon2 / rusqlite bundled / zip 等）全为纯 Rust 或可移植 C，交叉编译风险低
+- 市场：老 HarmonyOS（≤4.x）兼容 APK（现有 Android 产物已覆盖），**NEXT（纯血鸿蒙）设备只能安装 HAP**——鸿蒙适配针对的是 NEXT 用户净增量
+- 分发约束：HAP 必须签名（侧载亦不豁免），需 AGC 开发者账号与签名证书——流程成本高于 Android APK
+
+来源：[华为资讯：oh-flutter 发布 Flutter 3.47.5 鸿蒙适配版](https://feeds-drcn.cloud.huawei.com.cn/landingpage/latest?docid=105182788c39a9c9d2f2e8bdd4cbc943343e29f)（2026-09-30 分享）；CPF-Flutter 组织、250+ 适配库覆盖及 file_picker 鸿蒙适配经 Web 检索核实（GitCode `CPF-Flutter` 组织、掘金/CSDN 适配实战文章，2026-09-30）
+
+**任务清单**
+
+- [ ] 技术验证（先行可证伪项）：CPF-Flutter SDK + DevEco Studio 搭建环境；Rust 交叉编译 `aarch64-unknown-linux-ohos` 产出 `.so` 并打入 HAP；`ffi_bridge.dart` 增加 `Platform.isOhos` 加载分支；跑通 FFI 全链路（初始化 → 加密落盘 → 解锁）
+- [ ] 插件接入：`*_ohos` 版本经 `dependency_overrides` 引入；核对全项目约 10 处 `Platform.is*` 平台门控（附件拍照入口、文件对话框、导出/日志路径等）在鸿蒙上的分支行为
+- [ ] 功能走查：附件（拍照/相册/加密落盘/预览）、导入导出、批量导入、到期提醒、净值走势在 NEXT 真机或模拟器端到端验证
+- [ ] CI：`build.yml` 增加鸿蒙目标（Rust 交叉编译 job + ohos SDK 安装 + HAP 构建；现有 `subosito/flutter-action` 不支持 ohos fork）
+- [ ] 分发：AGC 开发者账号 + 签名证书；上架应用市场或提供签名 HAP 下载
+
+**完成标准**：HarmonyOS NEXT 真机完成"安装 → 初始化 → 记录一条资产 → 加密落盘 → 重启解锁"全流程；HAP 产物可分发。
 
 ### 非目标（明确不做）
 

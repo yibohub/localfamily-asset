@@ -7,6 +7,24 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-30
+
+### Added
+- **自定义类型可录入资产/负债（打通"建类型 → 录入 → 展示"闭环）**：此前自定义类型仅能创建、出现在筛选栏，录入表单只有内置类型可选，新建记录只能落到内置类型下。本次打通全链路——录入表单类型行现在把该侧自定义类型（如"股权"）与内置类型并列展示，可选中录入，选中后资产记录显示名称/金额/日期/账户字段、负债记录显示通用负债字段（债权人/利率/还款方式/到期日/期限）；列表项、详情页、总览"资产/负债分布"均按自定义类型独立成桶显示（分布中每个自定义类型单独一条，点击可跳转筛选）；资产/负债页类型筛选与 FAB 新建联动（选中"股权"筛选后点 + 直接落在"股权"）；编辑记录时类型正确回填。Rust 端 `AssetRepository::list`/`LiabilityRepository::list` 的类型白名单纳入该侧自定义类型 id（此前自定义记录即使入库也读不出来），审计快照沿用字符串 JSON 无需改动。自定义类型记录不参与到期提醒/投资年化（维持内置语义白名单，避免把无市场报价的股权误计收益）
+- **修复自定义类型删除保护失效**：`is_custom_type_in_use` 查询引用了 v7 迁移后已改名的 `type` 列（实际应为 `asset_type`），恒报错导致"删除使用中的类型"拦截失效；改用真实 schema 的集成测试覆盖 list 含自定义记录与删除保护
+
+### Changed
+- **正式包名 `io.github.yibohub.localfamily_asset`**（原模板占位 `com.example.localfamily_asset`，采用 GitHub Pages 反向域名惯例）。【破坏性】此前以旧包名安装的构建需卸载重装——卸载会连同本地加密数据一并清除，请先"加密导出"备份；这是正式签名发布前的最后一次身份变更
+- **移除 3 个模板遗留存储权限**（`READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` / `MANAGE_EXTERNAL_STORAGE`）：应用实际经应用私有目录与系统文件/相册选择器工作，从未用到这些声明；`MANAGE_EXTERNAL_STORAGE` 属高敏感权限，商店审核高风险且易触发安全软件告警。删除后 APK 不再申请任何危险权限（aapt 验证）
+- 启动图标补全：生成 mipmap mdpi→xxxhdpi 全套位图（此前目录为空，Android 8 以下安装后无启动图标）；8.0+ 自适应矢量图标保持不变。新增 dev 依赖 flutter_launcher_icons（MIT）与 `flutter_launcher_icons.yaml`
+- CI：GitHub Release 不再标记 prerelease（`releases/latest` 从此指向最新版本）；Linux 构建 `--org` 同步改为正式包名；修复 release 签名配置的 `storeFile` 路径解析（原路径翻倍导致 keystore 永远找不到，签名支持上线以来首次被真正执行即暴露）
+- README 新增"下载安装"章节：三平台产物下载表、Android"未知来源"安装步骤、Windows SmartScreen"更多信息 → 仍要运行"说明、卸载清除数据的备份警示
+
+### Docs
+- ROADMAP 新增 **Phase 4「鸿蒙（HarmonyOS NEXT）适配」** 规划：Flutter 鸿蒙适配生态成熟（CPF-Flutter 官方基线 + oh-flutter 社区线，250+ 三方库已适配）后成本降至可接受范围，正式提上日程；含外部事实采集（2026-09-30）、任务清单与完成标准
+- ROADMAP Phase 1 分发项扩充：明确**暂不上架应用商店、以 GitHub Release 为正式分发渠道**（2026-09-30 决策），新增 GitHub 分发落地清单（release 签名、正式包名、权限清理、图标补全、安装指引）与应用商店上架暂缓项（软著/App 备案/开发者账号等长周期前置）
+- ROADMAP Phase 1 分发清单勾选更新：包名/权限/图标/安装指引四项完成（2026-09-30），余 release 签名待 keystore 生成
+
 ## [0.2.3] - 2026-09-07
 
 ### Added

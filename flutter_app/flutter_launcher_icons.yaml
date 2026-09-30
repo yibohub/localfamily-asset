@@ -1,0 +1,9 @@
+# 启动图标生成配置（flutter_launcher_icons）
+# 仅生成各密度旧版 PNG 位图（mipmap-mdpi..xxxhdpi/ic_launcher.png，供 Android 8 以下使用）；
+# 不配置 adaptive_icon_*，保留现有 mipmap-anydpi-v26 自适应矢量图标（深蓝底 + 白十字星）。
+# 重新生成：flutter pub run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
