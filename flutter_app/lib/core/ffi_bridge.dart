@@ -184,6 +184,11 @@ class FfiBridge {
     try {
       if (Platform.isAndroid) {
         _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
+      } else if (Platform.operatingSystem == 'ohos') {
+        // 鸿蒙：.so 由 ohos/entry/libs/arm64-v8a/ 打入 HAP（scripts/build-ohos.sh
+        // 生成），应用原生库目录在默认搜索路径内，按 soname 打开（与 Android 同名）。
+        // 不用 Platform.isOhos：上游官方 SDK 无此 getter，引用会导致其他平台编译失败。
+        _dylib = ffi.DynamicLibrary.open('liblocalfamily_asset_core.so');
       } else if (Platform.isIOS) {
         _dylib = ffi.DynamicLibrary.process();
       } else if (Platform.isWindows) {

@@ -2,7 +2,7 @@
 
 > 本文档是 LocalFamily Asset（隐财）的**唯一路线图事实来源**：战略决策、阶段计划、竞品与市场数据以这里为准。
 > 分工：`CHANGELOG.md` 记录"已发布的变更"（Keep a Changelog）；本文档记录"将要做的事"与"支撑决策的外部事实"。
-> 最后更新：2026-09-30（新增 Phase 4 鸿蒙适配规划；第二节竞品数据采集日期仍为 2026-08-30）
+> 最后更新：2026-10-01（Phase 4 鸿蒙适配**代码侧落地**：ohos 宿主工程/交叉编译脚本/FFI 加载分支/CI 实验腿，真机验证待做；第二节竞品数据采集日期仍为 2026-08-30）
 
 ## 一、当前状态快照（2026-09-04）
 
@@ -106,7 +106,7 @@
 5. **到期提醒** ✅ 2026-09-05 完成：总览页新增"到期提醒"卡片——自动汇总未来 30 天内到期（含已逾期）的记录，按剩余天数升序、紧迫度标色（已逾期红、≤3 天深橙、≤7 天橙、其余蓝），无到期项时隐藏。覆盖存款到期日、贷款类还清日、信用卡每月循环还款日（月末无对应日回退月末）、保单保障期（coverage_period 解析"N年"+投保日推算；"终身/至XX岁"不提醒）。新增 `due` 模块与 `get_upcoming_due_items` FFI（Rust 测试 6 例）；Windows 冒烟 + Android 模拟器（Pixel 7/API 35）端到端验证通过
 6. **自定义类型录入闭环** ✅ 2026-09-07 完成：打通"创建自定义类型 → 录入资产/负债 → 列表/总览/详情展示 → 筛选新建联动"全链路（此前自定义类型只能建、筛选栏可见，表单无法选中，记录只能落内置类型）。自定义记录语义归内置白名单：不参与到期提醒/投资年化。后续候选：**自定义类型"行为模板"**（让自定义类型继承存款/贷款/投资等内置模板语义，从而可参与到期提醒/收益计算——需给 `custom_asset_types` 增加模板维度并扩 due/returns 判定）；当前已记录的自定义类型挂载记录，删除类型前有 is_in_use 保护（顺带修复了查错列 `type`→`asset_type` 的存量 bug）
 
-### Phase 4 — 鸿蒙（HarmonyOS NEXT）适配 ❌ 未开始（时机：Phase 2 曝光后启动，视需求反馈可提前）
+### Phase 4 — 鸿蒙（HarmonyOS NEXT）适配 ⏳ 进行中（2026-10-01 代码侧适配落地，真机验证待做；启动时机原定 Phase 2 曝光后，视需求反馈可提前）
 
 **决策背景**：鸿蒙此前未列入路线图，因 Flutter 官方不支持 OpenHarmony、自行维护引擎适配成本过高。2026-09-30 评估：适配生态已成熟、成本降至可接受范围，正式提上日程。与 Phase 2 的先后为默认排序——冷启动曝光先行（窗口收窄，Android+桌面已构成完整形态），鸿蒙版完成后作为二次传播素材；启动时可重估。
 
@@ -122,10 +122,13 @@
 
 **任务清单**
 
-- [ ] 技术验证（先行可证伪项）：CPF-Flutter SDK + DevEco Studio 搭建环境；Rust 交叉编译 `aarch64-unknown-linux-ohos` 产出 `.so` 并打入 HAP；`ffi_bridge.dart` 增加 `Platform.isOhos` 加载分支；跑通 FFI 全链路（初始化 → 加密落盘 → 解锁）
+- [ ] 技术验证（先行可证伪项）：CPF-Flutter SDK + DevEco Studio 搭建环境；Rust 交叉编译 `aarch64-unknown-linux-ohos` 产出 `.so` 并打入 HAP；`ffi_bridge.dart` 增加 ohos 加载分支；跑通 FFI 全链路（初始化 → 加密落盘 → 解锁）
+  - ✅ 2026-10-01 代码侧完成：`ffi_bridge.dart` ohos 分支（用 `Platform.operatingSystem == 'ohos'` 而非 `Platform.isOhos`——上游官方 SDK 无此 getter，引用会破坏其他平台编译）；`flutter_app/ohos/` 宿主工程脚手架；`scripts/build-ohos.sh`（DevEco SDK clang / cargo-zigbuild 双模式）。⏳ 余：ohos 交叉编译实测（本机两次尝试分别因工具链下载损坏、系统蓝屏中断，待新环境重跑并验证产物符号）；本机装 DevEco + CPF-Flutter SDK 后跑通 HAP 与 FFI 全链路
 - [ ] 插件接入：`*_ohos` 版本经 `dependency_overrides` 引入；核对全项目约 10 处 `Platform.is*` 平台门控（附件拍照入口、文件对话框、导出/日志路径等）在鸿蒙上的分支行为
+  - ✅ 2026-10-01 代码侧完成：pubspec 预置注释版 overrides 模板（path_provider/shared_preferences/image_picker/file_picker，git 地址待按 CPF-Flutter 适配清单补全）；平台门控核对完毕并收敛到 `lib/core/platform_info.dart`（实际仅 6 处 `Platform.is*`，桌面判定 `isDesktopPlatform` 鸿蒙天然走移动分支，附件拍照/相册入口已纳入 ohos）
 - [ ] 功能走查：附件（拍照/相册/加密落盘/预览）、导入导出、批量导入、到期提醒、净值走势在 NEXT 真机或模拟器端到端验证
 - [ ] CI：`build.yml` 增加鸿蒙目标（Rust 交叉编译 job + ohos SDK 安装 + HAP 构建；现有 `subosito/flutter-action` 不支持 ohos fork）
+  - ✅ 2026-10-01 Rust 交叉编译腿已加（aarch64-unknown-linux-ohos + cargo-zigbuild，experimental/continue-on-error 不影响发布管线）；⏳ 余：HAP 构建腿（需 ohos Flutter SDK 与签名证书的 CI 方案）
 - [ ] 分发：AGC 开发者账号 + 签名证书；上架应用市场或提供签名 HAP 下载
 
 **完成标准**：HarmonyOS NEXT 真机完成"安装 → 初始化 → 记录一条资产 → 加密落盘 → 重启解锁"全流程；HAP 产物可分发。

@@ -28,6 +28,8 @@
 
 **Android 安装**：下载 APK 后点击打开，系统提示"未知来源应用"时选择"仍要安装 / 允许本次安装"即可。本应用不申请存储、通讯录、位置等任何敏感权限——附件照片通过系统相册选择器访问，数据全部保存在应用私有目录。
 
+> 鸿蒙说明：老 HarmonyOS（≤4.x）兼容 APK，直接安装上表 Android 包；HarmonyOS NEXT（纯血鸿蒙）版本适配进行中（[构建指南](docs/harmonyos-build.md)），暂无 HAP 下载。
+
 **Windows 首次运行**：项目未购买代码签名证书，SmartScreen 可能弹出"Windows 已保护你的电脑"——点击"更多信息" → "仍要运行"。这是无签名开源软件的常见提示，不代表检出问题；不放心可从源码自行构建。
 
 > ⚠️ 卸载应用会连同本机加密数据一并清除。换机或重装前，请先在应用内使用"加密导出"备份数据。
@@ -228,6 +230,9 @@ cd ../flutter_app
 flutter pub get
 flutter build windows
 ```
+
+鸿蒙（HarmonyOS NEXT）构建需要 ohos Flutter SDK（CPF-Flutter 基线）+ DevEco Studio，
+流程不同，详见 [docs/harmonyos-build.md](docs/harmonyos-build.md)。
 
 ### 4. 运行开发版本
 

@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "localfamily_asset",
+  "version": "0.3.0",
+  "description": "隐财 - 本地加密的家庭资产登记管理工具（Flutter ohos 宿主工程）",
+  "main": "",
+  "author": "yibohub",
+  "license": "GPL-3.0-only",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.19"
+  }
+}

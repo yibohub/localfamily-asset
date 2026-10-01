@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+### Added
+- **鸿蒙（HarmonyOS NEXT）代码侧适配**（ROADMAP Phase 4 第 1、2 项的代码部分落地；真机验证待做，完整手册见 `docs/harmonyos-build.md`）：
+  - Flutter ohos 宿主工程脚手架 `flutter_app/ohos/`（FlutterEntry/FlutterAbility 最小宿主、hvigor 配置、启动图标与"隐财"标签、仅声明附件拍照所需的 CAMERA 权限，与 Android 端权限最小化策略一致）
+  - Rust Core 交叉编译脚本 `scripts/build-ohos.sh`：默认走 DevEco/OHOS SDK clang（自动探测安装位置），`--zig` 走 cargo-zigbuild（免 SDK，CI/Linux 可用）；产物自动复制到 `ohos/entry/libs/<abi>/`
+  - `ffi_bridge.dart` 新增 ohos 加载分支（按 soname 打开 `liblocalfamily_asset_core.so`，与 Android 一致）
+  - 新增 `lib/core/platform_info.dart` 统一平台判定（`isOhosPlatform` 用 `Platform.operatingSystem == 'ohos'` 实现——上游官方 SDK 无 `Platform.isOhos` getter，直接引用会破坏其他平台编译）；附件"拍照/相册"入口的门控从 `isAndroid || isIOS` 改为 `isMobileLikePlatform`（含鸿蒙）
+  - pubspec 预置注释版 `*_ohos` 插件 dependency_overrides 模板（path_provider/shared_preferences/image_picker/file_picker，构建 ohos 前取消注释并填 CPF-Flutter 适配仓库地址）
+  - CI（`build.yml`）新增实验性 ohos Rust 交叉编译矩阵腿（aarch64-unknown-linux-ohos，cargo-zigbuild，`continue-on-error` 不影响既有发布管线）；HAP 打包因需 ohos Flutter SDK 与签名证书暂走本地 DevEco 流程
+
 ## [0.3.0] - 2026-09-30
 
 ### Added

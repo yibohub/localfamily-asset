@@ -1,0 +1,17 @@
+{
+  // hvigor 版本随 DevEco Studio 变化：用 DevEco 打开本工程时会提示同步/迁移，
+  // 版本不匹配导致构建失败时按提示更新 modelVersion 或重新生成 hvigor 目录
+  "modelVersion": "5.0.5",
+  "dependencies": {},
+  "execution": {
+    "analyze": "normal",
+    "daemon": true
+  },
+  "logging": {},
+  "debugging": {
+    "stacktrace": "disabled"
+  },
+  "nodeOptions": {
+    "maxOldSpaceSize": 8192
+  }
+}

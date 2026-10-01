@@ -1,0 +1,7 @@
+# Define project specific obfuscation rules here.
+# 混淆默认关闭（enable: false，见 build-profile.json5）；
+# 如启用需确认不破坏 Flutter 引擎 har 与 ArkTS 反射调用。
+
+# 默认保留 Flutter/系统接口相关定义（按需追加）：
+# -keep-property-name
+# -keep-global-name

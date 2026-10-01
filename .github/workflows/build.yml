@@ -49,6 +49,18 @@ jobs:
             target: x86_64-linux-android
             name: android-x64
             android: true
+          # HarmonyOS NEXT (ohos) arm64 —— 实验性：cargo-zigbuild 交叉编译
+          # （无 OHOS SDK 依赖）。产物 .so 供手工组装 HAP；HAP 的 CI 打包
+          # 需 ohos Flutter SDK + 签名证书，暂走本地 DevEco 流程
+          # （docs/harmonyos-build.md），验证通过后再转正取消 experimental
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-ohos
+            name: ohos-arm64
+            ohos: true
+            experimental: true
+
+    # experimental 腿失败不影响整体工作流与 Release
+    continue-on-error: ${{ matrix.experimental == true }}
 
     steps:
       - name: Checkout code
@@ -94,12 +106,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-target-${{ matrix.target }}-
 
+      # 安装 cargo-zigbuild（仅 ohos 构建；zig 充当交叉链接器，免去 OHOS SDK）
+      - name: Install cargo-zigbuild
+        if: matrix.ohos == true
+        run: |
+          pipx install cargo-zigbuild
+          command -v cargo-zigbuild || echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       # 编译 Rust Core
       - name: Build Rust Core
         shell: bash
         working-directory: rust_core
         run: |
-          if [ "${{ matrix.android }}" = "true" ]; then
+          if [ "${{ matrix.ohos }}" = "true" ]; then
+            cargo zigbuild --release --target ${{ matrix.target }}
+          elif [ "${{ matrix.android }}" = "true" ]; then
             # Android 构建
             NDK_PATH="${{ steps.setup-ndk.outputs.ndk-path }}"
             echo "Building for Android ${{ matrix.target }}"
@@ -127,9 +148,9 @@ jobs:
             cargo build --release --target ${{ matrix.target }}
           fi
 
-      # 上传 Android .so 文件
-      - name: Upload Android libraries
-        if: matrix.android == true
+      # 上传 Android/ohos .so 文件
+      - name: Upload native libraries
+        if: matrix.android == true || matrix.ohos == true
         uses: actions/upload-artifact@v4
         with:
           name: rust-core-${{ matrix.name }}

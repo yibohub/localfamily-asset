@@ -1,0 +1,44 @@
+{
+  "app": {
+    // 发布签名在 DevEco Studio「File > Project Structure > Signing Configs」
+    // 自动签名后写入此处（或手动配置 AGC 证书）；CI/他人机器缺签名只能出 debug 包
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        // 按所用 ohos Flutter SDK 基线要求的最低 API 调整
+        // （CPF-Flutter 各版本对 DevEco Studio / OpenHarmony API 版本有配套要求）
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

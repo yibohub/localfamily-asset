@@ -28,6 +28,13 @@ Rust 改动不会热重载。流程：`cd rust_core && cargo build` → 关闭�
 - `ffi_bridge.dart` 查找顺序：先按 Windows 标准 DLL 搜索路径（含 exe 所在目录）打开 `localfamily_asset_core.dll`，失败再试当前目录 `./localfamily_asset_core.dll`；CI 手动复制到构建输出目录
 - 加载失败报 "DynamicLibrary.open() failed" 时先检查 DLL 是否存在及位置
 
+## 鸿蒙（ohos）适配要点
+
+- 宿主工程在 `flutter_app/ohos/`（FlutterAbility/FlutterEntry 最小宿主）；Rust `.so` 放 `ohos/entry/libs/arm64-v8a/`，用 `scripts/build-ohos.sh` 交叉编译并复制（默认 DevEco SDK clang，`--zig` 走 cargo-zigbuild）。
+- **ohos 平台判定统一走 `lib/core/platform_info.dart`**（`isOhosPlatform` / `isMobileLikePlatform`），用 `Platform.operatingSystem == 'ohos'` 实现；**不要写 `Platform.isOhos`**——上游官方 SDK 没有这个 getter，会让 Windows/Linux/Android 直接编译失败。
+- 构建 HAP 需 ohos Flutter SDK（CPF-Flutter 基线）+ DevEco Studio，且要先取消 pubspec 中注释的 `*_ohos` dependency_overrides；完整流程见 `docs/harmonyos-build.md`。
+- CI 中 ohos Rust 交叉编译腿标记为 experimental（continue-on-error），别把它当发布管线的一部分。
+
 ## FFI 层规则
 
 - **只用 `flutter_app/lib/core/ffi_bridge.dart`**（FfiBridge 单例）。`lib/core/rust_ffi.dart` 是遗留死代码，打开的库名是错的，不要误改它。

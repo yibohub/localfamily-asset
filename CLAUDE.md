@@ -9,7 +9,7 @@
 核心特点：
 - 真·本地存储：所有数据仅存储在设备本地，零数据收集
 - AES-256 加密：文件级整库加密，支持 BIP39 助记词/密码恢复
-- 跨平台：Windows/Android/iOS/macOS/Linux
+- 跨平台：Windows/Android/iOS/macOS/Linux；鸿蒙（HarmonyOS NEXT）适配进行中，构建见 `docs/harmonyos-build.md`
 
 ## 技术架构
 

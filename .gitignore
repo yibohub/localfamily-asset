@@ -160,6 +160,17 @@ flutter_app/linux/flutter/generated_plugin_registrant.cc
 flutter_app/linux/flutter/generated_plugin_registrant.h
 flutter_app/linux/flutter/generated_plugins.cmake
 
+# HarmonyOS (ohos)
+flutter_app/ohos/oh_modules/
+flutter_app/ohos/build/
+flutter_app/ohos/entry/build/
+flutter_app/ohos/entry/har/
+flutter_app/ohos/.preview/
+flutter_app/ohos/.cxx/
+flutter_app/ohos/default/
+flutter_app/ohos/**/build/
+flutter_app/ohos/.hvigor/
+
 # ====================
 # 日志和临时文件
 # ====================
@@ -233,6 +244,9 @@ env/
 
 # 例外：Flutter Android jniLibs 中的 .so 文件需要打包
 !flutter_app/android/app/src/main/jniLibs/**/*.so
+
+# 例外：ohos 工程预编译动态库（Rust Core 交叉编译产物，随 HAP 打包）
+!flutter_app/ohos/entry/libs/**/*.so
 
 # 静态库
 *.a

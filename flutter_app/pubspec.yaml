@@ -60,8 +60,40 @@ flutter:
   # Windows: 已配置
   # Linux: 需运行 `flutter config --enable-linux-desktop`
   # macOS: 需在 Mac 上运行 `flutter config --enable-macos-desktop`
+  # 鸿蒙（ohos）: 宿主工程在 ohos/（脚手架已提交），需 ohos Flutter SDK
+  #   （CPF-Flutter 基线，git 拉取指定 tag），完整流程见 docs/harmonyos-build.md
 
   assets:
     - assets/images/
     - assets/icons/
     - assets/demo/
+
+# =============================================================================
+# 鸿蒙（HarmonyOS NEXT / OpenHarmony）插件适配
+#
+# Flutter 官方插件不包含 ohos 平台实现，需用 CPF-Flutter 社区适配的
+# `*_ohos` 版本经 dependency_overrides 引入（ROADMAP Phase 4）。
+#
+# ⚠️ 仅在用 ohos Flutter SDK 构建 HAP 前临时取消注释并补全 git 地址；
+# dependency_overrides 对所有平台全局生效，平时保持注释可避免影响
+# Windows/Linux/Android 既有依赖解析。具体 git 地址/版本以 CPF-Flutter
+# 三方库适配清单为准（见 docs/harmonyos-build.md 第 2 步）。
+# =============================================================================
+# dependency_overrides:
+#   path_provider:       # 数据库/导出目录（auth_provider、file_dialogs 等）
+#     git:
+#       url: "<CPF-Flutter 适配仓库地址>"
+#       path: "packages/path_provider/path_provider_ohos"
+#   shared_preferences:  # 主题设置（theme_provider）
+#     git:
+#       url: "<CPF-Flutter 适配仓库地址>"
+#       path: "packages/shared_preferences/shared_preferences_ohos"
+#   image_picker:        # 附件：拍照/相册（financial_record_detail_screen）
+#     git:
+#       url: "<CPF-Flutter 适配仓库地址>"
+#       path: "packages/image_picker/image_picker_ohos"
+#   file_picker:         # 附件：选择文件 / 桌面端文件对话框
+#     git:
+#       url: "<CPF-Flutter 适配仓库地址>"
+#       path: "packages/file_picker/file_picker_ohos"
+

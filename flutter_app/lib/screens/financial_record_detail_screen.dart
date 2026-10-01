@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../core/ffi_bridge.dart';
+import '../core/platform_info.dart';
 import '../models/financial_models.dart';
 import '../providers/financial_provider.dart';
 import '../utils/currency_utils.dart';
@@ -788,13 +789,13 @@ class _FinancialRecordDetailScreenState
 
   Future<void> _addAttachmentFlow() async {
     final options = <(String, IconData, VoidCallback)>[
-      if (Platform.isAndroid || Platform.isIOS)
+      if (isMobileLikePlatform)
         (
           '拍照',
           Icons.photo_camera_outlined,
           () => _pickFromImagePicker(ImageSource.camera),
         ),
-      if (Platform.isAndroid || Platform.isIOS)
+      if (isMobileLikePlatform)
         (
           '从相册选择',
           Icons.photo_library_outlined,

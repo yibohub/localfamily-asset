@@ -1,0 +1,9 @@
+{
+  "color": [
+    {
+      // 启动页背景：品牌米白（与 Dart 端 SystemUI 配色一致）
+      "name": "start_window_background",
+      "value": "#FAF9F5"
+    }
+  ]
+}

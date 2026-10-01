@@ -1,0 +1,17 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Flutter 宿主 entry 模块",
+  "main": "",
+  "author": "",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    // Flutter ohos 引擎 har：由 ohos Flutter SDK 的 flutter 工具在构建前
+    // 从引擎缓存复制到 ./har/，目录已 gitignore，请勿手工提交或修改
+    "@ohos/flutter_ohos": "file:./har/flutter_ohos.har"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.19"
+  }
+}

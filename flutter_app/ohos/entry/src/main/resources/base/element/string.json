@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "隐财主模块"
+    },
+    {
+      "name": "ability_desc",
+      "value": "隐财入口 Ability"
+    },
+    {
+      "name": "ability_label",
+      "value": "隐财"
+    },
+    {
+      "name": "camera_permission_reason",
+      "value": "用于拍摄保单、房产证等资产凭证照片并加密保存为附件"
+    }
+  ]
+}
