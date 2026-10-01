@@ -16,6 +16,9 @@
   - pubspec 预置注释版 `*_ohos` 插件 dependency_overrides 模板（path_provider/shared_preferences/image_picker/file_picker，构建 ohos 前取消注释并填 CPF-Flutter 适配仓库地址）
   - CI（`build.yml`）新增实验性 ohos Rust 交叉编译矩阵腿（aarch64-unknown-linux-ohos，cargo-zigbuild，`continue-on-error` 不影响既有发布管线）；HAP 打包因需 ohos Flutter SDK 与签名证书暂走本地 DevEco 流程
 
+### Docs
+- 新增 `docs/ohos-validation-task.md`：换机接续任务书——克隆后把该文件发给 AI 即可继续完成被中断的 ohos 验证收尾（交叉编译实测、flutter analyze/test、可选 HAP 构建），含硬性约束
+
 ## [0.3.0] - 2026-09-30
 
 ### Added
